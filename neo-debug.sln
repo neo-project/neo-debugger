@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.29102.190
 MinimumVisualStudioVersion = 15.0.26124.0
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "neo-debug-adapter", "neo-debug-adapter\neo-debug-adapter.csproj", "{9F68B9CF-A26D-4356-A05C-85D112E926C0}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "neo-debug-adapter", "adapter\neo-debug-adapter.csproj", "{9F68B9CF-A26D-4356-A05C-85D112E926C0}"
 EndProject
-Project("{9092AA53-FB77-4645-B42D-1CCCA6BD08BD}") = "neo-debug-extension", "neo-debug-extension\neo-debug-extension.njsproj", "{F1CF84CC-A0E7-4C0E-98CA-7680230D866E}"
+Project("{9092AA53-FB77-4645-B42D-1CCCA6BD08BD}") = "neo-debug-extension", "extension\neo-debug-extension.njsproj", "{F1CF84CC-A0E7-4C0E-98CA-7680230D866E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
