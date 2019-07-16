@@ -2,6 +2,7 @@
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using System;
 using System.Collections.Generic;
+using System.IO;
 
 namespace Neo.DebugAdapter
 {
@@ -9,42 +10,36 @@ namespace Neo.DebugAdapter
     {
         static void Main(string[] args) => CommandLineApplication.Execute<Program>(args);
 
-        [Option]
-        bool Debug { get; }
+        readonly string logFile;
 
-        static List<string> log = new List<string>();
-
-        const string LOG_FILE = @"C:\Users\harry\neodebug.log";
-        public static void Log(string message, LogCategory category = LogCategory.Trace)
+        public Program()
         {
-            System.IO.File.AppendAllText(LOG_FILE, $"\n{category} {message}");
+            logFile = Path.Combine(@"C:\Users\harry\neodebug", $"neo-debug-{DateTime.Now:yyMMdd-hhmmss}.log");
         }
 
+
+        public void Log(string message, LogCategory category = LogCategory.Trace)
+        {
+            File.AppendAllText(logFile, $"\n{category} {message}");
+        }
+
+        [Option]
+        bool Debug { get; }
+        
         private void OnExecute(CommandLineApplication app, IConsole console)
         {
-            if (System.IO.File.Exists(LOG_FILE))
-                System.IO.File.Delete(LOG_FILE);
-
             if (Debug)
             {
                 System.Diagnostics.Debugger.Launch();
-
-                var proc = System.Diagnostics.Process.GetCurrentProcess();
-                var id = System.Diagnostics.Process.GetCurrentProcess().Id;
-
-                ;
             }
 
-            NeoDebugAdapter adapter = new NeoDebugAdapter(Console.OpenStandardInput(), Console.OpenStandardOutput());
+            NeoDebugAdapter adapter = new NeoDebugAdapter(
+                Console.OpenStandardInput(),
+                Console.OpenStandardOutput(),
+                (cat,msg) => Log(msg, cat));
+
             adapter.Protocol.LogMessage += (sender, args) => Log(args.Message, args.Category);
             adapter.Run();
-
-            if (Debug)
-            {
-                adapter.Protocol.WaitForReader();
-            }
-
-            ;
         }
     }
 }
