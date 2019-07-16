@@ -72,6 +72,7 @@ namespace Neo.DebugAdapter
 
         string programFileName;
         SequencePoint[] sequencePoints;
+        int currentSequencePoint;
 
         protected override LaunchResponse HandleLaunchRequest(LaunchArguments arguments)
         {
@@ -80,6 +81,7 @@ namespace Neo.DebugAdapter
             var debugJsonFileName = Path.ChangeExtension(programFileName, ".debug.json");
             var debugJsonText = File.ReadAllText(debugJsonFileName);
             sequencePoints = JArray.Parse(debugJsonText).Select(SequencePoint.Parse).ToArray();
+            currentSequencePoint = 0;
 
             Protocol.SendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Entry) { ThreadId = 1 });
             return new LaunchResponse();
@@ -105,7 +107,7 @@ namespace Neo.DebugAdapter
 
         protected override StackTraceResponse HandleStackTraceRequest(StackTraceArguments arguments)
         {
-            var sp = sequencePoints[0];
+            var sp = sequencePoints[currentSequencePoint];
 
             var stackFrame = new StackFrame()
             {
@@ -146,12 +148,28 @@ namespace Neo.DebugAdapter
 
         protected override StepInResponse HandleStepInRequest(StepInArguments arguments)
         {
+            currentSequencePoint++;
+
+            if (currentSequencePoint >= sequencePoints.Length)
+            {
+                Protocol.SendEvent(new TerminatedEvent());
+            }
+            else
+            {
+                Protocol.SendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Step) { ThreadId = 1 });
+            }
+
             return new StepInResponse();
         }
 
         protected override StepOutResponse HandleStepOutRequest(StepOutArguments arguments)
         {
             return new StepOutResponse();
+        }
+
+        protected override SetBreakpointsResponse HandleSetBreakpointsRequest(SetBreakpointsArguments arguments)
+        {
+            return new SetBreakpointsResponse();
         }
     }
 }
