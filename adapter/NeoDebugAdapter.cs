@@ -30,7 +30,22 @@ namespace Neo.DebugAdapter
 
         protected override LaunchResponse HandleLaunchRequest(LaunchArguments arguments)
         {
-            return base.HandleLaunchRequest(arguments);
+            return new LaunchResponse();
+        }
+
+        protected override DisconnectResponse HandleDisconnectRequest(DisconnectArguments arguments)
+        {
+            return new DisconnectResponse();
+        }
+
+        protected override SetExceptionBreakpointsResponse HandleSetExceptionBreakpointsRequest(SetExceptionBreakpointsArguments arguments)
+        {
+            return new SetExceptionBreakpointsResponse();
+        }
+
+        protected override ThreadsResponse HandleThreadsRequest(ThreadsArguments arguments)
+        {
+            return new ThreadsResponse();
         }
     }
 }
