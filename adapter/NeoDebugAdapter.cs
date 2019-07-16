@@ -24,7 +24,8 @@ namespace Neo.DebugAdapter
         protected override InitializeResponse HandleInitializeRequest(InitializeArguments arguments)
         {
             this.Protocol.SendEvent(new InitializedEvent());
-            return base.HandleInitializeRequest(arguments);
+
+            return new InitializeResponse();
         }
 
         protected override LaunchResponse HandleLaunchRequest(LaunchArguments arguments)
