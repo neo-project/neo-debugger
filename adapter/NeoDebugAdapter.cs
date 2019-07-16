@@ -8,12 +8,7 @@ namespace Neo.DebugAdapter
     {
         public NeoDebugAdapter(Stream @in, Stream @out)
         {
-            var p = this.Protocol;
-
             InitializeProtocolClient(@in, @out);
-
-            var q = this.Protocol;
-            ;
         }
 
         public void Run()
