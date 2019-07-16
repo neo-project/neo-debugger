@@ -13,7 +13,7 @@ export function activate(context: vscode.ExtensionContext) {
 class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDescriptorFactory {
 	createDebugAdapterDescriptor(session: vscode.DebugSession, executable: vscode.DebugAdapterExecutable | undefined): vscode.ProviderResult<vscode.DebugAdapterDescriptor> {
 		const path = String.raw`C:\Users\harry\Source\neo\seattle\debug\adapter\bin\Debug\netcoreapp2.2\neo-debug-adapter.dll`;
-		return new vscode.DebugAdapterExecutable("dotnet", [path]);
+		return new vscode.DebugAdapterExecutable("dotnet", [path, "--debug"]);
 	}
 }
 

@@ -1,38 +1,17 @@
 ﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using Neo.VM;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Threading.Tasks;
 
 namespace Neo.DebugAdapter
 {
-    struct SequencePoint
-    {
-        public uint Address;
-        public string Document;
-        public (int line, int column) Start;
-        public (int line, int column) End;
-
-        public static SequencePoint Parse(JToken json)
-        {
-            (int, int) ParsePosition(string prefix)
-            {
-                return (json.Value<int>($"{prefix}-line"), json.Value<int>($"{prefix}-column"));
-            }
-
-            return new SequencePoint
-            {
-                Address = json.Value<uint>("address"),
-                Document = json.Value<string>("document"),
-                Start = ParsePosition("start"),
-                End = ParsePosition("end")
-            };
-        }
-    }
-
-    internal class NeoDebugAdapter : DebugAdapterBase
+    class NeoDebugAdapter : DebugAdapterBase
     {
         Action<LogCategory, string> logger;
 
@@ -70,18 +49,13 @@ namespace Neo.DebugAdapter
             return new ConfigurationDoneResponse();
         }
 
-        string programFileName;
-        SequencePoint[] sequencePoints;
+        Contract contract;
         int currentSequencePoint;
 
         protected override LaunchResponse HandleLaunchRequest(LaunchArguments arguments)
         {
-            programFileName = (string)arguments.ConfigurationProperties["program"];
-
-            var debugJsonFileName = Path.ChangeExtension(programFileName, ".debug.json");
-            var debugJsonText = File.ReadAllText(debugJsonFileName);
-            sequencePoints = JArray.Parse(debugJsonText).Select(SequencePoint.Parse).ToArray();
-            currentSequencePoint = 0;
+            var programFileName = (string)arguments.ConfigurationProperties["program"];
+            contract = Contract.Load(programFileName);
 
             Protocol.SendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Entry) { ThreadId = 1 });
             return new LaunchResponse();
@@ -107,7 +81,7 @@ namespace Neo.DebugAdapter
 
         protected override StackTraceResponse HandleStackTraceRequest(StackTraceArguments arguments)
         {
-            var sp = sequencePoints[currentSequencePoint];
+            var sp = contract.SequencePoints[currentSequencePoint];
 
             var stackFrame = new StackFrame()
             {
@@ -150,7 +124,7 @@ namespace Neo.DebugAdapter
         {
             currentSequencePoint++;
 
-            if (currentSequencePoint >= sequencePoints.Length)
+            if (currentSequencePoint >= contract.SequencePoints.Length)
             {
                 Protocol.SendEvent(new TerminatedEvent());
             }
