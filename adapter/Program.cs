@@ -1,7 +1,6 @@
 ﻿using McMaster.Extensions.CommandLineUtils;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using System;
-using System.Collections.Generic;
 using System.IO;
 
 namespace Neo.DebugAdapter

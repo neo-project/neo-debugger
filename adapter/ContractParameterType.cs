@@ -1,18 +1,6 @@
-﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
-using Neo.VM;
-using Newtonsoft.Json.Linq;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Security.Cryptography;
-using System.Threading.Tasks;
-
-namespace Neo.DebugAdapter
+﻿namespace Neo.DebugAdapter
 {
-
-    internal enum ContractParameterType : byte
+    enum ContractParameterType : byte
     {
         Signature = 0x00,
         Boolean = 0x01,
