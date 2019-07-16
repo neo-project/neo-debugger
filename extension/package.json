@@ -10,14 +10,46 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:extension.helloWorld"
+		"onDebug"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
-		"commands": [
+		"debuggers": [
 			{
-				"command": "extension.helloWorld",
-				"title": "Hello World"
+				"type": "neo-contract",
+				"label": "NEO Contract Debug",
+				"program": "dotnet C:\\Users\\harry\\Source\\neo\\seattle\\debug\\adapter\\bin\\Debug\\netcoreapp2.2\\neo-debug-adapter.dll",
+				"configurationAttributes": {
+					"launch": {
+						"required": ["program"],
+						"properties": {
+							"program": {
+								"type": "string",
+								"description": "Absolute path to AVM file"
+							}
+						}
+					}
+				},
+				"initialConfigurations": [
+					{
+						"type": "neo-contract",
+						"request": "launch",
+						"name": "ask for file name",
+						"program": "${workspaceFolder}"
+					}
+				],
+				"configurationSnippets": [
+					{
+						"label": "Neo Contract Debug: Launch",
+						"description": "A new configuration for debugging a NEO Smart Contract",
+						"body":{
+							"type": "neo-contract",
+							"request": "launch",
+							"name": "ask for file name",
+							"program": "${workspaceFolder}"
+						}
+					}
+				]
 			}
 		]
 	},
