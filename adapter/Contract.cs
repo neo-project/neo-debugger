@@ -9,10 +9,11 @@ namespace Neo.DebugAdapter
     {
         public byte[] Script;
         public SequencePoint[] SequencePoints;
-        public string EntryPoint;
+        public string EntryPointName;
         public ContractFunction[] Functions;
 
         public byte[] ScriptHash => Crypto.Hash160(Script);
+        public ContractFunction EntryPoint => Functions.Single(f => f.Name == EntryPointName);
 
         public static Contract Load(string vmFileName)
         {
@@ -38,7 +39,7 @@ namespace Neo.DebugAdapter
             {
                 Script = script,
                 SequencePoints = sequencePoints.ToArray(),
-                EntryPoint = entrypoint,
+                EntryPointName = entrypoint,
                 Functions = functions.ToArray()
             };
         }

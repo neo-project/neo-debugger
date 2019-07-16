@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Neo.DebugAdapter
@@ -24,6 +25,12 @@ namespace Neo.DebugAdapter
                 Parameters = @params.ToArray(),
                 ReturnType = retType
             };
+        }
+
+        public IEnumerable<ContractParameter> ParseArguments(JToken args)
+        {
+            return args.Select(j => j.Value<string>())
+                .Zip(Parameters, (a, p) => ContractParameter.FromArgument(p.ParamType, a));
         }
     }
 }

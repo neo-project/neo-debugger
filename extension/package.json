@@ -21,32 +21,44 @@
 				"program": "dotnet C:\\Users\\harry\\Source\\neo\\seattle\\debug\\adapter\\bin\\Debug\\netcoreapp2.2\\neo-debug-adapter.dll",
 				"configurationAttributes": {
 					"launch": {
-						"required": ["program"],
+						"required": [
+							"program"
+						],
 						"properties": {
 							"program": {
 								"type": "string",
 								"description": "Absolute path to AVM file"
+							},
+							"args": {
+								"type": "array",
+								"description": "Command line arguments passed to the program.",
+								"items": {
+									"type": "string"
+								},
+								"default": []
 							}
 						}
 					}
 				},
 				"initialConfigurations": [
 					{
+						"name": "NEO Contract",
 						"type": "neo-contract",
 						"request": "launch",
-						"name": "ask for file name",
-						"program": "${workspaceFolder}"
+						"program": "${workspaceFolder}",
+						"args": []
 					}
 				],
 				"configurationSnippets": [
 					{
 						"label": "Neo Contract Debug: Launch",
 						"description": "A new configuration for debugging a NEO Smart Contract",
-						"body":{
+						"body": {
+							"name": "NEO Contract",
 							"type": "neo-contract",
 							"request": "launch",
-							"name": "ask for file name",
-							"program": "${workspaceFolder}"
+							"program": "${workspaceFolder}",
+							"args": []
 						}
 					}
 				]

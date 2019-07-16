@@ -3,6 +3,7 @@ using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace Neo.DebugAdapter
 {
@@ -51,6 +52,10 @@ namespace Neo.DebugAdapter
         {
             var programFileName = (string)arguments.ConfigurationProperties["program"];
             contract = Contract.Load(programFileName);
+
+            var args = contract.EntryPoint.ParseArguments(arguments.ConfigurationProperties["args"]);
+            var arg = args.First();
+            Log($"{arg.Type} {arg.Value}");
 
             Protocol.SendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Entry) { ThreadId = 1 });
             return new LaunchResponse();
