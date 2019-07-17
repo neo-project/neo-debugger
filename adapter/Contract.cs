@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using Neo.VM;
+using Newtonsoft.Json.Linq;
 using System;
 using System.IO;
 using System.Linq;
@@ -14,6 +15,17 @@ namespace Neo.DebugAdapter
 
         public byte[] ScriptHash => Crypto.Hash160(Script);
         public ContractFunction EntryPoint => Functions.Single(f => f.Name == EntryPointName);
+
+        public ScriptBuilder BuildInvokeScript(ContractParameter[] arguments)
+        {
+            var builder = new ScriptBuilder();
+            for (var x = 0; x < arguments.Length; x++)
+            {
+                arguments[x].EmitPush(builder);
+            }
+            builder.EmitAppCall(ScriptHash);
+            return builder;
+        }
 
         public static Contract Load(string vmFileName)
         {

@@ -1,5 +1,6 @@
 ﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using Neo.VM;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -7,13 +8,6 @@ using System.Linq;
 
 namespace Neo.DebugAdapter
 {
-    class NeoDebugSession
-    {
-        public Contract Contract;
-        public ContractParameter[] Arguments;
-        public ScriptTable ScriptTable = new ScriptTable();
-    }
-
     class NeoDebugAdapter : DebugAdapterBase
     {
         Action<LogCategory, string> logger;
@@ -52,17 +46,17 @@ namespace Neo.DebugAdapter
             return new ConfigurationDoneResponse();
         }
 
-        Contract contract;
-        int currentSequencePoint;
-
         NeoDebugSession session;
 
         protected override LaunchResponse HandleLaunchRequest(LaunchArguments arguments)
         {
             var programFileName = (string)arguments.ConfigurationProperties["program"];
-            contract = Contract.Load(programFileName);
+            var contract = Contract.Load(programFileName);
 
             var args = contract.EntryPoint.ParseArguments(arguments.ConfigurationProperties["args"]);
+
+            session = new NeoDebugSession(contract, args);
+            session.Execute();
 
             Protocol.SendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Entry) { ThreadId = 1 });
             return new LaunchResponse();
@@ -88,23 +82,32 @@ namespace Neo.DebugAdapter
 
         protected override StackTraceResponse HandleStackTraceRequest(StackTraceArguments arguments)
         {
-            var sp = contract.SequencePoints[currentSequencePoint];
-
-            var stackFrame = new StackFrame()
+            if (session.Engine.State == VMState.BREAK)
             {
-                Id = 0,
-                Name = "frame 0",
-                Source = new Source()
+                var sp = session.Contract.SequencePoints
+                    .SingleOrDefault(_sp => _sp.Address == session.Engine.CurrentContext.InstructionPointer); 
+
+                if (sp != null)
                 {
-                    Name = Path.GetFileName(sp.Document),
-                    Path = sp.Document
-                },
-                Line = sp.Start.line,
-                Column = sp.Start.column,
-                EndLine = sp.End.line,
-                EndColumn = sp.End.column,
-            };
-            return new StackTraceResponse(new List<StackFrame> { stackFrame });
+                    var stackFrame = new StackFrame()
+                    {
+                        Id = 0,
+                        Name = "frame 0",
+                        Source = new Source()
+                        {
+                            Name = Path.GetFileName(sp.Document),
+                            Path = sp.Document
+                        },
+                        Line = sp.Start.line,
+                        Column = sp.Start.column,
+                        EndLine = sp.End.line,
+                        EndColumn = sp.End.column,
+                    };
+                    return new StackTraceResponse(new List<StackFrame> { stackFrame });
+                }
+            }
+
+            return new StackTraceResponse();
         }
 
         protected override ScopesResponse HandleScopesRequest(ScopesArguments arguments)
@@ -129,15 +132,25 @@ namespace Neo.DebugAdapter
 
         protected override StepInResponse HandleStepInRequest(StepInArguments arguments)
         {
-            currentSequencePoint++;
+            if (session.Engine.State == VMState.BREAK)
+            {
+                session.Debugger.Execute();
 
-            if (currentSequencePoint >= contract.SequencePoints.Length)
-            {
-                Protocol.SendEvent(new TerminatedEvent());
-            }
-            else
-            {
-                Protocol.SendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Step) { ThreadId = 1 });
+                switch (session.Engine.State)
+                {
+                    case VMState.BREAK:
+                        Protocol.SendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Step) { ThreadId = 1 });
+                        break;
+                    case VMState.HALT:
+                        foreach (var item in session.Engine.ResultStack)
+                        {
+                            Protocol.SendEvent(new OutputEvent(item.GetResult()));
+                        }
+                        Protocol.SendEvent(new TerminatedEvent());
+                        break;
+                    default:
+                        throw new NotImplementedException();
+                }
             }
 
             return new StepInResponse();

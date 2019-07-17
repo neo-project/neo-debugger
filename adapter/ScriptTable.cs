@@ -14,6 +14,11 @@ namespace Neo.DebugAdapter
         // the dictionary key.
         Dictionary<int, byte[]> scripts = new Dictionary<int, byte[]>();
 
+        public void Add(Contract contract)
+        {
+            Add(contract.ScriptHash, contract.Script);
+        }
+
         public void Add(byte[] key, byte[] script)
         {
             scripts[Crypto.GetHashCode(key)] = script;

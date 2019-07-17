@@ -2,7 +2,7 @@
 
 namespace Neo.DebugAdapter
 {
-    struct SequencePoint
+    class SequencePoint
     {
         public uint Address;
         public string Document;

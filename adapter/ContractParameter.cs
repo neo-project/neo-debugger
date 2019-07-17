@@ -1,9 +1,30 @@
-﻿namespace Neo.DebugAdapter
+﻿using Neo.VM;
+using System.Numerics;
+
+namespace Neo.DebugAdapter
 {
     class ContractParameter
     {
         public ContractParameterType Type;
         public object Value;
+
+        public void EmitPush(ScriptBuilder builder)
+        {
+            switch (Type)
+            {
+                case ContractParameterType.Boolean:
+                    builder.EmitPush((bool)Value);
+                    break;
+                case ContractParameterType.Integer:
+                    builder.EmitPush((BigInteger)Value);
+                    break;
+                case ContractParameterType.String:
+                    builder.EmitPush((string)Value);
+                    break;
+                default:
+                    throw new System.NotImplementedException();
+            }
+        }
 
         public static ContractParameter FromArgument(ContractParameterType type, string value)
         {
@@ -21,7 +42,7 @@
                 case ContractParameterType.Boolean:
                     return bool.Parse(value);
                 case ContractParameterType.Integer:
-                    return System.Numerics.BigInteger.Parse(value);
+                    return BigInteger.Parse(value);
                 case ContractParameterType.String:
                     return value;
                 default:
