@@ -7,6 +7,13 @@ using System.Linq;
 
 namespace Neo.DebugAdapter
 {
+    class NeoDebugSession
+    {
+        public Contract Contract;
+        public ContractParameter[] Arguments;
+        public ScriptTable ScriptTable = new ScriptTable();
+    }
+
     class NeoDebugAdapter : DebugAdapterBase
     {
         Action<LogCategory, string> logger;
@@ -48,14 +55,14 @@ namespace Neo.DebugAdapter
         Contract contract;
         int currentSequencePoint;
 
+        NeoDebugSession session;
+
         protected override LaunchResponse HandleLaunchRequest(LaunchArguments arguments)
         {
             var programFileName = (string)arguments.ConfigurationProperties["program"];
             contract = Contract.Load(programFileName);
 
             var args = contract.EntryPoint.ParseArguments(arguments.ConfigurationProperties["args"]);
-            var arg = args.First();
-            Log($"{arg.Type} {arg.Value}");
 
             Protocol.SendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Entry) { ThreadId = 1 });
             return new LaunchResponse();

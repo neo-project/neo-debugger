@@ -21,6 +21,23 @@ namespace Neo.DebugAdapter
             return sha1.Value.ComputeHash(hash1);
         }
 
+        // Note, byte arrays have reference semantics for GetHashCode
+        // GetHashCode<T> provides a value semantic hash code for a Span of T's
+        public static int GetHashCode<T>(ReadOnlySpan<T> span)
+        {
+            int hash = default(T).GetHashCode();
+            for (int i = 0; i < span.Length; i++)
+            {
+                hash = HashCode.Combine(hash, i, span[i]);
+            }
+            return hash;
+        }
+
+        public static int GetHashCode<T>(T[] array)
+        {
+            return GetHashCode<T>(array.AsSpan());
+        }
+
         byte[] ICrypto.Hash160(byte[] message)
         {
             return Hash160(message);
