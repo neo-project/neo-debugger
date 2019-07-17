@@ -37,5 +37,32 @@ namespace Neo.DebugAdapter
         {
             Debugger.Execute();
         }
+
+        public IEnumerable<StackFrame> GetStackFrames()
+        {
+            if (Engine.State == VMState.BREAK)
+            {
+                var sp = Contract.SequencePoints
+                    .SingleOrDefault(_sp => _sp.Address == Engine.CurrentContext.InstructionPointer);
+
+                if (sp != null)
+                {
+                    yield return new StackFrame()
+                    {
+                        Id = 0,
+                        Name = "frame 0",
+                        Source = new Source()
+                        {
+                            Name = Path.GetFileName(sp.Document),
+                            Path = sp.Document
+                        },
+                        Line = sp.Start.line,
+                        Column = sp.Start.column,
+                        EndLine = sp.End.line,
+                        EndColumn = sp.End.column,
+                    };
+                }
+            }
+        }
     }
 }

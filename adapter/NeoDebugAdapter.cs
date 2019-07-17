@@ -82,32 +82,15 @@ namespace Neo.DebugAdapter
 
         protected override StackTraceResponse HandleStackTraceRequest(StackTraceArguments arguments)
         {
-            if (session.Engine.State == VMState.BREAK)
+            var frames = session.GetStackFrames();
+            if (frames.Any())
             {
-                var sp = session.Contract.SequencePoints
-                    .SingleOrDefault(_sp => _sp.Address == session.Engine.CurrentContext.InstructionPointer); 
-
-                if (sp != null)
-                {
-                    var stackFrame = new StackFrame()
-                    {
-                        Id = 0,
-                        Name = "frame 0",
-                        Source = new Source()
-                        {
-                            Name = Path.GetFileName(sp.Document),
-                            Path = sp.Document
-                        },
-                        Line = sp.Start.line,
-                        Column = sp.Start.column,
-                        EndLine = sp.End.line,
-                        EndColumn = sp.End.column,
-                    };
-                    return new StackTraceResponse(new List<StackFrame> { stackFrame });
-                }
+                return new StackTraceResponse(frames.ToList());
             }
-
-            return new StackTraceResponse();
+            else
+            {
+                return new StackTraceResponse();
+            }
         }
 
         protected override ScopesResponse HandleScopesRequest(ScopesArguments arguments)
