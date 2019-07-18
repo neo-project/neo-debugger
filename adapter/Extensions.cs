@@ -24,7 +24,7 @@ namespace Neo.DebugAdapter
         public static Function GetAbiEntryPoint(this AbiInfo info) => info.Functions.Single(f => f.Name == info.Entrypoint);
         public static Method GetEntryMethod(this DebugInfo info) => info.Methods.Single(m => m.Name == info.Entrypoint);
 
-        public static Method GetCurrentMethod(this Contract contract, Neo.VM.ExecutionContext context)
+        public static Method GetMethod(this Contract contract, ExecutionContext context)
         {
             if (contract.ScriptHash.AsSpan().SequenceEqual(context.ScriptHash))
             {

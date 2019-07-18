@@ -97,19 +97,13 @@ namespace Neo.DebugAdapter
         protected override StackTraceResponse HandleStackTraceRequest(StackTraceArguments arguments)
         {
             var frames = session.GetStackFrames().ToList();
-            if (frames.Count > 0)
-            {
-                return new StackTraceResponse(frames);
-            }
-            else
-            {
-                return new StackTraceResponse();
-            }
+            return new StackTraceResponse(frames);
         }
 
         protected override ScopesResponse HandleScopesRequest(ScopesArguments arguments)
         {
-            return new ScopesResponse();
+            var scopes = session.GetScopes(arguments.FrameId).ToList();
+            return new ScopesResponse(scopes);
         }
 
         protected override VariablesResponse HandleVariablesRequest(VariablesArguments arguments)

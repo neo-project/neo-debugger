@@ -99,39 +99,20 @@ namespace Neo.DebugAdapter
 
         public void StepOver()
         {
-            //// run to the next sequence point in the current method
+            // run to the next sequence point in the current method
 
-            //var method = Contract.GetCurrentMethod(engine.CurrentContext);
-            //var ip = engine.CurrentContext.InstructionPointer;
-            //var sp = method.SequencePoints.FirstOrDefault(p => p.Address > ip);
+            var method = Contract.GetMethod(engine.CurrentContext);
+            var ip = engine.CurrentContext.InstructionPointer;
+            var sp = method.SequencePoints.FirstOrDefault(p => p.Address > ip);
 
-            //if (sp != null)
-            //{
-            //    RunTo(Contract.ScriptHash, sp);
-            //}
-            //else
-            //{
-            //    StepOut()
-            //}
-            //foreach (var sp in method.SequencePoints)
-            //{
-            //    if sp.Address > 
-            //}
-
-
-            //if ((engine.State & HAULT_FAULT) == 0)
-            //{
-            //    engine.State &= ~VMState.BREAK;
-            //    int stackCount = engine.InvocationStack.Count;
-
-            //    do
-            //    {
-            //        ExecuteOne();
-            //    }
-            //    while (((engine.State & HAULT_FAULT_BREAK) == 0) && engine.InvocationStack.Count > stackCount);
-
-            //    engine.State |= VMState.BREAK;
-            //}
+            if (sp != null)
+            {
+                RunTo(Contract.ScriptHash, sp);
+            }
+            else
+            {
+                Continue();
+            }
         }
 
         public void StepIn()
@@ -157,6 +138,23 @@ namespace Neo.DebugAdapter
             //engine.State |= VMState.BREAK;
         }
 
+        public IEnumerable<Scope> GetScopes(int frameId)
+        {
+            if ((engine.State & HAULT_OR_FAULT) == 0)
+            {
+                var context = engine.InvocationStack.Peek(frameId);
+                var method = Contract.GetMethod(context);
+
+                if (method != null)
+                {
+                    yield return new Scope(method.DisplayName, 17, false)
+                    {
+                        PresentationHint = Scope.PresentationHintValue.Arguments,
+                        NamedVariables = method.Parameters.Count,
+                    };
+                }
+            }
+        }
 
         public IEnumerable<StackFrame> GetStackFrames()
         {
@@ -173,7 +171,7 @@ namespace Neo.DebugAdapter
                         ModuleId = ctx.ScriptHash,
                     };
 
-                    var method = Contract.GetCurrentMethod(ctx);
+                    var method = Contract.GetMethod(ctx);
 
                     if (method != null)
                     {
