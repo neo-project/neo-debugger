@@ -100,12 +100,11 @@ namespace Neo.DebugAdapter
 
         public void RunTo(byte[] scriptHash, int position)
         {
-            var scriptHashCode = Crypto.GetHashCode(scriptHash);
-
+            var scriptHashSpan = scriptHash.AsSpan();
+         
             while ((engine.State & HAULT_OR_FAULT) == 0)
             {
-                var currentHashCode = Crypto.GetHashCode(engine.CurrentContext.ScriptHash);
-                if (currentHashCode == scriptHashCode)
+                if (scriptHashSpan.SequenceEqual(engine.CurrentContext.ScriptHash))
                 {
                     if (engine.CurrentContext.InstructionPointer == position)
                         break;
@@ -167,31 +166,29 @@ namespace Neo.DebugAdapter
         {
             if ((engine.State & HAULT_OR_FAULT) == 0)
             {
-                var contractHashCode = Crypto.GetHashCode(Contract.ScriptHash);
-
                 for (var i = 0; i < engine.InvocationStack.Count; i++)
                 {
-                    var execCtx = engine.InvocationStack.Peek(i);
+                    var ctx = engine.InvocationStack.Peek(i);
 
                     var frame = new StackFrame()
                     {
                         Id = i,
                         Name = $"frame {i}",
-                        ModuleId = execCtx.ScriptHash,
+                        ModuleId = ctx.ScriptHash,
                     };
 
-                    if (Crypto.GetHashCode(execCtx.ScriptHash) == contractHashCode)
+                    if (ctx.ScriptHash.AsSpan().SequenceEqual(Contract.ScriptHash))
                     {
                         Method method = Contract.DebugInfo.Methods
                             .SingleOrDefault(m =>
-                                m.StartAddress <= execCtx.InstructionPointer
-                                && m.EndAddress >= execCtx.InstructionPointer);
+                                m.StartAddress <= ctx.InstructionPointer
+                                && m.EndAddress >= ctx.InstructionPointer);
 
                         if (method != null)
                         {
                             frame.Name = method.DisplayName;
                             SequencePoint sequencePoint = method.SequencePoints
-                                .SingleOrDefault(sp => sp.Address == execCtx.InstructionPointer);
+                                .SingleOrDefault(sp => sp.Address == ctx.InstructionPointer);
 
                             if (sequencePoint != null)
                             {

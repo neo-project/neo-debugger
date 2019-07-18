@@ -9,12 +9,19 @@ namespace Neo.DebugAdapter
 {
     class Contract
     {
-        public byte[] Script;
-        public AbiInfo AbiInfo;
-        public DebugInfo DebugInfo;
+        public byte[] Script { get; }
+        public AbiInfo AbiInfo { get; }
+        public DebugInfo DebugInfo { get; }
 
-        public byte[] ScriptHash => Crypto.Hash160(Script);
-        public int ScriptHashCode => Crypto.GetHashCode(ScriptHash);
+        public byte[] ScriptHash { get; }
+
+        public Contract(byte[] script, AbiInfo abiInfo, DebugInfo debugInfo)
+        {
+            Script = script;
+            ScriptHash = Crypto.Hash160(script);
+            AbiInfo = abiInfo;
+            DebugInfo = debugInfo;
+        }
 
         public Function EntryPoint => AbiInfo.Functions.Single(f => f.Name == AbiInfo.Entrypoint);
 
@@ -53,12 +60,7 @@ namespace Neo.DebugAdapter
             var abiInfo = AbiInfo.FromJson(File.ReadAllText(abiJsonFileName));
             var debugInfo = DebugInfo.FromJson(File.ReadAllText(debugJsonFileName));
 
-            return new Contract()
-            {
-                Script = script,
-                AbiInfo = abiInfo,
-                DebugInfo = debugInfo
-            };
+            return new Contract(script, abiInfo, debugInfo);
         }
     }
 }
