@@ -53,18 +53,21 @@ namespace Neo.DebugAdapter
             var programFileName = (string)arguments.ConfigurationProperties["program"];
             var contract = Contract.Load(programFileName);
 
-            var args = contract.EntryPoint.ParseArguments(arguments.ConfigurationProperties["args"]);
+
+            IEnumerable<ContractParameter> args = Enumerable.Empty<ContractParameter>(); 
+                
+                //contract.EntryPoint.ParseArguments(arguments.ConfigurationProperties["args"]);
 
             session = new NeoDebugSession(contract, args);
 
-            if (contract.SequencePoints.Length > 0)
-            {
-                session.RunTo(contract.ScriptHash, contract.SequencePoints[0].Address);
-            }
-            else
-            {
-                session.RunTo(contract.ScriptHash, 0);
-            }
+            //if (contract.SequencePoints.Length > 0)
+            //{
+            //    session.RunTo(contract.ScriptHash, contract.SequencePoints[0].Address);
+            //}
+            //else
+            //{
+            //    session.RunTo(contract.ScriptHash, 0);
+            //}
 
             Protocol.SendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Entry) { ThreadId = 1 });
 

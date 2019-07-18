@@ -168,10 +168,10 @@ namespace Neo.DebugAdapter
         {
             SequencePoint GetSequencePoint(ExecutionContext ctx, int hashCode)
             {
-                if (Crypto.GetHashCode(ctx.ScriptHash) == hashCode)
-                {
-                    return Contract.SequencePoints.SingleOrDefault(sp => sp.Address == ctx.InstructionPointer);
-                }
+                //if (Crypto.GetHashCode(ctx.ScriptHash) == hashCode)
+                //{
+                //    return Contract.SequencePoints.SingleOrDefault(sp => sp.Address == ctx.InstructionPointer);
+                //}
 
                 return null;
             }
@@ -195,10 +195,10 @@ namespace Neo.DebugAdapter
                             Name = Path.GetFileName(sp.Document),
                             Path = sp.Document
                         };
-                        frame.Line = sp.Start.line;
-                        frame.Column = sp.Start.column;
-                        frame.EndLine = sp.End.line;
-                        frame.EndColumn = sp.End.column;
+                        //frame.Line = sp.Start.line;
+                        //frame.Column = sp.Start.column;
+                        //frame.EndLine = sp.End.line;
+                        //frame.EndColumn = sp.End.column;
                     }
 
                     yield return frame;

@@ -9,12 +9,11 @@ namespace Neo.DebugAdapter
     class Contract
     {
         public byte[] Script;
-        public SequencePoint[] SequencePoints;
-        public string EntryPointName;
-        public ContractFunction[] Functions;
+        public AbiInfo AbiInfo;
+        public DebugInfo DebugInfo;
 
         public byte[] ScriptHash => Crypto.Hash160(Script);
-        public ContractFunction EntryPoint => Functions.Single(f => f.Name == EntryPointName);
+        //public ContractFunction EntryPoint => Functions.Single(f => f.Name == EntryPointName);
 
         public ScriptBuilder BuildInvokeScript(ContractParameter[] arguments)
         {
@@ -41,18 +40,20 @@ namespace Neo.DebugAdapter
                 throw new ArgumentException($"{nameof(vmFileName)} ABI info file doesn't exist");
 
             var script = File.ReadAllBytes(vmFileName);
-            var sequencePoints = JArray.Parse(File.ReadAllText(debugJsonFileName)).Select(SequencePoint.FromJson);
+            var abiInfo = AbiInfo.FromJson(File.ReadAllText(abiJsonFileName));
+            var debugInfo = DebugInfo.FromJson(File.ReadAllText(debugJsonFileName));
 
-            var abiJson = JObject.Parse(File.ReadAllText(abiJsonFileName));
-            var entrypoint = abiJson.Value<string>("entrypoint");
-            var functions = abiJson["functions"].Select(ContractFunction.FromJson);
+            //var sequencePoints = JArray.Parse(File.ReadAllText(debugJsonFileName)).Select(SequencePoint.FromJson);
+
+            //var abiJson = JObject.Parse();
+            //var entrypoint = abiJson.Value<string>("entrypoint");
+            //var functions = abiJson["functions"].Select(ContractFunction.FromJson);
 
             return new Contract()
             {
                 Script = script,
-                SequencePoints = sequencePoints.ToArray(),
-                EntryPointName = entrypoint,
-                Functions = functions.ToArray()
+                AbiInfo = abiInfo,
+                DebugInfo = debugInfo
             };
         }
     }
