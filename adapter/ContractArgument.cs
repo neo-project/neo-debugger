@@ -1,9 +1,10 @@
 ﻿using Neo.VM;
+using System;
 using System.Numerics;
 
 namespace Neo.DebugAdapter
 {
-    class ContractParameter
+    class ContractArgument
     {
         public ContractParameterType Type;
         public object Value;
@@ -26,9 +27,14 @@ namespace Neo.DebugAdapter
             }
         }
 
-        public static ContractParameter FromArgument(ContractParameterType type, string value)
+        public static ContractArgument FromArgument(string type, string value)
         {
-            return new ContractParameter()
+            return FromArgument(Enum.Parse<ContractParameterType>(type), value);
+        }
+
+        public static ContractArgument FromArgument(ContractParameterType type, string value)
+        {
+            return new ContractArgument()
             {
                 Type = type,
                 Value = Parse(type, value)

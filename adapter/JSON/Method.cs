@@ -21,6 +21,12 @@ namespace Neo.DebugAdapter
         [JsonProperty("display-name")]
         public string DisplayName { get; set; }
 
+        [JsonProperty("start-address")]
+        public int StartAddress { get; set; }
+
+        [JsonProperty("end-address")]
+        public int EndAddress { get; set; }
+
         [JsonProperty("parameters")]
         public List<Parameter> Parameters { get; set; }
 

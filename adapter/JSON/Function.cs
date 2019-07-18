@@ -24,6 +24,6 @@ namespace Neo.DebugAdapter
         public List<Parameter> Parameters { get; set; }
 
         [JsonProperty("returntype")]
-        public string Returntype { get; set; }
+        public string ReturnType { get; set; }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.VM;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -53,21 +54,24 @@ namespace Neo.DebugAdapter
             var programFileName = (string)arguments.ConfigurationProperties["program"];
             var contract = Contract.Load(programFileName);
 
-
-            IEnumerable<ContractParameter> args = Enumerable.Empty<ContractParameter>(); 
-                
-                //contract.EntryPoint.ParseArguments(arguments.ConfigurationProperties["args"]);
+            var args = arguments.ConfigurationProperties["args"]
+                .Select(j => j.Value<string>())
+                .Zip(contract.EntryPoint.Parameters,
+                    (a, p) => ContractArgument.FromArgument(p.Type, a));
 
             session = new NeoDebugSession(contract, args);
 
-            //if (contract.SequencePoints.Length > 0)
-            //{
-            //    session.RunTo(contract.ScriptHash, contract.SequencePoints[0].Address);
-            //}
-            //else
-            //{
-            //    session.RunTo(contract.ScriptHash, 0);
-            //}
+            var entryMethod = contract.DebugInfo.Methods.Single(m => m.Name == contract.DebugInfo.Entrypoint);
+            var firstSequencePoint = entryMethod.SequencePoints.FirstOrDefault();
+
+            if (firstSequencePoint != null)
+            {
+                session.RunTo(contract.ScriptHash, firstSequencePoint.Address);
+            }
+            else
+            {
+                session.RunTo(contract.ScriptHash, 0);
+            }
 
             Protocol.SendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Entry) { ThreadId = 1 });
 
@@ -113,26 +117,6 @@ namespace Neo.DebugAdapter
         protected override VariablesResponse HandleVariablesRequest(VariablesArguments arguments)
         {
             return new VariablesResponse();
-        }
-
-        private void FireEvents(StoppedEvent.ReasonValue reasonValue)
-        {
-            if ((session.EngineState & (VMState.HALT | ~VMState.FAULT)) != 0)
-            {
-                foreach (var item in session.GetResults())
-                {
-                    Protocol.SendEvent(new OutputEvent(item.GetResult()));
-                }
-                Protocol.SendEvent(new TerminatedEvent());
-            }
-            else if ((session.EngineState & (VMState.BREAK | ~VMState.HALT | ~VMState.FAULT)) != 0)
-            {
-                Protocol.SendEvent(new StoppedEvent(reasonValue) { ThreadId = 1 });
-            }
-            else
-            {
-                // ??
-            }
         }
 
         // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Continue

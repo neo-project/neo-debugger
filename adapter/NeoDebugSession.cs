@@ -30,10 +30,9 @@ namespace Neo.DebugAdapter
         }
 
         public Contract Contract;
-        public ContractParameter[] Arguments;
+        public ContractArgument[] Arguments;
         public ScriptTable ScriptTable = new ScriptTable();
-
-        DebugExecutionEngine engine;
+        readonly DebugExecutionEngine engine;
 
         public VMState EngineState => engine.State;
 
@@ -45,9 +44,7 @@ namespace Neo.DebugAdapter
             }
         }
 
-        private readonly Dictionary<int, HashSet<int>> breakPoints = new Dictionary<int, HashSet<int>>();
-
-        public NeoDebugSession(Contract contract, IEnumerable<ContractParameter> arguments)
+        public NeoDebugSession(Contract contract, IEnumerable<ContractArgument> arguments)
         {
             Contract = contract;
             Arguments = arguments.ToArray();
@@ -57,26 +54,28 @@ namespace Neo.DebugAdapter
             engine.LoadScript(builder.ToArray());
         }
 
-        public void AddBreakPoint(byte[] scriptHash, int position)
-        {
-            var key = Crypto.GetHashCode(scriptHash);
-            if (!breakPoints.TryGetValue(key, out var hashset))
-            {
-                hashset = new HashSet<int>();
-                breakPoints.Add(key, hashset);
-            }
-            hashset.Add(position);
-        }
+        //private readonly Dictionary<int, HashSet<int>> breakPoints = new Dictionary<int, HashSet<int>>();
 
-        public bool RemoveBreakPoint(byte[] scriptHash, int position)
-        {
-            var key = Crypto.GetHashCode(scriptHash);
-            if (breakPoints.TryGetValue(key, out var hashset))
-            {
-                return hashset.Remove(position);
-            }
-            return false;
-        }
+        //public void AddBreakPoint(byte[] scriptHash, int position)
+        //{
+        //    var key = Crypto.GetHashCode(scriptHash);
+        //    if (!breakPoints.TryGetValue(key, out var hashset))
+        //    {
+        //        hashset = new HashSet<int>();
+        //        breakPoints.Add(key, hashset);
+        //    }
+        //    hashset.Add(position);
+        //}
+
+        //public bool RemoveBreakPoint(byte[] scriptHash, int position)
+        //{
+        //    var key = Crypto.GetHashCode(scriptHash);
+        //    if (breakPoints.TryGetValue(key, out var hashset))
+        //    {
+        //        return hashset.Remove(position);
+        //    }
+        //    return false;
+        //}
 
         const VMState HAULT_OR_FAULT = VMState.HALT | VMState.FAULT;
         //const VMState HAULT_FAULT_BREAK = VMState.HALT | VMState.FAULT | VMState.BREAK;
@@ -166,39 +165,47 @@ namespace Neo.DebugAdapter
 
         public IEnumerable<StackFrame> GetStackFrames()
         {
-            SequencePoint GetSequencePoint(ExecutionContext ctx, int hashCode)
-            {
-                //if (Crypto.GetHashCode(ctx.ScriptHash) == hashCode)
-                //{
-                //    return Contract.SequencePoints.SingleOrDefault(sp => sp.Address == ctx.InstructionPointer);
-                //}
-
-                return null;
-            }
-
             if ((engine.State & HAULT_OR_FAULT) == 0)
             {
                 var contractHashCode = Crypto.GetHashCode(Contract.ScriptHash);
+
                 for (var i = 0; i < engine.InvocationStack.Count; i++)
                 {
                     var execCtx = engine.InvocationStack.Peek(i);
-                    var frame = new StackFrame() { Id = i,
+
+                    var frame = new StackFrame()
+                    {
+                        Id = i,
                         Name = $"frame {i}",
                         ModuleId = execCtx.ScriptHash,
                     };
 
-                    var sp = GetSequencePoint(execCtx, contractHashCode);
-                    if (sp != null)
+                    if (Crypto.GetHashCode(execCtx.ScriptHash) == contractHashCode)
                     {
-                        frame.Source = new Source()
+                        Method method = Contract.DebugInfo.Methods
+                            .SingleOrDefault(m =>
+                                m.StartAddress <= execCtx.InstructionPointer
+                                && m.EndAddress >= execCtx.InstructionPointer);
+
+                        if (method != null)
                         {
-                            Name = Path.GetFileName(sp.Document),
-                            Path = sp.Document
-                        };
-                        //frame.Line = sp.Start.line;
-                        //frame.Column = sp.Start.column;
-                        //frame.EndLine = sp.End.line;
-                        //frame.EndColumn = sp.End.column;
+                            frame.Name = method.DisplayName;
+                            SequencePoint sequencePoint = method.SequencePoints
+                                .SingleOrDefault(sp => sp.Address == execCtx.InstructionPointer);
+
+                            if (sequencePoint != null)
+                            {
+                                frame.Source = new Source()
+                                {
+                                    Name = Path.GetFileName(sequencePoint.Document),
+                                    Path = sequencePoint.Document
+                                };
+                                frame.Line = sequencePoint.StartLine;
+                                frame.Column = sequencePoint.StartColumn;
+                                frame.EndLine = sequencePoint.EndLine;
+                                frame.EndColumn = sequencePoint.EndColumn;
+                            }
+                        }
                     }
 
                     yield return frame;

@@ -13,21 +13,21 @@ namespace Neo.DebugAdapter
     public class SequencePoint
     {
         [JsonProperty("address")]
-        public long Address { get; set; }
+        public int Address { get; set; }
 
         [JsonProperty("document")]
         public string Document { get; set; }
 
         [JsonProperty("start-line")]
-        public long StartLine { get; set; }
+        public int StartLine { get; set; }
 
         [JsonProperty("start-column")]
-        public long StartColumn { get; set; }
+        public int StartColumn { get; set; }
 
         [JsonProperty("end-line")]
-        public long EndLine { get; set; }
+        public int EndLine { get; set; }
 
         [JsonProperty("end-column")]
-        public long EndColumn { get; set; }
+        public int EndColumn { get; set; }
     }
 }

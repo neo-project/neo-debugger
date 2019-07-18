@@ -1,6 +1,7 @@
 ﻿using Neo.VM;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
@@ -13,9 +14,18 @@ namespace Neo.DebugAdapter
         public DebugInfo DebugInfo;
 
         public byte[] ScriptHash => Crypto.Hash160(Script);
-        //public ContractFunction EntryPoint => Functions.Single(f => f.Name == EntryPointName);
+        public int ScriptHashCode => Crypto.GetHashCode(ScriptHash);
 
-        public ScriptBuilder BuildInvokeScript(ContractParameter[] arguments)
+        public Function EntryPoint => AbiInfo.Functions.Single(f => f.Name == AbiInfo.Entrypoint);
+
+        public static IEnumerable<ContractArgument> ParseArguments(Function function, JToken args)
+        {
+            return args
+                .Select(j => j.Value<string>())
+                .Zip(function.Parameters, (a, p) => ContractArgument.FromArgument(p.Type, a));
+        }
+
+        public ScriptBuilder BuildInvokeScript(ContractArgument[] arguments)
         {
             var builder = new ScriptBuilder();
             for (var x = 0; x < arguments.Length; x++)
@@ -42,12 +52,6 @@ namespace Neo.DebugAdapter
             var script = File.ReadAllBytes(vmFileName);
             var abiInfo = AbiInfo.FromJson(File.ReadAllText(abiJsonFileName));
             var debugInfo = DebugInfo.FromJson(File.ReadAllText(debugJsonFileName));
-
-            //var sequencePoints = JArray.Parse(File.ReadAllText(debugJsonFileName)).Select(SequencePoint.FromJson);
-
-            //var abiJson = JObject.Parse();
-            //var entrypoint = abiJson.Value<string>("entrypoint");
-            //var functions = abiJson["functions"].Select(ContractFunction.FromJson);
 
             return new Contract()
             {
