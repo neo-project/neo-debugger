@@ -166,27 +166,42 @@ namespace Neo.DebugAdapter
 
         public IEnumerable<StackFrame> GetStackFrames()
         {
+            SequencePoint GetSequencePoint(ExecutionContext ctx, int hashCode)
+            {
+                if (Crypto.GetHashCode(ctx.ScriptHash) == hashCode)
+                {
+                    return Contract.SequencePoints.SingleOrDefault(sp => sp.Address == ctx.InstructionPointer);
+                }
+
+                return null;
+            }
+
             if ((engine.State & HAULT_OR_FAULT) == 0)
             {
-                var sp = Contract.SequencePoints
-                    .SingleOrDefault(_sp => _sp.Address == engine.CurrentContext.InstructionPointer);
-
-                if (sp != null)
+                var contractHashCode = Crypto.GetHashCode(Contract.ScriptHash);
+                for (var i = 0; i < engine.InvocationStack.Count; i++)
                 {
-                    yield return new StackFrame()
+                    var execCtx = engine.InvocationStack.Peek(i);
+                    var frame = new StackFrame() { Id = i,
+                        Name = $"frame {i}",
+                        ModuleId = execCtx.ScriptHash,
+                    };
+
+                    var sp = GetSequencePoint(execCtx, contractHashCode);
+                    if (sp != null)
                     {
-                        Id = 0,
-                        Name = "frame 0",
-                        Source = new Source()
+                        frame.Source = new Source()
                         {
                             Name = Path.GetFileName(sp.Document),
                             Path = sp.Document
-                        },
-                        Line = sp.Start.line,
-                        Column = sp.Start.column,
-                        EndLine = sp.End.line,
-                        EndColumn = sp.End.column,
-                    };
+                        };
+                        frame.Line = sp.Start.line;
+                        frame.Column = sp.Start.column;
+                        frame.EndLine = sp.End.line;
+                        frame.EndColumn = sp.End.column;
+                    }
+
+                    yield return frame;
                 }
             }
         }
