@@ -36,13 +36,7 @@ namespace Neo.DebugAdapter
 
         public VMState EngineState => engine.State;
 
-        public IEnumerable<StackItem> GetResults()
-        {
-            foreach (var item in engine.ResultStack)
-            {
-                yield return item.GetResult();
-            }
-        }
+        public IEnumerable<StackItem> GetResults() => engine.ResultStack;
 
         public NeoDebugSession(Contract contract, IEnumerable<ContractArgument> arguments)
         {
@@ -78,27 +72,8 @@ namespace Neo.DebugAdapter
         //}
 
         const VMState HAULT_OR_FAULT = VMState.HALT | VMState.FAULT;
-        //const VMState HAULT_FAULT_BREAK = VMState.HALT | VMState.FAULT | VMState.BREAK;
 
-        //void ExecuteOne()
-        //{
-        //    if ((engine.State & (VMState.HALT | VMState.FAULT)) != 0)
-        //    {
-        //        engine.ExecuteNext();
-        //    }
-
-        //    if (((engine.State & HAULT_FAULT_BREAK) == 0) && engine.InvocationStack.Count > 0 && breakPoints.Count > 0)
-        //    {
-        //        var key = Crypto.GetHashCode(engine.CurrentContext.ScriptHash);
-        //        if (breakPoints.TryGetValue(key, out var hashset) && hashset.Contains(engine.CurrentContext.InstructionPointer))
-        //        {
-        //            engine.State |= VMState.BREAK;
-        //        }
-        //    }
-        //}
-
-
-        public void RunTo(byte[] scriptHash, int position)
+        public void RunTo(byte[] scriptHash, SequencePoint point)
         {
             var scriptHashSpan = scriptHash.AsSpan();
          
@@ -106,7 +81,7 @@ namespace Neo.DebugAdapter
             {
                 if (scriptHashSpan.SequenceEqual(engine.CurrentContext.ScriptHash))
                 {
-                    if (engine.CurrentContext.InstructionPointer == position)
+                    if (engine.CurrentContext.InstructionPointer == point.Address)
                         break;
                 }
 
@@ -114,53 +89,74 @@ namespace Neo.DebugAdapter
             }
         }
 
-        //public void Continue()
-        //{
-        //    engine.State &= ~VMState.BREAK;
-        //    while ((engine.State & HAULT_FAULT_BREAK) == 0)
-        //    {
-        //        ExecuteOne();
-        //    }
-        //}
+        public void Continue()
+        {
+            while ((engine.State & HAULT_OR_FAULT) == 0)
+            {
+                engine.ExecuteNext();
+            }
+        }
 
-        //public void StepOver()
-        //{
-        //    if ((engine.State & HAULT_FAULT) == 0)
-        //    {
-        //        engine.State &= ~VMState.BREAK;
-        //        int stackCount = engine.InvocationStack.Count;
+        public void StepOver()
+        {
+            //// run to the next sequence point in the current method
 
-        //        do
-        //        {
-        //            ExecuteOne();
-        //        }
-        //        while (((engine.State & HAULT_FAULT_BREAK) == 0) && engine.InvocationStack.Count > stackCount);
+            //var method = Contract.GetCurrentMethod(engine.CurrentContext);
+            //var ip = engine.CurrentContext.InstructionPointer;
+            //var sp = method.SequencePoints.FirstOrDefault(p => p.Address > ip);
 
-        //        engine.State |= VMState.BREAK;
-        //    }
-        //}
+            //if (sp != null)
+            //{
+            //    RunTo(Contract.ScriptHash, sp);
+            //}
+            //else
+            //{
+            //    StepOut()
+            //}
+            //foreach (var sp in method.SequencePoints)
+            //{
+            //    if sp.Address > 
+            //}
 
-        //public void StepIn()
-        //{
-        //    if ((engine.State & HAULT_FAULT) == 0)
-        //    {
-        //        ExecuteOne();
-        //        engine.State |= VMState.BREAK;
-        //    }
-        //}
 
-        //public void StepOut()
-        //{
-        //    engine.State &= ~VMState.BREAK;
-        //    int stackCount = engine.InvocationStack.Count;
+            //if ((engine.State & HAULT_FAULT) == 0)
+            //{
+            //    engine.State &= ~VMState.BREAK;
+            //    int stackCount = engine.InvocationStack.Count;
 
-        //    while (((engine.State & HAULT_FAULT_BREAK) == 0) && engine.InvocationStack.Count >= stackCount)
-        //    {
-        //        ExecuteOne();
-        //    }
+            //    do
+            //    {
+            //        ExecuteOne();
+            //    }
+            //    while (((engine.State & HAULT_FAULT_BREAK) == 0) && engine.InvocationStack.Count > stackCount);
 
-        //    engine.State |= VMState.BREAK;
-        //}
+            //    engine.State |= VMState.BREAK;
+            //}
+        }
+
+        public void StepIn()
+        {
+
+            //if ((engine.State & HAULT_FAULT) == 0)
+            //{
+            //    ExecuteOne();
+            //    engine.State |= VMState.BREAK;
+            //}
+        }
+
+        public void StepOut()
+        {
+            //engine.State &= ~VMState.BREAK;
+            //int stackCount = engine.InvocationStack.Count;
+
+            //while (((engine.State & HAULT_FAULT_BREAK) == 0) && engine.InvocationStack.Count >= stackCount)
+            //{
+            //    ExecuteOne();
+            //}
+
+            //engine.State |= VMState.BREAK;
+        }
+
 
         public IEnumerable<StackFrame> GetStackFrames()
         {
@@ -177,31 +173,24 @@ namespace Neo.DebugAdapter
                         ModuleId = ctx.ScriptHash,
                     };
 
-                    if (ctx.ScriptHash.AsSpan().SequenceEqual(Contract.ScriptHash))
+                    var method = Contract.GetCurrentMethod(ctx);
+
+                    if (method != null)
                     {
-                        Method method = Contract.DebugInfo.Methods
-                            .SingleOrDefault(m =>
-                                m.StartAddress <= ctx.InstructionPointer
-                                && m.EndAddress >= ctx.InstructionPointer);
+                        frame.Name = method.DisplayName;
+                        SequencePoint sequencePoint = method.GetCurrentSequencePoint(ctx);
 
-                        if (method != null)
+                        if (sequencePoint != null)
                         {
-                            frame.Name = method.DisplayName;
-                            SequencePoint sequencePoint = method.SequencePoints
-                                .SingleOrDefault(sp => sp.Address == ctx.InstructionPointer);
-
-                            if (sequencePoint != null)
+                            frame.Source = new Source()
                             {
-                                frame.Source = new Source()
-                                {
-                                    Name = Path.GetFileName(sequencePoint.Document),
-                                    Path = sequencePoint.Document
-                                };
-                                frame.Line = sequencePoint.StartLine;
-                                frame.Column = sequencePoint.StartColumn;
-                                frame.EndLine = sequencePoint.EndLine;
-                                frame.EndColumn = sequencePoint.EndColumn;
-                            }
+                                Name = Path.GetFileName(sequencePoint.Document),
+                                Path = sequencePoint.Document
+                            };
+                            frame.Line = sequencePoint.StartLine;
+                            frame.Column = sequencePoint.StartColumn;
+                            frame.EndLine = sequencePoint.EndLine;
+                            frame.EndColumn = sequencePoint.EndColumn;
                         }
                     }
 

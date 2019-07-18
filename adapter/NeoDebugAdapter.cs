@@ -56,21 +56,19 @@ namespace Neo.DebugAdapter
 
             var args = arguments.ConfigurationProperties["args"]
                 .Select(j => j.Value<string>())
-                .Zip(contract.EntryPoint.Parameters,
+                .Zip(contract.AbiInfo.GetAbiEntryPoint().Parameters,
                     (a, p) => ContractArgument.FromArgument(p.Type, a));
 
             session = new NeoDebugSession(contract, args);
 
-            var entryMethod = contract.DebugInfo.Methods.Single(m => m.Name == contract.DebugInfo.Entrypoint);
-            var firstSequencePoint = entryMethod.SequencePoints.FirstOrDefault();
-
+            var firstSequencePoint = contract.DebugInfo.GetEntryMethod().SequencePoints.FirstOrDefault();
             if (firstSequencePoint != null)
             {
-                session.RunTo(contract.ScriptHash, firstSequencePoint.Address);
+                session.RunTo(contract.ScriptHash, firstSequencePoint);
             }
             else
             {
-                session.RunTo(contract.ScriptHash, 0);
+                // TODO: handle case where there is no debug info correctly
             }
 
             Protocol.SendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Entry) { ThreadId = 1 });
@@ -119,11 +117,31 @@ namespace Neo.DebugAdapter
             return new VariablesResponse();
         }
 
+        private void FireEvents(StoppedEvent.ReasonValue reasonValue)
+        {
+            if ((session.EngineState & VMState.FAULT) == 0)
+            {
+                // there's been a fault;
+            }
+            if ((session.EngineState & VMState.HALT) != 0)
+            {
+                foreach (var item in session.GetResults())
+                {
+                    Protocol.SendEvent(new OutputEvent(item.GetResult()));
+                }
+                Protocol.SendEvent(new TerminatedEvent());
+            }
+            else
+            {
+                Protocol.SendEvent(new StoppedEvent(reasonValue) { ThreadId = 1 });
+            }
+        }
+
         // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Continue
         protected override ContinueResponse HandleContinueRequest(ContinueArguments arguments)
         {
-            //session.Continue();
-            //FireEvents(StoppedEvent.ReasonValue.Breakpoint);
+            session.Continue();
+            FireEvents(StoppedEvent.ReasonValue.Step);
 
             return new ContinueResponse();
         }
@@ -131,8 +149,8 @@ namespace Neo.DebugAdapter
         // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_StepIn
         protected override StepInResponse HandleStepInRequest(StepInArguments arguments)
         {
-            //session.StepIn();
-            //FireEvents(StoppedEvent.ReasonValue.Step);
+            session.StepIn();
+            FireEvents(StoppedEvent.ReasonValue.Step);
 
             return new StepInResponse();
         }
@@ -140,8 +158,8 @@ namespace Neo.DebugAdapter
         // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_StepOut
         protected override StepOutResponse HandleStepOutRequest(StepOutArguments arguments)
         {
-            //session.StepOut();
-            //FireEvents(StoppedEvent.ReasonValue.Step);
+            session.StepOut();
+            FireEvents(StoppedEvent.ReasonValue.Step);
 
             return new StepOutResponse();
         }
@@ -150,8 +168,8 @@ namespace Neo.DebugAdapter
         // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Next
         protected override NextResponse HandleNextRequest(NextArguments arguments)
         {
-            //session.StepOver();
-            //FireEvents(StoppedEvent.ReasonValue.Step);
+            session.StepOver();
+            FireEvents(StoppedEvent.ReasonValue.Step);
 
             return new NextResponse();
         }

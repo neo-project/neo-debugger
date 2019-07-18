@@ -23,8 +23,6 @@ namespace Neo.DebugAdapter
             DebugInfo = debugInfo;
         }
 
-        public Function EntryPoint => AbiInfo.Functions.Single(f => f.Name == AbiInfo.Entrypoint);
-
         public static IEnumerable<ContractArgument> ParseArguments(Function function, JToken args)
         {
             return args

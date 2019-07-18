@@ -1,9 +1,5 @@
-﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
-using Neo.VM;
+﻿using Neo.VM;
 using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 
 namespace Neo.DebugAdapter
@@ -24,5 +20,28 @@ namespace Neo.DebugAdapter
                     throw new NotImplementedException();
             }
         }
+
+        public static Function GetAbiEntryPoint(this AbiInfo info) => info.Functions.Single(f => f.Name == info.Entrypoint);
+        public static Method GetEntryMethod(this DebugInfo info) => info.Methods.Single(m => m.Name == info.Entrypoint);
+
+        public static Method GetCurrentMethod(this Contract contract, Neo.VM.ExecutionContext context)
+        {
+            if (contract.ScriptHash.AsSpan().SequenceEqual(context.ScriptHash))
+            {
+                var ip = context.InstructionPointer;
+                return contract.DebugInfo.Methods.SingleOrDefault(m => m.StartAddress <= ip || m.EndAddress >= ip);
+            }
+
+            return null;
+        }
+
+        public static SequencePoint GetCurrentSequencePoint(this Method method, Neo.VM.ExecutionContext context)
+        {
+            return method.SequencePoints.SingleOrDefault(sp => sp.Address == context.InstructionPointer);
+        }
+
+
+
+        //public static Method GetCurrentMethod(this DebugInfo info, )
     }
 }
