@@ -4,7 +4,7 @@ namespace Neo.DebugAdapter
 {
     class SequencePoint
     {
-        public uint Address;
+        public int Address;
         public string Document;
         public (int line, int column) Start;
         public (int line, int column) End;
@@ -18,7 +18,7 @@ namespace Neo.DebugAdapter
 
             return new SequencePoint
             {
-                Address = json.Value<uint>("address"),
+                Address = (int)json.Value<uint>("address"),
                 Document = json.Value<string>("document"),
                 Start = ParsePosition("start"),
                 End = ParsePosition("end")

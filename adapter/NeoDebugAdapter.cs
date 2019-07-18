@@ -56,9 +56,18 @@ namespace Neo.DebugAdapter
             var args = contract.EntryPoint.ParseArguments(arguments.ConfigurationProperties["args"]);
 
             session = new NeoDebugSession(contract, args);
-            session.Execute();
+
+            if (contract.SequencePoints.Length > 0)
+            {
+                session.RunTo(contract.ScriptHash, contract.SequencePoints[0].Address);
+            }
+            else
+            {
+                session.RunTo(contract.ScriptHash, 0);
+            }
 
             Protocol.SendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Entry) { ThreadId = 1 });
+
             return new LaunchResponse();
         }
 
@@ -82,10 +91,10 @@ namespace Neo.DebugAdapter
 
         protected override StackTraceResponse HandleStackTraceRequest(StackTraceArguments arguments)
         {
-            var frames = session.GetStackFrames();
-            if (frames.Any())
+            var frames = session.GetStackFrames().ToList();
+            if (frames.Count > 0)
             {
-                return new StackTraceResponse(frames.ToList());
+                return new StackTraceResponse(frames);
             }
             else
             {
@@ -103,46 +112,63 @@ namespace Neo.DebugAdapter
             return new VariablesResponse();
         }
 
-        protected override NextResponse HandleNextRequest(NextArguments arguments)
+        private void FireEvents(StoppedEvent.ReasonValue reasonValue)
         {
-            return new NextResponse();
+            if ((session.EngineState & (VMState.HALT | ~VMState.FAULT)) != 0)
+            {
+                foreach (var item in session.GetResults())
+                {
+                    Protocol.SendEvent(new OutputEvent(item.GetResult()));
+                }
+                Protocol.SendEvent(new TerminatedEvent());
+            }
+            else if ((session.EngineState & (VMState.BREAK | ~VMState.HALT | ~VMState.FAULT)) != 0)
+            {
+                Protocol.SendEvent(new StoppedEvent(reasonValue) { ThreadId = 1 });
+            }
+            else
+            {
+                // ??
+            }
         }
 
+        // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Continue
         protected override ContinueResponse HandleContinueRequest(ContinueArguments arguments)
         {
+            //session.Continue();
+            //FireEvents(StoppedEvent.ReasonValue.Breakpoint);
+
             return new ContinueResponse();
         }
 
+        // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_StepIn
         protected override StepInResponse HandleStepInRequest(StepInArguments arguments)
         {
-            if (session.Engine.State == VMState.BREAK)
-            {
-                session.Debugger.Execute();
-
-                switch (session.Engine.State)
-                {
-                    case VMState.BREAK:
-                        Protocol.SendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Step) { ThreadId = 1 });
-                        break;
-                    case VMState.HALT:
-                        foreach (var item in session.Engine.ResultStack)
-                        {
-                            Protocol.SendEvent(new OutputEvent(item.GetResult()));
-                        }
-                        Protocol.SendEvent(new TerminatedEvent());
-                        break;
-                    default:
-                        throw new NotImplementedException();
-                }
-            }
+            //session.StepIn();
+            //FireEvents(StoppedEvent.ReasonValue.Step);
 
             return new StepInResponse();
         }
 
+        // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_StepOut
         protected override StepOutResponse HandleStepOutRequest(StepOutArguments arguments)
         {
+            //session.StepOut();
+            //FireEvents(StoppedEvent.ReasonValue.Step);
+
             return new StepOutResponse();
         }
+
+        // Next == StepOver in VSCode UI
+        // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Next
+        protected override NextResponse HandleNextRequest(NextArguments arguments)
+        {
+            //session.StepOver();
+            //FireEvents(StoppedEvent.ReasonValue.Step);
+
+            return new NextResponse();
+        }
+
 
         protected override SetBreakpointsResponse HandleSetBreakpointsRequest(SetBreakpointsArguments arguments)
         {
