@@ -6,21 +6,6 @@ namespace Neo.DebugAdapter
 {
     static class Extensions
     {
-        public static string GetResult(this StackItem item)
-        {
-            switch (item)
-            {
-                case Neo.VM.Types.Boolean _:
-                    return item.GetBoolean().ToString();
-                case Neo.VM.Types.Integer _:
-                    return item.GetBigInteger().ToString();
-                case Neo.VM.Types.ByteArray _:
-                    return BitConverter.ToString(item.GetByteArray());
-                default:
-                    throw new NotImplementedException();
-            }
-        }
-
         public static Function GetAbiEntryPoint(this AbiInfo info) => info.Functions.Single(f => f.Name == info.Entrypoint);
         public static Method GetEntryMethod(this DebugInfo info) => info.Methods.Single(m => m.Name == info.Entrypoint);
 
@@ -51,6 +36,19 @@ namespace Neo.DebugAdapter
                     return item.GetBigInteger().ToString();
                 default:
                     throw new NotImplementedException();
+            }
+        }
+
+        public static string GetStackItemValue(this StackItem item)
+        {
+            switch (item)
+            {
+                case Neo.VM.Types.Boolean _:
+                    return item.GetBoolean().ToString();
+                case Neo.VM.Types.Integer _:
+                    return item.GetBigInteger().ToString();
+                default:
+                    return item.GetType().FullName;
             }
         }
     }

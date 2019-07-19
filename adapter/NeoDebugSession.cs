@@ -146,12 +146,12 @@ namespace Neo.DebugAdapter
                 var context = engine.InvocationStack.Peek(frameId);
                 var method = Contract.GetMethod(context);
 
-                if (method != null)
+                if (method != null && engine.CurrentContext.AltStack.Peek(0) is Neo.VM.Types.Array alt)
                 {
                     yield return new Scope(method.DisplayName, context.GetHashCode(), false)
                     {
                         PresentationHint = Scope.PresentationHintValue.Arguments,
-                        NamedVariables = method.GetParamCount(),
+                        NamedVariables = alt.Count,
                     };
                 }
             }
@@ -168,8 +168,7 @@ namespace Neo.DebugAdapter
                     {
                         var method = Contract.GetMethod(context);
 
-                        var alt = engine.CurrentContext.AltStack.Peek(0) as Neo.VM.Types.Array;
-                        if (alt != null && alt.Count == method.GetParamCount())
+                        if (method != null && engine.CurrentContext.AltStack.Peek(0) is Neo.VM.Types.Array alt)
                         {
                             for (int j = 0; j < method.Parameters.Count; j++)
                             {
@@ -178,9 +177,10 @@ namespace Neo.DebugAdapter
                                 yield return new Variable(p.Name, value, 0);
                             }
 
-                            // TODO if retval is not void
-                            var retValue = alt.Last().GetStackItemValue(method.ReturnType);
-                            yield return new Variable("<return value>", retValue, 0);
+                            for (int j = method.Parameters.Count; j < alt.Count; j++)
+                            {
+                                yield return new Variable($"<variable {j}>", alt[j].GetStackItemValue(), 0);
+                            }
                         }
                     }
                 }

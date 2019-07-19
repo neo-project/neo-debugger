@@ -120,9 +120,11 @@ namespace Neo.DebugAdapter
             }
             if ((session.EngineState & VMState.HALT) != 0)
             {
+                var entryPoint = session.Contract.DebugInfo.GetEntryMethod();
+
                 foreach (var item in session.GetResults())
                 {
-                    Protocol.SendEvent(new OutputEvent(item.GetResult()));
+                    Protocol.SendEvent(new OutputEvent(item.GetStackItemValue(entryPoint.ReturnType)));
                 }
                 Protocol.SendEvent(new TerminatedEvent());
             }
