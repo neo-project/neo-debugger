@@ -33,9 +33,9 @@ namespace Neo.DebugAdapter
         public ScriptBuilder BuildInvokeScript(ContractArgument[] arguments)
         {
             var builder = new ScriptBuilder();
-            for (var x = 0; x < arguments.Length; x++)
+            foreach (var arg in arguments.Reverse())
             {
-                arguments[x].EmitPush(builder);
+                arg.EmitPush(builder);
             }
             builder.EmitAppCall(ScriptHash);
             return builder;

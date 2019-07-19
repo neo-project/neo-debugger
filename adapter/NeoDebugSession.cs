@@ -1,4 +1,5 @@
 ﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
+using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.VM;
 using System;
@@ -147,11 +148,41 @@ namespace Neo.DebugAdapter
 
                 if (method != null)
                 {
-                    yield return new Scope(method.DisplayName, 17, false)
+                    yield return new Scope(method.DisplayName, context.GetHashCode(), false)
                     {
                         PresentationHint = Scope.PresentationHintValue.Arguments,
-                        NamedVariables = method.Parameters.Count,
+                        NamedVariables = method.GetParamCount(),
                     };
+                }
+            }
+        }
+
+        public IEnumerable<Variable> GetVariables(int variableReference)
+        {
+            if ((engine.State & HAULT_OR_FAULT) == 0)
+            {
+                for (int i = 0; i < engine.InvocationStack.Count; i++)
+                {
+                    var context = engine.InvocationStack.Peek(i);
+                    if (context.GetHashCode() == variableReference)
+                    {
+                        var method = Contract.GetMethod(context);
+
+                        var alt = engine.CurrentContext.AltStack.Peek(0) as Neo.VM.Types.Array;
+                        if (alt != null && alt.Count == method.GetParamCount())
+                        {
+                            for (int j = 0; j < method.Parameters.Count; j++)
+                            {
+                                var p = method.Parameters[j];
+                                var value = alt[j].GetStackItemValue(p.Type);
+                                yield return new Variable(p.Name, value, 0);
+                            }
+
+                            // TODO if retval is not void
+                            var retValue = alt.Last().GetStackItemValue(method.ReturnType);
+                            yield return new Variable("<return value>", retValue, 0);
+                        }
+                    }
                 }
             }
         }

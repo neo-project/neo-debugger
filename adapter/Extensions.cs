@@ -40,8 +40,18 @@ namespace Neo.DebugAdapter
             return method.SequencePoints.SingleOrDefault(sp => sp.Address == context.InstructionPointer);
         }
 
+        public static int GetParamCount(this Method method) => method.Parameters.Count + 1; // TODO: only add one if return value is not void
 
-
-        //public static Method GetCurrentMethod(this DebugInfo info, )
+        public static string GetStackItemValue(this StackItem item, string type)
+        {
+            // TODO: don't use .NET typesnames
+            switch (type)
+            {
+                case "System.Numerics.BigInteger":
+                    return item.GetBigInteger().ToString();
+                default:
+                    throw new NotImplementedException();
+            }
+        }
     }
 }

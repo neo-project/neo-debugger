@@ -108,7 +108,8 @@ namespace Neo.DebugAdapter
 
         protected override VariablesResponse HandleVariablesRequest(VariablesArguments arguments)
         {
-            return new VariablesResponse();
+            var variables = session.GetVariables(arguments.VariablesReference).ToList();
+            return new VariablesResponse(variables);
         }
 
         private void FireEvents(StoppedEvent.ReasonValue reasonValue)
