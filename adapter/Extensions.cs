@@ -10,13 +10,20 @@ namespace Neo.DebugAdapter
 
         public static Method GetMethod(this Contract contract, ExecutionContext context)
         {
+            Method foo = null;
+
             if (contract.ScriptHash.AsSpan().SequenceEqual(context.ScriptHash))
             {
                 var ip = context.InstructionPointer;
-                return contract.DebugInfo.Methods.SingleOrDefault(m => m.StartAddress <= ip || m.EndAddress >= ip);
+                foreach (var method in contract.DebugInfo.Methods)
+                {
+                    if (method.StartAddress <= ip && ip <= method.EndAddress)
+                        foo = method;
+                }
+                //return contract.DebugInfo.Methods.SingleOrDefault(m => m.StartAddress <= ip || m.EndAddress >= ip);
             }
 
-            return null;
+            return foo;
         }
 
         public static SequencePoint GetCurrentSequencePoint(this Method method, Neo.VM.ExecutionContext context)
@@ -33,8 +40,19 @@ namespace Neo.DebugAdapter
             {
                 case "System.Numerics.BigInteger":
                     return item.GetBigInteger().ToString();
+                case "System.String":
+                    return item.GetString();
+                case "System.Object":
+                    return GetStackItemValue(item);
+                case "System.Object[]":
+                    {
+                        if (!(item is Neo.VM.Types.Array))
+                            throw new ArgumentException();
+
+                        return GetStackItemValue(item);
+                    }
                 default:
-                    throw new NotImplementedException();
+                    throw new NotImplementedException($"GetStackItemValue {type}");
             }
         }
 
@@ -46,8 +64,31 @@ namespace Neo.DebugAdapter
                     return item.GetBoolean().ToString();
                 case Neo.VM.Types.Integer _:
                     return item.GetBigInteger().ToString();
+                case Neo.VM.Types.ByteArray _:
+                    return "<TBD byte array>";
+                case Neo.VM.Types.Array array:
+                    {
+                        var builder = new System.Text.StringBuilder();
+                        var first = true;
+                        builder.Append("[");
+                        for (int i = 0; i < array.Count; i++)
+                        {
+                            if (first)
+                            {
+                                first = false;
+                            }
+                            else
+                            {
+                                builder.Append(", ");
+                            }
+
+                            builder.Append(GetStackItemValue(array[i]));
+                        }
+                        builder.Append("]");
+                        return builder.ToString();
+                    }
                 default:
-                    return item.GetType().FullName;
+                    throw new NotImplementedException($"GetStackItemValue {item.GetType().FullName}");
             }
         }
     }

@@ -56,8 +56,27 @@ namespace Neo.DebugAdapter
             {
                 case "System.Numerics.BigInteger":
                     return ContractParameterType.Integer;
+                case "System.String":
+                    return ContractParameterType.String;
+                case "System.Object[]":
+                    return ContractParameterType.Array;
                 default:
                     throw new NotImplementedException();
+            }
+        }
+
+        static object ConvertArg(JToken arg)
+        {
+            switch (arg.Type)
+            {
+                case JTokenType.Integer:
+                    return new ContractArgument
+                    {
+                        Type = ContractParameterType.Integer,
+                        Value = new BigInteger(arg.Value<int>()),
+                    };
+                default:
+                    throw new NotImplementedException($"ConvertArg {arg.Type}");
             }
         }
 
@@ -75,8 +94,10 @@ namespace Neo.DebugAdapter
                         : BigInteger.Parse(arg.ToString());
                 case ContractParameterType.String:
                     return arg.ToString();
+                case ContractParameterType.Array:
+                    return arg.Select(ConvertArg).ToArray();
                 default:
-                    throw new NotImplementedException();
+                    throw new NotImplementedException($"ConvertArg {paramType}");
             }
         }
 

@@ -177,7 +177,8 @@ namespace Neo.DebugAdapter
 
                             for (int j = method.Parameters.Count; j < alt.Count; j++)
                             {
-                                yield return new Variable($"<variable {j}>", alt[j].GetStackItemValue(), 0);
+                                var value = alt[j].GetStackItemValue();
+                                yield return new Variable($"<variable {j}>", value, 0);
                             }
                         }
                     }
@@ -196,7 +197,7 @@ namespace Neo.DebugAdapter
                     var frame = new StackFrame()
                     {
                         Id = i,
-                        Name = $"frame {i}",
+                        Name = $"unnamed frame",
                         ModuleId = ctx.ScriptHash,
                     };
 

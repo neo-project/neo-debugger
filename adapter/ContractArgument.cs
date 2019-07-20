@@ -1,6 +1,7 @@
 ﻿using Neo.VM;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Linq;
 using System.Numerics;
 
 namespace Neo.DebugAdapter
@@ -23,8 +24,20 @@ namespace Neo.DebugAdapter
                 case ContractParameterType.String:
                     builder.EmitPush((string)Value);
                     break;
+                case ContractParameterType.Array:
+                    {
+                        var array = (object[])Value;
+                        foreach (var arg in array.Cast<ContractArgument>().Reverse())
+                        {
+                            arg.EmitPush(builder);
+                        }
+                        builder.EmitPush(array.Length);
+                        builder.Emit(OpCode.PACK);
+
+                    }
+                    break;
                 default:
-                    throw new NotImplementedException();
+                    throw new NotImplementedException($"EmitPush {Type}");
             }
         }
     }
