@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 
 namespace Neo.DebugAdapter
 {
@@ -49,6 +50,46 @@ namespace Neo.DebugAdapter
 
         NeoDebugSession session;
 
+        static ContractParameterType ConvertTypeName(string typeName)
+        {
+            switch (typeName)
+            {
+                case "System.Numerics.BigInteger":
+                    return ContractParameterType.Integer;
+                default:
+                    throw new NotImplementedException();
+            }
+        }
+
+        static object ConvertArg(JToken arg, ContractParameterType paramType)
+        {
+            switch (paramType)
+            {
+                case ContractParameterType.Boolean:
+                    return arg.Type == JTokenType.Boolean
+                        ? arg.Value<bool>()
+                        : bool.Parse(arg.ToString());
+                case ContractParameterType.Integer:
+                    return arg.Type == JTokenType.Integer
+                        ? new BigInteger(arg.Value<int>())
+                        : BigInteger.Parse(arg.ToString());
+                case ContractParameterType.String:
+                    return arg.ToString();
+                default:
+                    throw new NotImplementedException();
+            }
+        }
+
+        static ContractArgument ConvertArg(JToken arg, Parameter param)
+        {
+            var type = ConvertTypeName(param.Type);
+            return new ContractArgument()
+            {
+                Type = type,
+                Value = ConvertArg(arg, type)
+            };
+        }
+
         protected override LaunchResponse HandleLaunchRequest(LaunchArguments arguments)
         {
             var programFileName = (string)arguments.ConfigurationProperties["program"];
@@ -57,8 +98,7 @@ namespace Neo.DebugAdapter
             var entrypoint = contract.GetEntryPoint();
 
             var args = arguments.ConfigurationProperties["args"]
-                .Zip(entrypoint.Parameters,
-                    (j, p) => ContractArgument.FromArgument(p.Type, j));
+                .Zip(entrypoint.Parameters, ConvertArg);
 
             session = new NeoDebugSession(contract, args);
 

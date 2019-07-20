@@ -21,13 +21,6 @@ namespace Neo.DebugAdapter
             DebugInfo = debugInfo;
         }
 
-        public static IEnumerable<ContractArgument> ParseArguments(Method function, JToken args)
-        {
-            return args
-                .Select(j => j.Value<string>())
-                .Zip(function.Parameters, (a, p) => ContractArgument.FromArgument(p.Type, a));
-        }
-
         public ScriptBuilder BuildInvokeScript(ContractArgument[] arguments)
         {
             var builder = new ScriptBuilder();
