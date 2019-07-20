@@ -54,14 +54,16 @@ namespace Neo.DebugAdapter
             var programFileName = (string)arguments.ConfigurationProperties["program"];
             var contract = Contract.Load(programFileName);
 
+            var entrypoint = contract.GetEntryPoint();
+
             var args = arguments.ConfigurationProperties["args"]
                 .Select(j => j.Value<string>())
-                .Zip(contract.AbiInfo.GetAbiEntryPoint().Parameters,
+                .Zip(entrypoint.Parameters,
                     (a, p) => ContractArgument.FromArgument(p.Type, a));
 
             session = new NeoDebugSession(contract, args);
 
-            var firstSequencePoint = contract.DebugInfo.GetEntryMethod().SequencePoints.FirstOrDefault();
+            var firstSequencePoint = entrypoint.SequencePoints.FirstOrDefault();
             if (firstSequencePoint != null)
             {
                 session.RunTo(contract.ScriptHash, firstSequencePoint);
@@ -120,7 +122,7 @@ namespace Neo.DebugAdapter
             }
             if ((session.EngineState & VMState.HALT) != 0)
             {
-                var entryPoint = session.Contract.DebugInfo.GetEntryMethod();
+                var entryPoint = session.Contract.GetEntryPoint();
 
                 foreach (var item in session.GetResults())
                 {

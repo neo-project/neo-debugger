@@ -10,20 +10,18 @@ namespace Neo.DebugAdapter
     class Contract
     {
         public byte[] Script { get; }
-        public AbiInfo AbiInfo { get; }
         public DebugInfo DebugInfo { get; }
 
         public byte[] ScriptHash { get; }
 
-        public Contract(byte[] script, AbiInfo abiInfo, DebugInfo debugInfo)
+        public Contract(byte[] script, DebugInfo debugInfo)
         {
             Script = script;
             ScriptHash = Crypto.Hash160(script);
-            AbiInfo = abiInfo;
             DebugInfo = debugInfo;
         }
 
-        public static IEnumerable<ContractArgument> ParseArguments(Function function, JToken args)
+        public static IEnumerable<ContractArgument> ParseArguments(Method function, JToken args)
         {
             return args
                 .Select(j => j.Value<string>())
@@ -55,10 +53,9 @@ namespace Neo.DebugAdapter
                 throw new ArgumentException($"{nameof(vmFileName)} ABI info file doesn't exist");
 
             var script = File.ReadAllBytes(vmFileName);
-            var abiInfo = AbiInfo.FromJson(File.ReadAllText(abiJsonFileName));
             var debugInfo = DebugInfo.FromJson(File.ReadAllText(debugJsonFileName));
 
-            return new Contract(script, abiInfo, debugInfo);
+            return new Contract(script, debugInfo);
         }
     }
 }

@@ -27,9 +27,20 @@ namespace Neo.DebugAdapter
             }
         }
 
+        private static ContractParameterType ParseContractParameterType(string type)
+        {
+            switch (type)
+            {
+                case "System.Numerics.BigInteger":
+                    return ContractParameterType.Integer;
+                default:
+                    throw new NotImplementedException();
+            }
+        }
+
         public static ContractArgument FromArgument(string type, string value)
         {
-            return FromArgument(Enum.Parse<ContractParameterType>(type), value);
+            return FromArgument(ParseContractParameterType(type), value);
         }
 
         public static ContractArgument FromArgument(ContractParameterType type, string value)

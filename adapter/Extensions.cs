@@ -6,8 +6,7 @@ namespace Neo.DebugAdapter
 {
     static class Extensions
     {
-        public static Function GetAbiEntryPoint(this AbiInfo info) => info.Functions.Single(f => f.Name == info.Entrypoint);
-        public static Method GetEntryMethod(this DebugInfo info) => info.Methods.Single(m => m.Name == info.Entrypoint);
+        public static Method GetEntryPoint(this Contract contract) => contract.DebugInfo.Methods.Single(m => m.Name == contract.DebugInfo.Entrypoint);
 
         public static Method GetMethod(this Contract contract, ExecutionContext context)
         {
