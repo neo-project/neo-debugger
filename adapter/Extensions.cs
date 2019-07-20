@@ -22,8 +22,15 @@ namespace Neo.DebugAdapter
 
         public static SequencePoint GetCurrentSequencePoint(this Method method, Neo.VM.ExecutionContext context)
         {
-            return method.SequencePoints.SingleOrDefault(sp => sp.Address == context.InstructionPointer);
+            return method?.SequencePoints.SingleOrDefault(sp => sp.Address == context.InstructionPointer);
         }
+
+        public static SequencePoint GetNextSequencePoint(this Method method, Neo.VM.ExecutionContext context)
+        {
+            return method?.SequencePoints.SingleOrDefault(sp => sp.Address > context.InstructionPointer);
+        }
+
+
 
         public static int GetParamCount(this Method method) => method.Parameters.Count + 1; // TODO: only add one if return value is not void
 

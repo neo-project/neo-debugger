@@ -122,16 +122,7 @@ namespace Neo.DebugAdapter
                 .Zip(entrypoint.Parameters, ConvertArg);
 
             session = new NeoDebugSession(contract, args);
-
-            var firstSequencePoint = entrypoint.SequencePoints.FirstOrDefault();
-            if (firstSequencePoint != null)
-            {
-                session.RunTo(contract.ScriptHash, firstSequencePoint);
-            }
-            else
-            {
-                // TODO: handle case where there is no debug info correctly
-            }
+            session.StepIn();
 
             Protocol.SendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Entry) { ThreadId = 1 });
 
@@ -232,7 +223,6 @@ namespace Neo.DebugAdapter
 
             return new NextResponse();
         }
-
 
         protected override SetBreakpointsResponse HandleSetBreakpointsRequest(SetBreakpointsArguments arguments)
         {

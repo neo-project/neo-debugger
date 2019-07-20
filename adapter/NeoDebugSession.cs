@@ -72,56 +72,58 @@ namespace Neo.DebugAdapter
 
         const VMState HAULT_OR_FAULT = VMState.HALT | VMState.FAULT;
 
-        public void RunTo(byte[] scriptHash, SequencePoint point)
+        void Run(SequencePoint sequencePoint, bool stepIn = false)
         {
-            var scriptHashSpan = scriptHash.AsSpan();
-         
+            var contractScriptHashSpan = Contract.ScriptHash.AsSpan();
+            var currentStackDepth = engine.InvocationStack.Count;
+
             while ((engine.State & HAULT_OR_FAULT) == 0)
             {
-                if (scriptHashSpan.SequenceEqual(engine.CurrentContext.ScriptHash))
+                if (sequencePoint != null &&
+                    contractScriptHashSpan.SequenceEqual(engine.CurrentContext.ScriptHash) &&
+                    engine.CurrentContext.InstructionPointer == sequencePoint.Address)
                 {
-                    if (engine.CurrentContext.InstructionPointer == point.Address)
+                    break;
+                }
+
+                if (stepIn && engine.InvocationStack.Count > currentStackDepth)
+                {
+                    var method = Contract.GetMethod(engine.CurrentContext);
+                    var ip = engine.CurrentContext.InstructionPointer;
+                    var sp = method?.SequencePoints.FirstOrDefault(p => p.Address > ip);
+                    if (sp != null)
+                    {
+                        Run(sp, true);
                         break;
+                    }
                 }
 
                 engine.ExecuteNext();
             }
+
         }
 
         public void Continue()
         {
-            while ((engine.State & HAULT_OR_FAULT) == 0)
-            {
-                engine.ExecuteNext();
-            }
+            Run(null);
         }
 
         public void StepOver()
         {
-            // run to the next sequence point in the current method
-
             var method = Contract.GetMethod(engine.CurrentContext);
             var ip = engine.CurrentContext.InstructionPointer;
-            var sp = method.SequencePoints.FirstOrDefault(p => p.Address > ip);
+            var sp = method?.SequencePoints.FirstOrDefault(p => p.Address > ip);
 
-            if (sp != null)
-            {
-                RunTo(Contract.ScriptHash, sp);
-            }
-            else
-            {
-                Continue();
-            }
+            Run(sp);
         }
 
         public void StepIn()
         {
+            var method = Contract.GetMethod(engine.CurrentContext);
+            var ip = engine.CurrentContext.InstructionPointer;
+            var sp = method?.SequencePoints.FirstOrDefault(p => p.Address > ip);
 
-            //if ((engine.State & HAULT_FAULT) == 0)
-            //{
-            //    ExecuteOne();
-            //    engine.State |= VMState.BREAK;
-            //}
+            Run(sp, true);
         }
 
         public void StepOut()
