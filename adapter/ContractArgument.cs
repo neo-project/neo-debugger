@@ -1,4 +1,5 @@
 ﻿using Neo.VM;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Numerics;
 
@@ -38,12 +39,12 @@ namespace Neo.DebugAdapter
             }
         }
 
-        public static ContractArgument FromArgument(string type, string value)
+        public static ContractArgument FromArgument(string type, JToken value)
         {
             return FromArgument(ParseContractParameterType(type), value);
         }
 
-        public static ContractArgument FromArgument(ContractParameterType type, string value)
+        public static ContractArgument FromArgument(ContractParameterType type, JToken value)
         {
             return new ContractArgument()
             {
@@ -52,18 +53,22 @@ namespace Neo.DebugAdapter
             };
         }
 
-        public static object Parse(ContractParameterType type, string value)
+        public static object Parse(ContractParameterType type, JToken value)
         {
             switch (type)
             {
                 case ContractParameterType.Boolean:
-                    return bool.Parse(value);
+                    if (value.Type == JTokenType.Boolean)
+                        return value.Value<bool>();
+                    return bool.Parse(value.ToString());
                 case ContractParameterType.Integer:
-                    return BigInteger.Parse(value);
+                    if (value.Type == JTokenType.Integer)
+                        return new BigInteger(value.Value<int>());
+                    return BigInteger.Parse(value.ToString());
                 case ContractParameterType.String:
-                    return value;
+                    return value.ToString();
                 default:
-                    throw new System.NotImplementedException();
+                    throw new NotImplementedException();
             }
         }
     }

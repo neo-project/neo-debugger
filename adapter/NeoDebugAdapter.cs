@@ -57,9 +57,8 @@ namespace Neo.DebugAdapter
             var entrypoint = contract.GetEntryPoint();
 
             var args = arguments.ConfigurationProperties["args"]
-                .Select(j => j.Value<string>())
                 .Zip(entrypoint.Parameters,
-                    (a, p) => ContractArgument.FromArgument(p.Type, a));
+                    (j, p) => ContractArgument.FromArgument(p.Type, j));
 
             session = new NeoDebugSession(contract, args);
 
