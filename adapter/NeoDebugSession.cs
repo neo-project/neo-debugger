@@ -89,8 +89,7 @@ namespace Neo.DebugAdapter
                 if (stepIn && engine.InvocationStack.Count > currentStackDepth)
                 {
                     var method = Contract.GetMethod(engine.CurrentContext);
-                    var ip = engine.CurrentContext.InstructionPointer;
-                    var sp = method?.SequencePoints.FirstOrDefault(p => p.Address > ip);
+                    var sp = method.GetNextSequencePoint(engine.CurrentContext);
                     if (sp != null)
                     {
                         Run(sp, true);
@@ -111,8 +110,7 @@ namespace Neo.DebugAdapter
         public void StepOver()
         {
             var method = Contract.GetMethod(engine.CurrentContext);
-            var ip = engine.CurrentContext.InstructionPointer;
-            var sp = method?.SequencePoints.FirstOrDefault(p => p.Address > ip);
+            var sp = method.GetNextSequencePoint(engine.CurrentContext);
 
             Run(sp);
         }
@@ -120,8 +118,7 @@ namespace Neo.DebugAdapter
         public void StepIn()
         {
             var method = Contract.GetMethod(engine.CurrentContext);
-            var ip = engine.CurrentContext.InstructionPointer;
-            var sp = method?.SequencePoints.FirstOrDefault(p => p.Address > ip);
+            var sp = method.GetNextSequencePoint(engine.CurrentContext);
 
             Run(sp, true);
         }
