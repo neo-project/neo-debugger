@@ -10,20 +10,14 @@ namespace Neo.DebugAdapter
 
         public static Method GetMethod(this Contract contract, ExecutionContext context)
         {
-            Method foo = null;
-
             if (contract.ScriptHash.AsSpan().SequenceEqual(context.ScriptHash))
             {
                 var ip = context.InstructionPointer;
-                foreach (var method in contract.DebugInfo.Methods)
-                {
-                    if (method.StartAddress <= ip && ip <= method.EndAddress)
-                        foo = method;
-                }
-                //return contract.DebugInfo.Methods.SingleOrDefault(m => m.StartAddress <= ip || m.EndAddress >= ip);
+                return contract.DebugInfo.Methods
+                    .SingleOrDefault(m => m.StartAddress <= ip && ip <= m.EndAddress);
             }
 
-            return foo;
+            return null;
         }
 
         public static SequencePoint GetCurrentSequencePoint(this Method method, Neo.VM.ExecutionContext context)
