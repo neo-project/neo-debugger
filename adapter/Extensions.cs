@@ -32,8 +32,6 @@ namespace Neo.DebugAdapter
                 .FirstOrDefault(sp => sp.Address > context.InstructionPointer);
         }
 
-        public static int GetParamCount(this Method method) => method.Parameters.Count + 1; // TODO: only add one if return value is not void
-
         public static string GetStackItemValue(this StackItem item, string type)
         {
             // TODO: don't use .NET typesnames
@@ -65,7 +63,27 @@ namespace Neo.DebugAdapter
                     return item.GetBoolean().ToString();
                 case Neo.VM.Types.Integer _:
                     return item.GetBigInteger().ToString();
-                case Neo.VM.Types.ByteArray _:
+                case Neo.VM.Types.ByteArray _array:
+                    {
+                        var array = _array.GetByteArray();
+                        var builder = new System.Text.StringBuilder();
+                        builder.Append("{");
+                        var first = true;
+                        for (int i = 0; i < array.Length; i++)
+                        {
+                            if (first)
+                            {
+                                first = false;
+                            }
+                            else
+                            {
+                                builder.Append(", ");
+                            }
+                            builder.Append(array[i].ToString("X"));
+                        }
+                        builder.Append("}");
+                        return builder.ToString();
+                    }
                     return "<TBD byte array>";
                 case Neo.VM.Types.Array array:
                     {
