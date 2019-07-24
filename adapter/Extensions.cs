@@ -34,16 +34,15 @@ namespace Neo.DebugAdapter
 
         public static string GetStackItemValue(this StackItem item, string type)
         {
-            // TODO: don't use .NET typesnames
             switch (type)
             {
-                case "System.Numerics.BigInteger":
+                case "Integer":
                     return item.GetBigInteger().ToString();
-                case "System.String":
+                case "String":
                     return item.GetString();
-                case "System.Object":
+                case "ByteArray":
                     return GetStackItemValue(item);
-                case "System.Object[]":
+                case "Array":
                     {
                         if (!(item is Neo.VM.Types.Array))
                             throw new ArgumentException();
@@ -84,7 +83,6 @@ namespace Neo.DebugAdapter
                         builder.Append("}");
                         return builder.ToString();
                     }
-                    return "<TBD byte array>";
                 case Neo.VM.Types.Array array:
                     {
                         var builder = new System.Text.StringBuilder();

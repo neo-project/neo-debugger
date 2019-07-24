@@ -54,11 +54,11 @@ namespace Neo.DebugAdapter
         {
             switch (typeName)
             {
-                case "System.Numerics.BigInteger":
+                case "Integer":
                     return ContractParameterType.Integer;
-                case "System.String":
+                case "String":
                     return ContractParameterType.String;
-                case "System.Object[]":
+                case "Array":
                     return ContractParameterType.Array;
                 default:
                     throw new NotImplementedException();
