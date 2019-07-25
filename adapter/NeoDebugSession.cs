@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace Neo.DebugAdapter
 {
@@ -28,10 +29,11 @@ namespace Neo.DebugAdapter
             }
         }
 
-        public Contract Contract;
-        public ContractArgument[] Arguments;
-        public ScriptTable ScriptTable = new ScriptTable();
-        readonly DebugExecutionEngine engine;
+        public readonly Contract Contract;
+        public readonly ContractArgument[] Arguments;
+        private readonly ScriptTable ScriptTable = new ScriptTable();
+        private readonly EmulatedInteropService InteropService = new EmulatedInteropService();
+        private readonly DebugExecutionEngine engine;
 
         public VMState EngineState => engine.State;
 
@@ -43,7 +45,7 @@ namespace Neo.DebugAdapter
             Arguments = arguments.ToArray();
             ScriptTable.Add(Contract);
             var builder = contract.BuildInvokeScript(Arguments);
-            engine = new DebugExecutionEngine(null, new Crypto(), ScriptTable);
+            engine = new DebugExecutionEngine(null, new Crypto(), ScriptTable, InteropService);
             engine.LoadScript(builder.ToArray());
         }
 
@@ -171,13 +173,18 @@ namespace Neo.DebugAdapter
                             {
                                 var p = method.Parameters[j];
                                 var value = alt[j].GetStackItemValue(p.Type);
-                                yield return new Variable(p.Name, value, 0);
+                                yield return new Variable(p.Name, value, 0)
+                                {
+                                    Type = p.Type
+                                };
                             }
 
                             for (int j = method.Parameters.Count; j < alt.Count; j++)
                             {
                                 var value = alt[j].GetStackItemValue();
-                                yield return new Variable($"<variable {j}>", value, 0);
+                                yield return new Variable($"<variable {j}>", value, 0)
+                                {
+                                };
                             }
                         }
                     }

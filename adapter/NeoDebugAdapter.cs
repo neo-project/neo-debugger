@@ -75,6 +75,12 @@ namespace Neo.DebugAdapter
                         Type = ContractParameterType.Integer,
                         Value = new BigInteger(arg.Value<int>()),
                     };
+                case JTokenType.String:
+                    return new ContractArgument
+                    {
+                        Type = ContractParameterType.String,
+                        Value = arg.Value<string>(),
+                    };
                 default:
                     throw new NotImplementedException($"ConvertArg {arg.Type}");
             }

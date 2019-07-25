@@ -6,19 +6,19 @@ namespace Neo.DebugAdapter
 {
     class Crypto : ICrypto
     {
-        static readonly Lazy<SHA256> sha256 = new Lazy<SHA256>(() => SHA256.Create());
-        static readonly Lazy<SHA1> sha1 = new Lazy<SHA1>(() => SHA1.Create());
+        public static readonly Lazy<SHA256> SHA256 = new Lazy<SHA256>(() => System.Security.Cryptography.SHA256.Create());
+        static readonly Lazy<SHA1> SHA1 = new Lazy<SHA1>(() => System.Security.Cryptography.SHA1.Create());
 
         public static byte[] Hash256(byte[] message)
         {
-            var hash1 = sha256.Value.ComputeHash(message);
-            return sha256.Value.ComputeHash(hash1);
+            var hash1 = SHA256.Value.ComputeHash(message);
+            return SHA256.Value.ComputeHash(hash1);
         }
 
         public static byte[] Hash160(byte[] message)
         {
-            var hash1 = sha256.Value.ComputeHash(message);
-            return sha1.Value.ComputeHash(hash1);
+            var hash1 = SHA256.Value.ComputeHash(message);
+            return SHA1.Value.ComputeHash(hash1);
         }
 
         // Note, byte arrays have reference semantics for GetHashCode

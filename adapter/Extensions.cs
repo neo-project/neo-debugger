@@ -104,6 +104,9 @@ namespace Neo.DebugAdapter
                         builder.Append("]");
                         return builder.ToString();
                     }
+                case VM.Types.InteropInterface _:
+                    // TODO: enhance VM so debugger can get more info about InteropInterface instances
+                    return "<InteropInterface>";
                 default:
                     throw new NotImplementedException($"GetStackItemValue {item.GetType().FullName}");
             }
