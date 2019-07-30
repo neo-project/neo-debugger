@@ -17,7 +17,7 @@
 		"debuggers": [
 			{
 				"type": "neo-contract",
-				"label": "NEO Contract Debug",
+				"label": "NEO Contract",
 				"program": "dotnet C:\\Users\\harry\\Source\\neo\\seattle\\debug\\adapter\\bin\\Debug\\netcoreapp2.2\\neo-debug-adapter.dll",
 				"configurationAttributes": {
 					"launch": {
@@ -48,7 +48,7 @@
 				],
 				"configurationSnippets": [
 					{
-						"label": "Neo Contract Debug: Launch",
+						"label": "NEO Contract: Launch",
 						"description": "A new configuration for debugging a NEO Smart Contract",
 						"body": {
 							"name": "NEO Contract",
