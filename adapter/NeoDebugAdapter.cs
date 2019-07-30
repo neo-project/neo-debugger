@@ -141,27 +141,25 @@ namespace Neo.DebugAdapter
 
         protected override ThreadsResponse HandleThreadsRequest(ThreadsArguments arguments)
         {
-            return new ThreadsResponse()
-            {
-                Threads = new List<Thread>() { new Thread(1, "thread 1") },
-            };
+            var threads = session.GetThreads().ToList();
+            return new ThreadsResponse(threads);
         }
 
         protected override StackTraceResponse HandleStackTraceRequest(StackTraceArguments arguments)
         {
-            var frames = session.GetStackFrames().ToList();
+            var frames = session.GetStackFrames(arguments).ToList();
             return new StackTraceResponse(frames);
         }
 
         protected override ScopesResponse HandleScopesRequest(ScopesArguments arguments)
         {
-            var scopes = session.GetScopes(arguments.FrameId).ToList();
+            var scopes = session.GetScopes(arguments).ToList();
             return new ScopesResponse(scopes);
         }
 
         protected override VariablesResponse HandleVariablesRequest(VariablesArguments arguments)
         {
-            var variables = session.GetVariables(arguments.VariablesReference).ToList();
+            var variables = session.GetVariables(arguments).ToList();
             return new VariablesResponse(variables);
         }
 

@@ -70,14 +70,14 @@ namespace Neo.DebugAdapter
         //    return false;
         //}
 
-        const VMState HAULT_OR_FAULT = VMState.HALT | VMState.FAULT;
+        const VMState HALT_OR_FAULT = VMState.HALT | VMState.FAULT;
 
         void Run(SequencePoint sequencePoint, bool stepIn = false)
         {
             var contractScriptHashSpan = Contract.ScriptHash.AsSpan();
             var currentStackDepth = engine.InvocationStack.Count;
 
-            while ((engine.State & HAULT_OR_FAULT) == 0)
+            while ((engine.State & HALT_OR_FAULT) == 0)
             {
                 if (sequencePoint != null &&
                     contractScriptHashSpan.SequenceEqual(engine.CurrentContext.ScriptHash) &&
@@ -136,60 +136,24 @@ namespace Neo.DebugAdapter
             //engine.State |= VMState.BREAK;
         }
 
-        public IEnumerable<Scope> GetScopes(int frameId)
-        {
-            if ((engine.State & HAULT_OR_FAULT) == 0)
-            {
-                var context = engine.InvocationStack.Peek(frameId);
-                var method = Contract.GetMethod(context);
 
-                if (method != null && engine.CurrentContext.AltStack.Peek(0) is Neo.VM.Types.Array alt)
-                {
-                    yield return new Scope(method.DisplayName, context.GetHashCode(), false)
-                    {
-                        PresentationHint = Scope.PresentationHintValue.Arguments,
-                        NamedVariables = alt.Count,
-                    };
-                }
-            }
+        public IEnumerable<Thread> GetThreads()
+        {
+            yield return new Thread(1, "main thread");
         }
 
-        public IEnumerable<Variable> GetVariables(int variableReference)
+        public IEnumerable<StackFrame> GetStackFrames(StackTraceArguments args)
         {
-            if ((engine.State & HAULT_OR_FAULT) == 0)
+            System.Diagnostics.Debug.Assert(args.ThreadId == 1);
+
+            if ((engine.State & HALT_OR_FAULT) == 0)
             {
-                for (int i = 0; i < engine.InvocationStack.Count; i++)
-                {
-                    var context = engine.InvocationStack.Peek(i);
-                    if (context.GetHashCode() == variableReference)
-                    {
-                        var method = Contract.GetMethod(context);
-
-                        if (method != null && engine.CurrentContext.AltStack.Peek(0) is Neo.VM.Types.Array alt)
-                        {
-                            for (int j = 0; j < method.Parameters.Count; j++)
-                            {
-                                var p = method.Parameters[j];
-                                var value = alt[j].GetStackItemValue(p.Type);
-                                yield return new Variable(p.Name, value, 0);
-                            }
-
-                            for (int j = method.Parameters.Count; j < alt.Count; j++)
-                            {
-                                var value = alt[j].GetStackItemValue();
-                                yield return new Variable($"<variable {j}>", value, 0);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        public IEnumerable<StackFrame> GetStackFrames()
-        {
-            if ((engine.State & HAULT_OR_FAULT) == 0)
-            {
-                for (var i = 0; i < engine.InvocationStack.Count; i++)
+                var start = args.StartFrame.HasValue ? args.StartFrame.Value : 0;
+                var count = args.Levels.HasValue
+                    ? Math.Min(engine.InvocationStack.Count, start + args.Levels.Value)
+                    : engine.InvocationStack.Count;
+                    
+                for (var i = start; i < count; i++)
                 {
                     var ctx = engine.InvocationStack.Peek(i);
 
@@ -222,6 +186,55 @@ namespace Neo.DebugAdapter
                     }
 
                     yield return frame;
+                }
+            }
+        }
+
+        public IEnumerable<Scope> GetScopes(ScopesArguments args)
+        {
+            if ((engine.State & HALT_OR_FAULT) == 0)
+            {
+                var context = engine.InvocationStack.Peek(args.FrameId);
+                var method = Contract.GetMethod(context);
+
+                if (method != null && engine.CurrentContext.AltStack.Peek(0) is Neo.VM.Types.Array alt)
+                {
+                    yield return new Scope(method.DisplayName, context.GetHashCode(), false)
+                    {
+                        PresentationHint = Scope.PresentationHintValue.Arguments,
+                        NamedVariables = alt.Count,
+                    };
+                }
+            }
+        }
+
+        public IEnumerable<Variable> GetVariables(VariablesArguments args)
+        {
+            if ((engine.State & HALT_OR_FAULT) == 0)
+            {
+                for (int i = 0; i < engine.InvocationStack.Count; i++)
+                {
+                    var context = engine.InvocationStack.Peek(i);
+                    if (context.GetHashCode() != args.VariablesReference)
+                        continue;
+
+                    var method = Contract.GetMethod(context);
+
+                    if (method != null && context.AltStack.Peek(0) is Neo.VM.Types.Array alt)
+                    {
+                        for (int j = 0; j < method.Parameters.Count; j++)
+                        {
+                            var p = method.Parameters[j];
+                            var value = alt[j].GetStackItemValue(p.Type);
+                            yield return new Variable(p.Name, value, 0);
+                        }
+
+                        for (int j = method.Parameters.Count; j < alt.Count; j++)
+                        {
+                            var value = alt[j].GetStackItemValue();
+                            yield return new Variable($"<variable {j}>", value, 0);
+                        }
+                    }
                 }
             }
         }
