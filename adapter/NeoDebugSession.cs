@@ -190,6 +190,50 @@ namespace Neo.DebugAdapter
             }
         }
 
+        interface IVariableContainer
+        {
+            IEnumerable<Variable> GetVariables(VariablesArguments args);
+        }
+
+        class ExecutionContextContainer : IVariableContainer
+        {
+            private readonly ExecutionContext context;
+            private readonly Method method;
+
+            public ExecutionContextContainer(ExecutionContext context, Method method)
+            {
+                this.context = context;
+                this.method = method;
+            }
+            
+            public IEnumerable<Variable> GetVariables(VariablesArguments args)
+            {
+                if (method != null && context.AltStack.Peek(0) is Neo.VM.Types.Array alt)
+                {
+                    for (int j = 0; j < method.Parameters.Count; j++)
+                    {
+                        var p = method.Parameters[j];
+                        var value = alt[j].GetStackItemValue(p.Type);
+                        yield return new Variable(p.Name, value, 0);
+                    }
+
+                    for (int j = method.Parameters.Count; j < alt.Count; j++)
+                    {
+                        var value = alt[j].GetStackItemValue();
+                        yield return new Variable($"<variable {j}>", value, 0);
+                    }
+                }
+            }
+        }
+
+        private readonly Dictionary<int, IVariableContainer> variableContainers =
+            new Dictionary<int, IVariableContainer>();
+
+        public void ClearVariableContainers()
+        {
+            variableContainers.Clear();
+        }
+
         public IEnumerable<Scope> GetScopes(ScopesArguments args)
         {
             if ((engine.State & HALT_OR_FAULT) == 0)
@@ -199,6 +243,7 @@ namespace Neo.DebugAdapter
 
                 if (method != null && engine.CurrentContext.AltStack.Peek(0) is Neo.VM.Types.Array alt)
                 {
+                    variableContainers.Add(context.GetHashCode(), new ExecutionContextContainer(context, method));
                     yield return new Scope(method.DisplayName, context.GetHashCode(), false)
                     {
                         PresentationHint = Scope.PresentationHintValue.Arguments,
@@ -212,31 +257,13 @@ namespace Neo.DebugAdapter
         {
             if ((engine.State & HALT_OR_FAULT) == 0)
             {
-                for (int i = 0; i < engine.InvocationStack.Count; i++)
+                if (variableContainers.TryGetValue(args.VariablesReference, out var container))
                 {
-                    var context = engine.InvocationStack.Peek(i);
-                    if (context.GetHashCode() != args.VariablesReference)
-                        continue;
-
-                    var method = Contract.GetMethod(context);
-
-                    if (method != null && context.AltStack.Peek(0) is Neo.VM.Types.Array alt)
-                    {
-                        for (int j = 0; j < method.Parameters.Count; j++)
-                        {
-                            var p = method.Parameters[j];
-                            var value = alt[j].GetStackItemValue(p.Type);
-                            yield return new Variable(p.Name, value, 0);
-                        }
-
-                        for (int j = method.Parameters.Count; j < alt.Count; j++)
-                        {
-                            var value = alt[j].GetStackItemValue();
-                            yield return new Variable($"<variable {j}>", value, 0);
-                        }
-                    }
+                    return container.GetVariables(args);
                 }
             }
+
+            return Enumerable.Empty<Variable>();
         }
     }
 }

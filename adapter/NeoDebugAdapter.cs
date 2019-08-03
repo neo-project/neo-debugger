@@ -165,6 +165,8 @@ namespace Neo.DebugAdapter
 
         private void FireEvents(StoppedEvent.ReasonValue reasonValue)
         {
+            session.ClearVariableContainers();
+
             if ((session.EngineState & VMState.FAULT) == 0)
             {
                 // there's been a fault;
