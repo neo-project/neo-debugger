@@ -1,4 +1,5 @@
-﻿using Neo.VM;
+﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using Neo.VM;
 using System;
 using System.Linq;
 
@@ -30,6 +31,71 @@ namespace Neo.DebugAdapter
             return method?.SequencePoints
                 .OrderBy(sp => sp.Address)
                 .FirstOrDefault(sp => sp.Address > context.InstructionPointer);
+        }
+
+        public static Variable GetVariable(this StackItem item, NeoDebugSession session, Parameter parameter = null)
+        {
+            if (parameter != null)
+            {
+                switch (parameter.Type)
+                {
+                    case "Integer":
+                        return new Variable()
+                        {
+                            Name = parameter.Name,
+                            Value = item.GetBigInteger().ToString()
+                        };
+                    case "String":
+                        return new Variable()
+                        {
+                            Name = parameter.Name,
+                            Value = item.GetString()
+                        };
+                }
+            }
+
+            switch (item)
+            {
+                case Neo.VM.Types.Boolean _:
+                    return new Variable()
+                    {
+                        Name = parameter?.Name,
+                        Value = item.GetBoolean().ToString()
+                    };
+                case Neo.VM.Types.Integer _:
+                    return new Variable()
+                    {
+                        Name = parameter?.Name,
+                        Value = item.GetBigInteger().ToString()
+                    };
+                case Neo.VM.Types.InteropInterface _:
+                    return new Variable()
+                    {
+                        Name = parameter?.Name,
+                        Value = "<interop interface>"
+                    };
+                case Neo.VM.Types.Struct _: // struct before array
+                case Neo.VM.Types.ByteArray _:
+                case Neo.VM.Types.Map _:
+                    return new Variable()
+                    {
+                        Name = parameter?.Name,
+                        Value = item.GetType().Name
+                    };
+                case Neo.VM.Types.Array array:
+                    {
+                        var container = new ArrayContainer(session, array);
+                        var id = session.AddVariableContainer(container);
+                        return new Variable()
+                        {
+                            Name = parameter?.Name,
+                            VariablesReference = id,
+                            IndexedVariables = array.Count,
+                        };
+                    }
+                default:
+                    throw new NotImplementedException($"GetStackItemValue {item.GetType().FullName}");
+            }
         }
 
         public static string GetStackItemValue(this StackItem item, string type)

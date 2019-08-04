@@ -9,31 +9,32 @@ namespace Neo.DebugAdapter
 {
     internal class ExecutionContextContainer : IVariableContainer
     {
+        private readonly NeoDebugSession session;
         private readonly ExecutionContext context;
         private readonly Method method;
 
-        public ExecutionContextContainer(ExecutionContext context, Method method)
+        public ExecutionContextContainer(NeoDebugSession session, ExecutionContext context)
         {
+            this.session = session;
             this.context = context;
-            this.method = method;
+            method = session.Contract.GetMethod(context);
         }
 
         public IEnumerable<Variable> GetVariables(VariablesArguments args)
         {
-            if (method != null && context.AltStack.Peek(0) is Neo.VM.Types.Array alt)
-            {
-                for (int j = 0; j < method.Parameters.Count; j++)
-                {
-                    var p = method.Parameters[j];
-                    var value = alt[j].GetStackItemValue(p.Type);
-                    yield return new Variable(p.Name, value, 0);
-                }
+            var variables = (Neo.VM.Types.Array)context.AltStack.Peek(0);
 
-                for (int j = method.Parameters.Count; j < alt.Count; j++)
-                {
-                    var value = alt[j].GetStackItemValue();
-                    yield return new Variable($"<variable {j}>", value, 0);
-                }
+            for (int i = 0; i < variables.Count; i++)
+            {
+                var parameter = method != null && i < method.Parameters.Count
+                    ? method.Parameters[i]
+                    : null;
+                var variable = variables[i].GetVariable(session, parameter);
+                variable.Name = string.IsNullOrEmpty(variable.Name)
+                    ? $"<variable {i}>"
+                    : variable.Name;
+
+                yield return variable;
             }
         }
     }

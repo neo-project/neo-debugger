@@ -148,28 +148,27 @@ namespace Neo.DebugAdapter
 
             if ((engine.State & HALT_OR_FAULT) == 0)
             {
-                var start = args.StartFrame.HasValue ? args.StartFrame.Value : 0;
-                var count = args.Levels.HasValue
-                    ? Math.Min(engine.InvocationStack.Count, start + args.Levels.Value)
-                    : engine.InvocationStack.Count;
-                    
-                for (var i = start; i < count; i++)
+                var start = args.StartFrame ?? 0;
+                var count = args.Levels ?? int.MaxValue;
+                var end = Math.Min(engine.InvocationStack.Count, start + count);
+
+                for (var i = start; i < end; i++)
                 {
-                    var ctx = engine.InvocationStack.Peek(i);
+                    var context = engine.InvocationStack.Peek(i);
 
                     var frame = new StackFrame()
                     {
                         Id = i,
                         Name = $"unnamed frame",
-                        ModuleId = ctx.ScriptHash,
+                        ModuleId = context.ScriptHash,
                     };
 
-                    var method = Contract.GetMethod(ctx);
+                    var method = Contract.GetMethod(context);
 
                     if (method != null)
                     {
                         frame.Name = method.DisplayName;
-                        SequencePoint sequencePoint = method.GetCurrentSequencePoint(ctx);
+                        SequencePoint sequencePoint = method.GetCurrentSequencePoint(context);
 
                         if (sequencePoint != null)
                         {
@@ -198,22 +197,21 @@ namespace Neo.DebugAdapter
             variableContainers.Clear();
         }
 
+        public int AddVariableContainer(IVariableContainer container)
+        {
+            var id = container.GetHashCode();
+            variableContainers.Add(id, container);
+            return id;
+        }
+
         public IEnumerable<Scope> GetScopes(ScopesArguments args)
         {
             if ((engine.State & HALT_OR_FAULT) == 0)
             {
                 var context = engine.InvocationStack.Peek(args.FrameId);
-                var method = Contract.GetMethod(context);
-
-                if (method != null && engine.CurrentContext.AltStack.Peek(0) is Neo.VM.Types.Array alt)
-                {
-                    variableContainers.Add(context.GetHashCode(), new ExecutionContextContainer(context, method));
-                    yield return new Scope(method.DisplayName, context.GetHashCode(), false)
-                    {
-                        PresentationHint = Scope.PresentationHintValue.Arguments,
-                        NamedVariables = alt.Count,
-                    };
-                }
+                var stackContainerId = AddVariableContainer(
+                    new ExecutionContextContainer(this, context));
+                yield return new Scope("Locals", stackContainerId, false);
             }
         }
 
