@@ -7,12 +7,9 @@ using System.Linq;
 
 namespace Neo.DebugAdapter
 {
-    class ScriptTable : Neo.VM.IScriptTable
+    internal class ScriptTable : Neo.VM.IScriptTable
     {
-        // Note, byte arrays have reference semantics for GetHashCode
-        // so I create a BigInteger from the key byte array to use as 
-        // the dictionary key.
-        Dictionary<int, byte[]> scripts = new Dictionary<int, byte[]>();
+        private readonly Dictionary<int, byte[]> scripts = new Dictionary<int, byte[]>();
 
         public void Add(Contract contract)
         {
