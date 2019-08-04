@@ -72,12 +72,12 @@ namespace Neo.DebugAdapter
             if (args.Filter == VariablesArguments.FilterValue.Named)
             {
                 var container = new AsContainer(array);
-                var containerId = session.AddVariableContainer(container);
+                var containerID = session.AddVariableContainer(container);
 
                 yield return new Variable()
                 {
                     Name = "<as>",
-                    VariablesReference = containerId
+                    VariablesReference = containerID
                 };
             }
         }

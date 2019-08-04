@@ -88,12 +88,12 @@ namespace Neo.DebugAdapter
                 case Neo.VM.Types.ByteArray byteArray:
                     {
                         var container = new ByteArrayContainer(session, byteArray);
-                        var id = session.AddVariableContainer(container);
+                        var containerID = session.AddVariableContainer(container);
                         return new Variable()
                         {
                             Name = parameter?.Name,
                             Type = $"ByteArray[{byteArray.GetByteArray().Length}]>",
-                            VariablesReference = id,
+                            VariablesReference = containerID,
                             IndexedVariables = byteArray.GetByteArray().Length,
                             NamedVariables = 1
                         };
@@ -101,12 +101,12 @@ namespace Neo.DebugAdapter
                 case Neo.VM.Types.Array array:
                     {
                         var container = new ArrayContainer(session, array);
-                        var id = session.AddVariableContainer(container);
+                        var containerID = session.AddVariableContainer(container);
                         return new Variable()
                         {
                             Name = parameter?.Name,
                             Type = $"Array[{array.Count}]",
-                            VariablesReference = id,
+                            VariablesReference = containerID,
                             IndexedVariables = array.Count,
                         };
                     }

@@ -211,9 +211,9 @@ namespace Neo.DebugAdapter
             if ((engine.State & HALT_OR_FAULT) == 0)
             {
                 var context = engine.InvocationStack.Peek(args.FrameId);
-                var stackContainerId = AddVariableContainer(
+                var containerID = AddVariableContainer(
                     new ExecutionContextContainer(this, context));
-                yield return new Scope("Locals", stackContainerId, false);
+                yield return new Scope("Locals", containerID, false);
             }
         }
 
