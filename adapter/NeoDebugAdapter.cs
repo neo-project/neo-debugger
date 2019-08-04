@@ -127,7 +127,10 @@ namespace Neo.DebugAdapter
             var args = arguments.ConfigurationProperties["args"]
                 .Zip(entrypoint.Parameters, ConvertArg);
 
-            session = new NeoDebugSession(contract, args);
+            var storage = arguments.ConfigurationProperties["storage"]
+                .Select(t => (key: t.Value<string>("key"), value: t.Value<string>("value")));
+
+            session = new NeoDebugSession(contract, args, storage);
             session.StepIn();
 
             Protocol.SendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Entry) { ThreadId = 1 });

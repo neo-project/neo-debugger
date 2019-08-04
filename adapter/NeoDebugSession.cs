@@ -39,11 +39,16 @@ namespace Neo.DebugAdapter
 
         public IEnumerable<StackItem> GetResults() => engine.ResultStack;
 
-        public NeoDebugSession(Contract contract, IEnumerable<ContractArgument> arguments)
+        public NeoDebugSession(
+            Contract contract,
+            IEnumerable<ContractArgument> arguments,
+            IEnumerable<(string key, string value)> storage)
         {
             Contract = contract;
             Arguments = arguments.ToArray();
             ScriptTable.Add(Contract);
+            InteropService.Storage.Populate(Contract.ScriptHash, storage);
+
             var builder = contract.BuildInvokeScript(Arguments);
             engine = new DebugExecutionEngine(null, new Crypto(), ScriptTable, InteropService);
             engine.LoadScript(builder.ToArray());

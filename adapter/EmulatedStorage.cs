@@ -27,6 +27,21 @@ namespace Neo.DebugAdapter
 
         public IReadOnlyDictionary<int, (byte[] key, byte[] value)> Storage => storage;
 
+        public void Populate(byte[] scriptHash, IEnumerable<(string key, string value)> items)
+        {
+            var storageContext = new StorageContext()
+            {
+                ScriptHash = scriptHash
+            };
+
+            foreach (var (key, value) in items)
+            {
+                Put(storageContext,
+                    Encoding.UTF8.GetBytes(key),
+                    Encoding.UTF8.GetBytes(value));
+            }
+        }
+
         static bool TryGetStorageContext(RandomAccessStack<StackItem> evalStack, out StorageContext context)
         {
             if (evalStack.Pop() is VM.Types.InteropInterface interop)
@@ -42,10 +57,10 @@ namespace Neo.DebugAdapter
         public bool Delete (ExecutionEngine engine)
         {
             var evalStack = engine.CurrentContext.EvaluationStack;
-            if (TryGetStorageContext(evalStack, out var ctx))
+            if (TryGetStorageContext(evalStack, out var storageContext))
             {
                 var key = evalStack.Pop().GetByteArray();
-                var storageHash = ctx.GetHashCode(key);
+                var storageHash = storageContext.GetHashCode(key);
 
                 storage.Remove(storageHash);
                 return true;
@@ -54,16 +69,21 @@ namespace Neo.DebugAdapter
             return false;
         }
 
+        private void Put(StorageContext storageContext, byte[] key, byte[] value)
+        {
+            var storageHash = storageContext.GetHashCode(key);
+            storage.Add(storageHash, (key, value));
+        }
+
         public bool Put(ExecutionEngine engine)
         {
             var evalStack = engine.CurrentContext.EvaluationStack;
-            if (TryGetStorageContext(evalStack, out var ctx))
+            if (TryGetStorageContext(evalStack, out var storageContext))
             {
                 var key = evalStack.Pop().GetByteArray();
-                var storageHash = ctx.GetHashCode(key);
-
                 var value = evalStack.Pop().GetByteArray();
-                storage.Add(storageHash, (key, value));
+
+                Put(storageContext, key, value);
                 return true;
             }
 
@@ -73,10 +93,10 @@ namespace Neo.DebugAdapter
         public bool Get(ExecutionEngine engine)
         {
             var evalStack = engine.CurrentContext.EvaluationStack;
-            if (TryGetStorageContext(evalStack, out var context))
+            if (TryGetStorageContext(evalStack, out var storageContext))
             {
                 var key = evalStack.Pop().GetByteArray();
-                var storageHash = context.GetHashCode(key);
+                var storageHash = storageContext.GetHashCode(key);
 
                 if (storage.TryGetValue(storageHash, out var kvp))
                 {
@@ -95,12 +115,12 @@ namespace Neo.DebugAdapter
 
         public bool GetContext(ExecutionEngine engine)
         {
-            var context = new StorageContext()
+            var storageContext = new StorageContext()
             {
                 ScriptHash = engine.CurrentContext.ScriptHash,
             };
 
-            engine.CurrentContext.EvaluationStack.Push(StackItem.FromInterface(context));
+            engine.CurrentContext.EvaluationStack.Push(StackItem.FromInterface(storageContext));
             return true;
         }
     }
