@@ -35,25 +35,14 @@ namespace Neo.DebugAdapter
 
         public static Variable GetVariable(this StackItem item, NeoDebugSession session, Parameter parameter = null)
         {
-            if (parameter != null)
+            if (item.TryGetValue(parameter?.Type, out var value))
             {
-                switch (parameter.Type)
+                return new Variable()
                 {
-                    case "Integer":
-                        return new Variable()
-                        {
-                            Name = parameter.Name,
-                            Value = item.GetBigInteger().ToString(),
-                            Type = "Integer"
-                        };
-                    case "String":
-                        return new Variable()
-                        {
-                            Name = parameter.Name,
-                            Value = item.GetString(),
-                            Type = "String"
-                        };
-                }
+                    Name = parameter.Name,
+                    Value = value,
+                    Type = parameter.Type
+                };
             }
 
             switch (item)
@@ -104,84 +93,33 @@ namespace Neo.DebugAdapter
             }
         }
 
-        public static string GetStackItemValue(this StackItem item, string type)
+        public static string GetValue(this StackItem item, string type)
         {
-            switch (type)
+            if (item.TryGetValue(type, out var value))
             {
-                case "Integer":
-                    return item.GetBigInteger().ToString();
-                case "String":
-                    return item.GetString();
-                case "ByteArray":
-                    return GetStackItemValue(item);
-                case "Array":
-                    {
-                        if (!(item is Neo.VM.Types.Array))
-                            throw new ArgumentException();
-
-                        return GetStackItemValue(item);
-                    }
-                default:
-                    throw new NotImplementedException($"GetStackItemValue {type}");
+                return value;
             }
+
+            throw new Exception($"couldn't convert {type}");
         }
 
-        public static string GetStackItemValue(this StackItem item)
+        public static bool TryGetValue(this StackItem item, string type, out string value)
         {
-            switch (item)
+            if (item != null && !string.IsNullOrEmpty(type))
             {
-                case Neo.VM.Types.Boolean _:
-                    return item.GetBoolean().ToString();
-                case Neo.VM.Types.Integer _:
-                    return item.GetBigInteger().ToString();
-                case Neo.VM.Types.ByteArray _array:
-                    {
-                        var array = _array.GetByteArray();
-                        var builder = new System.Text.StringBuilder();
-                        builder.Append("{");
-                        var first = true;
-                        for (int i = 0; i < array.Length; i++)
-                        {
-                            if (first)
-                            {
-                                first = false;
-                            }
-                            else
-                            {
-                                builder.Append(", ");
-                            }
-                            builder.Append(array[i].ToString("X"));
-                        }
-                        builder.Append("}");
-                        return builder.ToString();
-                    }
-                case Neo.VM.Types.Array array:
-                    {
-                        var builder = new System.Text.StringBuilder();
-                        var first = true;
-                        builder.Append("[");
-                        for (int i = 0; i < array.Count; i++)
-                        {
-                            if (first)
-                            {
-                                first = false;
-                            }
-                            else
-                            {
-                                builder.Append(", ");
-                            }
-
-                            builder.Append(GetStackItemValue(array[i]));
-                        }
-                        builder.Append("]");
-                        return builder.ToString();
-                    }
-                case VM.Types.InteropInterface _:
-                    // TODO: enhance VM so debugger can get more info about InteropInterface instances
-                    return "<InteropInterface>";
-                default:
-                    throw new NotImplementedException($"GetStackItemValue {item.GetType().FullName}");
+                switch (type)
+                {
+                    case "Integer":
+                        value = item.GetBigInteger().ToString();
+                        return true;
+                    case "String":
+                        value = item.GetString();
+                        return true;
+                }
             }
+
+            value = default;
+            return false;
         }
     }
 }

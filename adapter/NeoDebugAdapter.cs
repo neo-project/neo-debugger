@@ -183,7 +183,7 @@ namespace Neo.DebugAdapter
 
                 foreach (var item in session.GetResults())
                 {
-                    Protocol.SendEvent(new OutputEvent(item.GetStackItemValue(entryPoint.ReturnType)));
+                    Protocol.SendEvent(new OutputEvent(item.GetValue(entryPoint.ReturnType)));
                 }
                 Protocol.SendEvent(new TerminatedEvent());
             }
