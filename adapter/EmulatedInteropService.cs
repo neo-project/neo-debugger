@@ -13,6 +13,19 @@ namespace Neo.DebugAdapter
         private readonly Dictionary<uint, Func<ExecutionEngine, bool>> methods = new Dictionary<uint, Func<ExecutionEngine, bool>>();
         public EmulatedStorage Storage { get; } = new EmulatedStorage();
 
+        public EmulatedInteropService()
+        {
+            Register("Neo.Storage.GetContext", Storage.GetContext);
+            Register("Neo.Storage.Get", Storage.Get);
+            Register("Neo.Storage.Put", Storage.Put);
+            Register("Neo.Storage.Delete", Storage.Delete);
+
+            Register("System.Storage.GetContext", Storage.GetContext);
+            Register("System.Storage.Get", Storage.Get);
+            Register("System.Storage.Put", Storage.Put);
+            Register("System.Storage.Delete", Storage.Delete);
+        }
+
         public bool Invoke(byte[] method, ExecutionEngine engine)
         {
             uint hash = method.Length == 4
@@ -38,19 +51,6 @@ namespace Neo.DebugAdapter
         {
             var hash = InteropMethodHash(methodName);
             methods.Add(hash, handler);
-        }
-
-        public EmulatedInteropService()
-        {
-            Register("Neo.Storage.GetContext", Storage.GetContext);
-            Register("Neo.Storage.Get", Storage.Get);
-            Register("Neo.Storage.Put", Storage.Put);
-            Register("Neo.Storage.Delete", Storage.Delete);
-
-            Register("System.Storage.GetContext", Storage.GetContext);
-            Register("System.Storage.Get", Storage.Get);
-            Register("System.Storage.Put", Storage.Put);
-            Register("System.Storage.Delete", Storage.Delete);
         }
     }
 }
