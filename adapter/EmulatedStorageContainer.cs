@@ -25,10 +25,8 @@ namespace Neo.DebugAdapter
 
             public IEnumerable<Variable> GetVariables(VariablesArguments args)
             {
-                yield return new Neo.VM.Types.ByteArray(key)
-                    .GetVariable(session, "key");
-                yield return new Neo.VM.Types.ByteArray(value)
-                    .GetVariable(session, "value");
+                yield return ByteArrayContainer.GetVariable(key, session, "key");
+                yield return ByteArrayContainer.GetVariable(value, session, "value");
             }
         }
 

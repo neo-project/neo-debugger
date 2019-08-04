@@ -33,20 +33,6 @@ namespace Neo.DebugAdapter
                 .FirstOrDefault(sp => sp.Address > context.InstructionPointer);
         }
 
-        public static Variable GetVariable(this Neo.VM.Types.ByteArray byteArray, NeoDebugSession session, string name = null)
-        {
-            var container = new ByteArrayContainer(session, byteArray);
-            var containerID = session.AddVariableContainer(container);
-            return new Variable()
-            {
-                Name = name,
-                Type = $"ByteArray[{byteArray.GetByteArray().Length}]>",
-                VariablesReference = containerID,
-                IndexedVariables = byteArray.GetByteArray().Length,
-                NamedVariables = 1
-            };
-        }
-
         public static Variable GetVariable(this StackItem item, NeoDebugSession session, Parameter parameter = null)
         {
             if (parameter != null)
@@ -100,7 +86,7 @@ namespace Neo.DebugAdapter
                         Value = item.GetType().Name
                     };
                 case Neo.VM.Types.ByteArray byteArray:
-                    return byteArray.GetVariable(session, parameter?.Name);
+                    return ByteArrayContainer.GetVariable(byteArray, session, parameter?.Name);
                 case Neo.VM.Types.Array array:
                     {
                         var container = new ArrayContainer(session, array);
