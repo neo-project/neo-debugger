@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 
 namespace Neo.DebugAdapter
@@ -43,12 +44,11 @@ namespace Neo.DebugAdapter
         {
             foreach (var kvp in storage.Storage)
             {
-                var container = new KvpContainer(session, kvp.Value);
-                var containerID = session.AddVariableContainer(container);
                 yield return new Variable()
                 {
-                    Name = kvp.Key.ToString(),
-                    VariablesReference = containerID,
+                    Name = new BigInteger(kvp.Value.key).ToString(),
+                    VariablesReference = session.AddVariableContainer(
+                        new KvpContainer(session, kvp.Value)),
                     NamedVariables = 2
                 };
             }

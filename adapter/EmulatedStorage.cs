@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 
 namespace Neo.DebugAdapter
@@ -27,6 +28,17 @@ namespace Neo.DebugAdapter
 
         public IReadOnlyDictionary<int, (byte[] key, byte[] value)> Storage => storage;
 
+        static byte[] ConvertString(string value)
+        {
+            if (value.StartsWith("0x") 
+                && BigInteger.TryParse(value.AsSpan().Slice(2), out var bigInt))
+            {
+                return bigInt.ToByteArray();
+            }
+
+            return Encoding.UTF8.GetBytes(value);
+        }
+
         public void Populate(byte[] scriptHash, IEnumerable<(string key, string value)> items)
         {
             var storageContext = new StorageContext()
@@ -37,8 +49,8 @@ namespace Neo.DebugAdapter
             foreach (var (key, value) in items)
             {
                 Put(storageContext,
-                    Encoding.UTF8.GetBytes(key),
-                    Encoding.UTF8.GetBytes(value));
+                    ConvertString(key),
+                    ConvertString(value));
             }
         }
 
