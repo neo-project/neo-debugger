@@ -43,13 +43,15 @@ namespace Neo.DebugAdapter
                         return new Variable()
                         {
                             Name = parameter.Name,
-                            Value = item.GetBigInteger().ToString()
+                            Value = item.GetBigInteger().ToString(),
+                            Type = "Integer"
                         };
                     case "String":
                         return new Variable()
                         {
                             Name = parameter.Name,
-                            Value = item.GetString()
+                            Value = item.GetString(),
+                            Type = "String"
                         };
                 }
             }
@@ -60,13 +62,15 @@ namespace Neo.DebugAdapter
                     return new Variable()
                     {
                         Name = parameter?.Name,
-                        Value = item.GetBoolean().ToString()
+                        Value = item.GetBoolean().ToString(),
+                        Type = "Boolean"
                     };
                 case Neo.VM.Types.Integer _:
                     return new Variable()
                     {
                         Name = parameter?.Name,
-                        Value = item.GetBigInteger().ToString()
+                        Value = item.GetBigInteger().ToString(),
+                        Type = "Integer"
                     };
                 case Neo.VM.Types.InteropInterface _:
                     return new Variable()
@@ -75,13 +79,25 @@ namespace Neo.DebugAdapter
                         Value = "<interop interface>"
                     };
                 case Neo.VM.Types.Struct _: // struct before array
-                case Neo.VM.Types.ByteArray _:
                 case Neo.VM.Types.Map _:
                     return new Variable()
                     {
                         Name = parameter?.Name,
                         Value = item.GetType().Name
                     };
+                case Neo.VM.Types.ByteArray byteArray:
+                    {
+                        var container = new ByteArrayContainer(session, byteArray);
+                        var id = session.AddVariableContainer(container);
+                        return new Variable()
+                        {
+                            Name = parameter?.Name,
+                            Type = $"ByteArray[{byteArray.GetByteArray().Length}]>",
+                            VariablesReference = id,
+                            IndexedVariables = byteArray.GetByteArray().Length,
+                            NamedVariables = 1
+                        };
+                    }
                 case Neo.VM.Types.Array array:
                     {
                         var container = new ArrayContainer(session, array);
@@ -89,6 +105,7 @@ namespace Neo.DebugAdapter
                         return new Variable()
                         {
                             Name = parameter?.Name,
+                            Type = $"Array[{array.Count}]",
                             VariablesReference = id,
                             IndexedVariables = array.Count,
                         };
