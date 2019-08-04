@@ -22,9 +22,10 @@ namespace Neo.DebugAdapter
             }
         }
 
-        private readonly Dictionary<int, byte[]> storage = new Dictionary<int, byte[]>();
+        private readonly Dictionary<int, (byte[] key, byte[] value)> storage =
+            new Dictionary<int, (byte[] key, byte[] value)>();
 
-        public IReadOnlyDictionary<int, byte[]> Storage => storage;
+        public IReadOnlyDictionary<int, (byte[] key, byte[] value)> Storage => storage;
 
         static bool TryGetStorageContext(RandomAccessStack<StackItem> evalStack, out StorageContext context)
         {
@@ -62,7 +63,7 @@ namespace Neo.DebugAdapter
                 var storageHash = ctx.GetHashCode(key);
 
                 var value = evalStack.Pop().GetByteArray();
-                storage.Add(storageHash, value);
+                storage.Add(storageHash, (key, value));
                 return true;
             }
 
@@ -77,9 +78,9 @@ namespace Neo.DebugAdapter
                 var key = evalStack.Pop().GetByteArray();
                 var storageHash = context.GetHashCode(key);
 
-                if (storage.TryGetValue(storageHash, out var value))
+                if (storage.TryGetValue(storageHash, out var kvp))
                 {
-                    evalStack.Push(value);
+                    evalStack.Push(kvp.value);
                 }
                 else
                 {

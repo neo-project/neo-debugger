@@ -10,6 +10,28 @@ namespace Neo.DebugAdapter
 {
     internal class EmulatedStorageContainer : IVariableContainer
     {
+        internal class KvpContainer : IVariableContainer
+        {
+            private readonly NeoDebugSession session;
+            private readonly byte[] key;
+            private readonly byte[] value;
+
+            public KvpContainer(NeoDebugSession session, (byte[] key, byte[] value) kvp)
+            {
+                this.session = session;
+                this.key = kvp.key;
+                this.value = kvp.value;
+            }
+
+            public IEnumerable<Variable> GetVariables(VariablesArguments args)
+            {
+                yield return new Neo.VM.Types.ByteArray(key)
+                    .GetVariable(session, "key");
+                yield return new Neo.VM.Types.ByteArray(value)
+                    .GetVariable(session, "value");
+            }
+        }
+
         private readonly NeoDebugSession session;
         private readonly EmulatedStorage storage;
 
@@ -23,8 +45,14 @@ namespace Neo.DebugAdapter
         {
             foreach (var kvp in storage.Storage)
             {
-                var neoByteArray = new Neo.VM.Types.ByteArray(kvp.Value);
-                yield return neoByteArray.GetVariable(session, kvp.Key.ToString());
+                var container = new KvpContainer(session, kvp.Value);
+                var containerID = session.AddVariableContainer(container);
+                yield return new Variable()
+                {
+                    Name = kvp.Key.ToString(),
+                    VariablesReference = containerID,
+                    NamedVariables = 2
+                };
             }
         }
     }
