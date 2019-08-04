@@ -11,7 +11,7 @@ namespace Neo.DebugAdapter
     internal class EmulatedInteropService : IInteropService
     {
         private readonly Dictionary<uint, Func<ExecutionEngine, bool>> methods = new Dictionary<uint, Func<ExecutionEngine, bool>>();
-        private readonly EmulatedStorage storage = new EmulatedStorage();
+        public EmulatedStorage Storage { get; } = new EmulatedStorage();
 
         public bool Invoke(byte[] method, ExecutionEngine engine)
         {
@@ -42,15 +42,15 @@ namespace Neo.DebugAdapter
 
         public EmulatedInteropService()
         {
-            Register("Neo.Storage.GetContext", storage.GetContext);
-            Register("Neo.Storage.Get", storage.Get);
-            Register("Neo.Storage.Put", storage.Put);
-            Register("Neo.Storage.Delete", storage.Delete);
+            Register("Neo.Storage.GetContext", Storage.GetContext);
+            Register("Neo.Storage.Get", Storage.Get);
+            Register("Neo.Storage.Put", Storage.Put);
+            Register("Neo.Storage.Delete", Storage.Delete);
 
-            Register("System.Storage.GetContext", storage.GetContext);
-            Register("System.Storage.Get", storage.Get);
-            Register("System.Storage.Put", storage.Put);
-            Register("System.Storage.Delete", storage.Delete);
+            Register("System.Storage.GetContext", Storage.GetContext);
+            Register("System.Storage.Get", Storage.Get);
+            Register("System.Storage.Put", Storage.Put);
+            Register("System.Storage.Delete", Storage.Delete);
         }
     }
 }
