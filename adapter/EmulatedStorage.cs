@@ -28,18 +28,7 @@ namespace Neo.DebugAdapter
 
         public IReadOnlyDictionary<int, (byte[] key, byte[] value)> Storage => storage;
 
-        static byte[] ConvertString(string value)
-        {
-            if (value.StartsWith("0x") 
-                && BigInteger.TryParse(value.AsSpan().Slice(2), out var bigInt))
-            {
-                return bigInt.ToByteArray();
-            }
-
-            return Encoding.UTF8.GetBytes(value);
-        }
-
-        public void Populate(byte[] scriptHash, IEnumerable<(string key, string value)> items)
+        public void Populate(byte[] scriptHash, IEnumerable<(byte[] key, byte[] value)> items)
         {
             var storageContext = new StorageContext()
             {
@@ -48,9 +37,7 @@ namespace Neo.DebugAdapter
 
             foreach (var (key, value) in items)
             {
-                Put(storageContext,
-                    ConvertString(key),
-                    ConvertString(value));
+                Put(storageContext, key, value);
             }
         }
 

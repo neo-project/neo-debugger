@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using System.Text;
 
 namespace Neo.DebugAdapter
 {
@@ -76,11 +77,24 @@ namespace Neo.DebugAdapter
                         Value = new BigInteger(arg.Value<int>()),
                     };
                 case JTokenType.String:
-                    return new ContractArgument
                     {
-                        Type = ContractParameterType.String,
-                        Value = arg.Value<string>(),
-                    };
+                        var value = arg.Value<string>();
+                        if (value.StartsWith("0x")
+                            && BigInteger.TryParse(value.AsSpan().Slice(2), out var bigInt))
+                        {
+                            return new ContractArgument
+                            {
+                                Type = ContractParameterType.Integer,
+                                Value = bigInt,
+                            };
+                        }
+
+                        return new ContractArgument
+                        {
+                            Type = ContractParameterType.String,
+                            Value = arg.Value<string>(),
+                        };
+                    }
                 default:
                     throw new NotImplementedException($"ConvertArg {arg.Type}");
             }
@@ -117,6 +131,19 @@ namespace Neo.DebugAdapter
             };
         }
 
+        static byte[] ConvertString(string value)
+        {
+            if (value.StartsWith("0x")
+                && BigInteger.TryParse(value.AsSpan().Slice(2), out var bigInt))
+            {
+                return bigInt.ToByteArray();
+            }
+
+            return Encoding.UTF8.GetBytes(value);
+        }
+
+        static byte[] ConvertString(JToken token) => ConvertString(token.Value<string>());
+
         protected override LaunchResponse HandleLaunchRequest(LaunchArguments arguments)
         {
             var programFileName = (string)arguments.ConfigurationProperties["program"];
@@ -128,7 +155,7 @@ namespace Neo.DebugAdapter
                 .Zip(entrypoint.Parameters, ConvertArg);
 
             var storage = arguments.ConfigurationProperties["storage"]
-                .Select(t => (key: t.Value<string>("key"), value: t.Value<string>("value")));
+                .Select(t => (ConvertString(t["key"]), ConvertString(t["value"])));
 
             session = new NeoDebugSession(contract, args, storage);
             session.StepIn();

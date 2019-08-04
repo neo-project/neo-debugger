@@ -42,7 +42,7 @@ namespace Neo.DebugAdapter
         public NeoDebugSession(
             Contract contract,
             IEnumerable<ContractArgument> arguments,
-            IEnumerable<(string key, string value)> storage)
+            IEnumerable<(byte[] key, byte[] value)> storage)
         {
             Contract = contract;
             Arguments = arguments.ToArray();
