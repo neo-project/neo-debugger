@@ -79,7 +79,7 @@ namespace Neo.DebugAdapter
         private void Put(StorageContext storageContext, byte[] key, byte[] value)
         {
             var storageHash = storageContext.GetHashCode(key);
-            storage.Add(storageHash, (key, value));
+            storage[storageHash] = (key, value);
         }
 
         public bool Put(ExecutionEngine engine)
