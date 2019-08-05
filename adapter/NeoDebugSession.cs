@@ -39,19 +39,22 @@ namespace Neo.DebugAdapter
 
         public IEnumerable<StackItem> GetResults() => engine.ResultStack;
 
-        public NeoDebugSession(
-            Contract contract,
-            IEnumerable<ContractArgument> arguments,
-            IEnumerable<(byte[] key, byte[] value)> storage)
+        public NeoDebugSession(Contract contract, IEnumerable<ContractArgument> arguments)
         {
             Contract = contract;
             Arguments = arguments.ToArray();
             ScriptTable.Add(Contract);
-            InteropService.Storage.Populate(Contract.ScriptHash, storage);
 
-            var builder = contract.BuildInvokeScript(Arguments);
-            engine = new DebugExecutionEngine(null, new Crypto(), ScriptTable, InteropService);
-            engine.LoadScript(builder.ToArray());
+            using (var builder = contract.BuildInvokeScript(Arguments))
+            {
+                engine = new DebugExecutionEngine(null, new Crypto(), ScriptTable, InteropService);
+                engine.LoadScript(builder.ToArray());
+            }
+        }
+
+        public void PopulateStorage(IEnumerable<(byte[] key, byte[] value)> storage)
+        {
+            InteropService.Storage.Populate(Contract.ScriptHash, storage);
         }
 
         //private readonly Dictionary<int, HashSet<int>> breakPoints = new Dictionary<int, HashSet<int>>();

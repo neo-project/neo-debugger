@@ -172,14 +172,10 @@ namespace Neo.DebugAdapter
             var programFileName = (string)arguments.ConfigurationProperties["program"];
             var contract = Contract.Load(programFileName);
 
-            var entrypoint = contract.GetEntryPoint();
+            session = new NeoDebugSession(contract, GetArguments(contract.GetEntryPoint()));
+            session.PopulateStorage(GetStorage());
 
-            var args = GetArguments(contract.GetEntryPoint());
-            var storage = GetStorage();
-
-            session = new NeoDebugSession(contract, args, storage);
             session.StepIn();
-
             Protocol.SendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Entry) { ThreadId = 1 });
 
             return new LaunchResponse();
