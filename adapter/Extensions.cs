@@ -35,7 +35,8 @@ namespace Neo.DebugAdapter
 
         public static Variable GetVariable(this StackItem item, NeoDebugSession session, Parameter parameter = null)
         {
-            if (item.TryGetValue(parameter?.Type, out var value))
+            if (parameter?.Type != "ByteArray"
+                && item.TryGetValue(parameter?.Type, out var value))
             {
                 return new Variable()
                 {
