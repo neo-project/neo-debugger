@@ -1,4 +1,4 @@
-﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.VM;
 using System;
 using System.Collections.Generic;
@@ -84,14 +84,24 @@ namespace Neo.DebugAdapter
 
         void Run(bool step = true, bool stepIn = false)
         {
+            if ((engine.State & HALT_OR_FAULT) != 0)
+            {
+                throw new Exception("can't run in halt or fault state");
+            }
+
             var sequencePoints = Contract.GetMethod(engine.CurrentContext)?.SequencePoints
                 ?? new List<SequencePoint>();
             var contractScriptHashSpan = Contract.ScriptHash.AsSpan();
             var currentStackDepth = engine.InvocationStack.Count;
 
-            while ((engine.State & HALT_OR_FAULT) == 0)
+            while (true)
             {
                 engine.ExecuteNext();
+
+                if ((engine.State & HALT_OR_FAULT) != 0)
+                {
+                    break;
+                }
 
                 if (step
                     && contractScriptHashSpan.SequenceEqual(engine.CurrentContext.ScriptHash)
