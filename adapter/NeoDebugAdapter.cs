@@ -4,6 +4,7 @@ using Neo.VM;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Numerics;
@@ -79,21 +80,22 @@ namespace Neo.DebugAdapter
                 case JTokenType.String:
                     {
                         var value = arg.Value<string>();
-                        if (value.StartsWith("0x")
-                            && BigInteger.TryParse(value.AsSpan().Slice(2), out var bigInt))
+                        if (value.TryParseBigInteger(out var bigInteger))
                         {
                             return new ContractArgument
                             {
                                 Type = ContractParameterType.Integer,
-                                Value = bigInt,
+                                Value = bigInteger,
                             };
                         }
-
-                        return new ContractArgument
+                        else
                         {
-                            Type = ContractParameterType.String,
-                            Value = arg.Value<string>(),
-                        };
+                            return new ContractArgument
+                            {
+                                Type = ContractParameterType.String,
+                                Value = value,
+                            };
+                        }
                     }
                 default:
                     throw new NotImplementedException($"ConvertArg {arg.Type}");
@@ -133,10 +135,9 @@ namespace Neo.DebugAdapter
 
         static byte[] ConvertString(string value)
         {
-            if (value.StartsWith("0x")
-                && BigInteger.TryParse(value.AsSpan().Slice(2), out var bigInt))
+            if (value.TryParseBigInteger(out var bigInteger))
             {
-                return bigInt.ToByteArray();
+                return bigInteger.ToByteArray();
             }
 
             return Encoding.UTF8.GetBytes(value);
@@ -169,18 +170,25 @@ namespace Neo.DebugAdapter
                 return Enumerable.Empty<(byte[], byte[])>();
             }
 
-            bool? GetWitnesses()
+            (bool? checkResult, IEnumerable<byte[]> witnesses) GetWitnesses()
             {
                 if (arguments.ConfigurationProperties.TryGetValue("runtime", out var token))
                 {
-                    var witnesses = token["witnesses"];
-                    if (witnesses?.Type == JTokenType.Object)
+                    var witnessesJson = token["witnesses"];
+                    if (witnessesJson?.Type == JTokenType.Object)
                     {
-                        return witnesses.Value<bool>("check-result");
+                        var result = witnessesJson.Value<bool>("check-result");
+                        return (result, null);
+                    }
+                    if (witnessesJson?.Type == JTokenType.Array)
+                    {
+                        var _witnesses = witnessesJson
+                            .Select(t => t.Value<string>().ParseBigInteger().ToByteArray());
+                        return (null, _witnesses);
                     }
                 }
 
-                return null;
+                return (null, Enumerable.Empty<byte[]>());
             }
 
             var programFileName = (string)arguments.ConfigurationProperties["program"];
@@ -189,10 +197,14 @@ namespace Neo.DebugAdapter
             session = new NeoDebugSession(contract, GetArguments(contract.GetEntryPoint()));
             session.InteropService.Storage.Populate(contract.ScriptHash, GetStorage());
 
-            var bypassCheckWitness = GetWitnesses();
-            if (bypassCheckWitness.HasValue)
+            var (checkResult, witnesses) = GetWitnesses();
+            if (checkResult.HasValue)
             {
-                session.InteropService.Runtime.BypassCheckWitness(bypassCheckWitness.Value);
+                session.InteropService.Runtime.BypassCheckWitness(checkResult.Value);
+            }
+            else
+            {
+                session.InteropService.Runtime.PopulateWitnesses(witnesses);
             }
 
             session.StepIn();

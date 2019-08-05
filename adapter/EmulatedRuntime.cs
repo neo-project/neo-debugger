@@ -11,6 +11,7 @@ namespace Neo.DebugAdapter
     internal class EmulatedRuntime
     {
         bool? checkWitnessBypass;
+        byte[][] witnesses;
 
         public void RegisterServices(Action<string, Func<ExecutionEngine, bool>> register)
         {
@@ -20,19 +21,40 @@ namespace Neo.DebugAdapter
         public void BypassCheckWitness(bool value)
         {
             checkWitnessBypass = value;
+            witnesses = null;
+        }
+
+        public void PopulateWitnesses(IEnumerable<byte[]> witnesses)
+        {
+            checkWitnessBypass = null;
+            this.witnesses = witnesses.ToArray();
         }
 
         private bool CheckWitness(ExecutionEngine engine)
         {
+            var evalStack = engine.CurrentContext.EvaluationStack;
+            var hash = evalStack.Pop().GetByteArray();
+
             if (checkWitnessBypass.HasValue)
             {
-                var evalStack = engine.CurrentContext.EvaluationStack;
-                _ = evalStack.Pop().GetByteArray();
                 evalStack.Push(checkWitnessBypass.Value);
                 return true;
             }
+            else
+            {
+                var hashSpan = hash.AsSpan();
+                for (int i = 0; i < witnesses.Length; i++)
+                {
+                    if (hashSpan.SequenceEqual(witnesses[i]))
+                    {
+                        evalStack.Push(true);
+                        return true;
+                    }
+                }
 
-            return false;
+                evalStack.Push(false);
+                return true;
+            }
         }
     }
 }

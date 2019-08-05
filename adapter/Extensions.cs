@@ -1,7 +1,9 @@
 ﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.VM;
 using System;
+using System.Globalization;
 using System.Linq;
+using System.Numerics;
 
 namespace Neo.DebugAdapter
 {
@@ -31,6 +33,28 @@ namespace Neo.DebugAdapter
             return method?.SequencePoints
                 .OrderBy(sp => sp.Address)
                 .FirstOrDefault(sp => sp.Address > context.InstructionPointer);
+        }
+
+        public static bool TryParseBigInteger(this string value, out BigInteger bigInteger)
+        {
+            if (value.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
+                && BigInteger.TryParse(value.AsSpan().Slice(2), NumberStyles.HexNumber, null, out bigInteger))
+            {
+                return true;
+            }
+
+            bigInteger = default;
+            return false;
+        }
+
+        public static BigInteger ParseBigInteger(this string value)
+        {
+            if (TryParseBigInteger(value, out var bigInteger))
+            {
+                return bigInteger;
+            }
+
+            throw new Exception($"could not parse {value} as BigInteger");
         }
 
         public static Variable GetVariable(this StackItem item, NeoDebugSession session, Parameter parameter = null)
