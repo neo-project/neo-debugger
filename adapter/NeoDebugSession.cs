@@ -79,55 +79,45 @@ namespace Neo.DebugAdapter
 
         const VMState HALT_OR_FAULT = VMState.HALT | VMState.FAULT;
 
-        void Run(SequencePoint sequencePoint, bool stepIn = false)
+        void Run(bool step = true, bool stepIn = false)
         {
+            var sequencePoints = Contract.GetMethod(engine.CurrentContext)?.SequencePoints
+                ?? new List<SequencePoint>();
             var contractScriptHashSpan = Contract.ScriptHash.AsSpan();
             var currentStackDepth = engine.InvocationStack.Count;
 
             while ((engine.State & HALT_OR_FAULT) == 0)
             {
-                if (sequencePoint != null &&
-                    contractScriptHashSpan.SequenceEqual(engine.CurrentContext.ScriptHash) &&
-                    engine.CurrentContext.InstructionPointer == sequencePoint.Address)
+                engine.ExecuteNext();
+
+                if (step
+                    && contractScriptHashSpan.SequenceEqual(engine.CurrentContext.ScriptHash)
+                    && sequencePoints.Any(sp => sp.Address == engine.CurrentContext.InstructionPointer))
                 {
                     break;
                 }
 
                 if (stepIn && engine.InvocationStack.Count > currentStackDepth)
                 {
-                    var method = Contract.GetMethod(engine.CurrentContext);
-                    var sp = method.GetNextSequencePoint(engine.CurrentContext);
-                    if (sp != null)
-                    {
-                        Run(sp, true);
-                        break;
-                    }
+                    Run(step, stepIn);
+                    break;
                 }
-
-                engine.ExecuteNext();
             }
-
         }
 
         public void Continue()
         {
-            Run(null);
+            Run(false, false);
         }
 
         public void StepOver()
         {
-            var method = Contract.GetMethod(engine.CurrentContext);
-            var sp = method.GetNextSequencePoint(engine.CurrentContext);
-
-            Run(sp);
+            Run(true, false);
         }
 
         public void StepIn()
         {
-            var method = Contract.GetMethod(engine.CurrentContext);
-            var sp = method.GetNextSequencePoint(engine.CurrentContext);
-
-            Run(sp, true);
+            Run(true, true);
         }
 
         public void StepOut()
