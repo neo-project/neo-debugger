@@ -13,7 +13,17 @@ namespace Neo.DebugAdapter
 
         public Program()
         {
-            logFile = Path.Combine(@"C:\Users\harry\neodebug", $"neo-debug-{DateTime.Now:yyMMdd-hhmmss}.log");
+            var neoDebugLogPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "NEO-Debug",
+                "logs");
+
+            if (!Directory.Exists(neoDebugLogPath))
+            {
+                Directory.CreateDirectory(neoDebugLogPath);
+            }
+
+            logFile = Path.Combine(neoDebugLogPath, $"neo-debug-{DateTime.Now:yyMMdd-hhmmss}.log");
         }
 
 
