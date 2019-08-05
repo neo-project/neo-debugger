@@ -46,7 +46,7 @@ namespace Neo.DebugAdapter
             {
                 yield return new Variable()
                 {
-                    Name = new BigInteger(kvp.Value.key).ToString(),
+                    Name = "0x" + new BigInteger(kvp.Value.key).ToString("x"),
                     VariablesReference = session.AddVariableContainer(
                         new KvpContainer(session, kvp.Value)),
                     NamedVariables = 2
