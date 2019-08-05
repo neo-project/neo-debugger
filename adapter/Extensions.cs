@@ -115,6 +115,12 @@ namespace Neo.DebugAdapter
                     case "String":
                         value = item.GetString();
                         return true;
+                    case "ByteArray":
+                        value = $@"byte[{item.GetByteArray().Length}]
+as string:  ""{item.GetString()}""
+as boolean: {item.GetBoolean()}
+as integer: {item.GetBigInteger()}";
+                        return true;
                 }
             }
 
