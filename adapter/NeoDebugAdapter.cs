@@ -278,7 +278,8 @@ namespace Neo.DebugAdapter
                 return $@"byte[{item.GetByteArray().Length}]
 as string:  ""{item.GetString()}""
 as boolean: {item.GetBoolean()}
-as integer: {item.GetBigInteger()}";
+as integer: {item.GetBigInteger()}
+as hex:     0x{item.GetBigInteger().ToString("x")}";
             }
 
             if (item.TryGetValue(type, out var value))

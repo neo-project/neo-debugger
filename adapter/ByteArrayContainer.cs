@@ -56,7 +56,7 @@ namespace Neo.DebugAdapter
                 Name = name,
                 Type = $"ByteArray[{byteArray.GetByteArray().Length}]>",
                 VariablesReference = containerID,
-                NamedVariables = 4
+                NamedVariables = 5
             };
         }
 
@@ -82,6 +82,13 @@ namespace Neo.DebugAdapter
             {
                 Name = "<as integer>",
                 Value = array.GetBigInteger().ToString(),
+                Type = "Integer"
+            };
+
+            yield return new Variable()
+            {
+                Name = "<as hex>",
+                Value = "0x" + array.GetBigInteger().ToString("x"),
                 Type = "Integer"
             };
 
