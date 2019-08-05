@@ -52,30 +52,79 @@ namespace Neo.DebugAdapter
             }
         }
 
-        //private readonly Dictionary<int, HashSet<int>> breakPoints = new Dictionary<int, HashSet<int>>();
+        private readonly Dictionary<int, HashSet<int>> breakPoints = new Dictionary<int, HashSet<int>>();
 
-        //public void AddBreakPoint(byte[] scriptHash, int position)
-        //{
-        //    var key = Crypto.GetHashCode(scriptHash);
-        //    if (!breakPoints.TryGetValue(key, out var hashset))
-        //    {
-        //        hashset = new HashSet<int>();
-        //        breakPoints.Add(key, hashset);
-        //    }
-        //    hashset.Add(position);
-        //}
+        public IEnumerable<Breakpoint> SetBreakpoints(Source source, IReadOnlyList<SourceBreakpoint> sourceBreakpoints)
+        {
+            var sourcePath = Path.GetFullPath(source.Path).ToLowerInvariant();
+            var sourcePathHash = sourcePath.GetHashCode();
 
-        //public bool RemoveBreakPoint(byte[] scriptHash, int position)
-        //{
-        //    var key = Crypto.GetHashCode(scriptHash);
-        //    if (breakPoints.TryGetValue(key, out var hashset))
-        //    {
-        //        return hashset.Remove(position);
-        //    }
-        //    return false;
-        //}
+            breakPoints[sourcePathHash] = new HashSet<int>();
+
+            if (sourceBreakpoints.Count == 0)
+            {
+                yield break;
+            }
+
+            var sequencePoints = Contract.DebugInfo.Methods
+                .SelectMany(m => m.SequencePoints)
+                .Where(sp => sourcePath.Equals(Path.GetFullPath(sp.Document), StringComparison.InvariantCultureIgnoreCase))
+                .ToArray();
+
+            foreach (var sourceBreakPoint in sourceBreakpoints)
+            {
+                var sequencePoint = Array.Find(sequencePoints, sp => sp.StartLine == sourceBreakPoint.Line);
+
+                if (sequencePoint != null)
+                {
+                    breakPoints[sourcePathHash].Add(sequencePoint.Address);
+
+                    yield return new Breakpoint()
+                    {
+                        Verified = true,
+                        Column = sequencePoint.StartColumn,
+                        EndColumn = sequencePoint.EndColumn,
+                        Line = sequencePoint.StartLine,
+                        EndLine = sequencePoint.EndLine,
+                        Source = source
+                    };
+                }
+                else
+                {
+                    yield return new Breakpoint()
+                    {
+                        Verified = false,
+                        Column = sourceBreakPoint.Column,
+                        Line = sourceBreakPoint.Line,
+                        Source = source
+                    };
+                }
+            }
+        }
 
         const VMState HALT_OR_FAULT = VMState.HALT | VMState.FAULT;
+
+        bool CheckBreakpoint()
+        {
+            if ((engine.State & HALT_OR_FAULT) == 0)
+            {
+                var context = engine.CurrentContext;
+
+                if (Contract.ScriptHash.AsSpan().SequenceEqual(context.ScriptHash))
+                {
+                    var ip = context.InstructionPointer;
+                    foreach (var kvp in breakPoints)
+                    {
+                        if (kvp.Value.Contains(ip))
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            return false;
+        }
 
         public void Continue()
         {
@@ -83,7 +132,10 @@ namespace Neo.DebugAdapter
             {
                 engine.ExecuteNext();
 
-                // check breakpoint
+                if (CheckBreakpoint())
+                {
+                    break;
+                }
             }
         }
 
@@ -99,7 +151,10 @@ namespace Neo.DebugAdapter
                     break;
                 }
 
-                // check breakpoint
+                if (CheckBreakpoint())
+                {
+                    break;
+                }
 
                 if (compare(engine.InvocationStack.Count, c) && Contract.CheckSequencePoint(engine.CurrentContext))
                 {

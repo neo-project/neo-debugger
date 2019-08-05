@@ -329,7 +329,9 @@ as integer: {item.GetBigInteger()}";
 
         protected override SetBreakpointsResponse HandleSetBreakpointsRequest(SetBreakpointsArguments arguments)
         {
-            return new SetBreakpointsResponse();
+            var breakpoints = session.SetBreakpoints(arguments.Source, arguments.Breakpoints)
+                .ToList();
+            return new SetBreakpointsResponse(breakpoints);
         }
     }
 }
