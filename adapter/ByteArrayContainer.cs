@@ -92,34 +92,5 @@ namespace Neo.DebugAdapter
                 Type = "Boolean"
             };
         }
-
-        //    public IEnumerable<Variable> GetVariables(VariablesArguments args)
-        //{
-        //    if (args.Filter == VariablesArguments.FilterValue.Indexed)
-        //    {
-        //        var byteArray = array.GetByteArray();
-        //        for (int i = 0; i < byteArray.Length; i++)
-        //        {
-        //            yield return new Variable()
-        //            {
-        //                Name = i.ToString(),
-        //                Value = "0x" + byteArray[i].ToString("x"),
-        //                Type = "Byte"
-        //            };
-        //        }
-        //    }
-
-        //    if (args.Filter == VariablesArguments.FilterValue.Named)
-        //    {
-        //        var container = new AsContainer(array);
-        //        var containerID = session.AddVariableContainer(container);
-
-        //        yield return new Variable()
-        //        {
-        //            Name = "<as>",
-        //            VariablesReference = containerID
-        //        };
-        //    }
-        //}
     }
 }
