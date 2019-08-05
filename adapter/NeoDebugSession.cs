@@ -77,19 +77,20 @@ namespace Neo.DebugAdapter
 
         const VMState HALT_OR_FAULT = VMState.HALT | VMState.FAULT;
 
-        void Run(bool step = true, bool stepIn = false)
+        public void Continue()
         {
-            if ((engine.State & HALT_OR_FAULT) != 0)
+            while ((engine.State & HALT_OR_FAULT) == 0)
             {
-                throw new Exception("can't run in halt or fault state");
+                engine.ExecuteNext();
+
+                // check breakpoint
             }
+        }
 
-            var sequencePoints = Contract.GetMethod(engine.CurrentContext)?.SequencePoints
-                ?? new List<SequencePoint>();
-            var contractScriptHashSpan = Contract.ScriptHash.AsSpan();
-            var currentStackDepth = engine.InvocationStack.Count;
-
-            while (true)
+        void Step(Func<int, int, bool> compare)
+        {
+            int c = engine.InvocationStack.Count;
+            while ((engine.State & HALT_OR_FAULT) == 0)
             {
                 engine.ExecuteNext();
 
@@ -98,49 +99,29 @@ namespace Neo.DebugAdapter
                     break;
                 }
 
-                if (step
-                    && contractScriptHashSpan.SequenceEqual(engine.CurrentContext.ScriptHash)
-                    && sequencePoints.Any(sp => sp.Address == engine.CurrentContext.InstructionPointer))
-                {
-                    break;
-                }
+                // check breakpoint
 
-                if (stepIn && engine.InvocationStack.Count > currentStackDepth)
+                if (compare(engine.InvocationStack.Count, c) && Contract.CheckSequencePoint(engine.CurrentContext))
                 {
-                    Run(step, stepIn);
                     break;
                 }
             }
         }
 
-        public void Continue()
-        {
-            Run(false, false);
-        }
-
         public void StepOver()
         {
-            Run(true, false);
+            Step((currentStackSize, originalStackSize) => currentStackSize <= originalStackSize);
         }
 
         public void StepIn()
         {
-            Run(true, true);
+            Step((_, __) => true);
         }
 
         public void StepOut()
         {
-            //engine.State &= ~VMState.BREAK;
-            //int stackCount = engine.InvocationStack.Count;
-
-            //while (((engine.State & HAULT_FAULT_BREAK) == 0) && engine.InvocationStack.Count >= stackCount)
-            //{
-            //    ExecuteOne();
-            //}
-
-            //engine.State |= VMState.BREAK;
+            Step((currentStackSize, originalStackSize) => currentStackSize < originalStackSize);
         }
-
 
         public IEnumerable<Thread> GetThreads()
         {

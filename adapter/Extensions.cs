@@ -1,6 +1,7 @@
 ﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.VM;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Numerics;
@@ -23,18 +24,21 @@ namespace Neo.DebugAdapter
             return null;
         }
 
+        public static bool CheckSequencePoint(this Contract contract, ExecutionContext context)
+        {
+            if (contract.ScriptHash.AsSpan().SequenceEqual(context.ScriptHash))
+            {
+                return (contract.GetMethod(context)?.SequencePoints ?? new List<SequencePoint>())
+                    .Any(sp => sp.Address == context.InstructionPointer);
+            }
+            return false;
+        }
+
         public static SequencePoint GetCurrentSequencePoint(this Method method, Neo.VM.ExecutionContext context)
         {
             return method?.SequencePoints.SingleOrDefault(sp => sp.Address == context.InstructionPointer);
         }
-
-        public static SequencePoint GetNextSequencePoint(this Method method, Neo.VM.ExecutionContext context)
-        {
-            return method?.SequencePoints
-                .OrderBy(sp => sp.Address)
-                .FirstOrDefault(sp => sp.Address > context.InstructionPointer);
-        }
-
+        
         public static bool TryParseBigInteger(this string value, out BigInteger bigInteger)
         {
             if (value.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
