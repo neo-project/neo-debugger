@@ -169,11 +169,31 @@ namespace Neo.DebugAdapter
                 return Enumerable.Empty<(byte[], byte[])>();
             }
 
+            bool? GetWitnesses()
+            {
+                if (arguments.ConfigurationProperties.TryGetValue("runtime", out var token))
+                {
+                    var witnesses = token["witnesses"];
+                    if (witnesses?.Type == JTokenType.Object)
+                    {
+                        return witnesses.Value<bool>("check-result");
+                    }
+                }
+
+                return null;
+            }
+
             var programFileName = (string)arguments.ConfigurationProperties["program"];
             var contract = Contract.Load(programFileName);
 
             session = new NeoDebugSession(contract, GetArguments(contract.GetEntryPoint()));
-            session.PopulateStorage(GetStorage());
+            session.InteropService.Storage.Populate(contract.ScriptHash, GetStorage());
+
+            var bypassCheckWitness = GetWitnesses();
+            if (bypassCheckWitness.HasValue)
+            {
+                session.InteropService.Runtime.BypassCheckWitness(bypassCheckWitness.Value);
+            }
 
             session.StepIn();
             Protocol.SendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Entry) { ThreadId = 1 });

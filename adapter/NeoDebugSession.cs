@@ -1,4 +1,4 @@
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.VM;
 using System;
 using System.Collections.Generic;
@@ -32,7 +32,7 @@ namespace Neo.DebugAdapter
         public readonly Contract Contract;
         public readonly ContractArgument[] Arguments;
         private readonly ScriptTable ScriptTable = new ScriptTable();
-        private readonly EmulatedInteropService InteropService = new EmulatedInteropService();
+        public EmulatedInteropService InteropService { get; } = new EmulatedInteropService();
         private readonly DebugExecutionEngine engine;
 
         public VMState EngineState => engine.State;
@@ -50,11 +50,6 @@ namespace Neo.DebugAdapter
                 engine = new DebugExecutionEngine(null, new Crypto(), ScriptTable, InteropService);
                 engine.LoadScript(builder.ToArray());
             }
-        }
-
-        public void PopulateStorage(IEnumerable<(byte[] key, byte[] value)> storage)
-        {
-            InteropService.Storage.Populate(Contract.ScriptHash, storage);
         }
 
         //private readonly Dictionary<int, HashSet<int>> breakPoints = new Dictionary<int, HashSet<int>>();

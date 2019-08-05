@@ -45,6 +45,26 @@
 									}
 								},
 								"default": []
+							},
+							"runtime": {
+								"type": "object",
+								"properties": {
+									"witnesses": {
+										"oneOf":[
+											{ 
+												"type": "array", 
+												"items": "string" 
+											},
+											{
+												"type": "object",
+												"required": ["check-result"],
+												"properties": {
+													"check-result": { "type": "boolean" }
+												}
+											}
+										]
+									}
+								}
 							}
 						}
 					}
