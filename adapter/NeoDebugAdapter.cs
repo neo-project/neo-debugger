@@ -229,7 +229,7 @@ namespace Neo.DebugAdapter
 
                 foreach (var item in session.GetResults())
                 {
-                    Protocol.SendEvent(new OutputEvent(item.GetValue(entryPoint.ReturnType)));
+                    Protocol.SendEvent(new OutputEvent(GetResult(item, entryPoint.ReturnType)));
                 }
                 Protocol.SendEvent(new TerminatedEvent());
             }
@@ -238,6 +238,25 @@ namespace Neo.DebugAdapter
                 Protocol.SendEvent(new StoppedEvent(reasonValue) { ThreadId = 1 });
             }
         }
+
+        private static string GetResult(StackItem item, string type)
+        {
+            if (type == "ByteArray")
+            {
+                return $@"byte[{item.GetByteArray().Length}]
+as string:  ""{item.GetString()}""
+as boolean: {item.GetBoolean()}
+as integer: {item.GetBigInteger()}";
+            }
+
+            if (item.TryGetValue(type, out var value))
+            {
+                return value;
+            }
+
+            throw new Exception($"couldn't convert {type}");
+        }
+
 
         // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Continue
         protected override ContinueResponse HandleContinueRequest(ContinueArguments arguments)

@@ -94,33 +94,20 @@ namespace Neo.DebugAdapter
             }
         }
 
-        public static string GetValue(this StackItem item, string type)
-        {
-            if (item.TryGetValue(type, out var value))
-            {
-                return value;
-            }
-
-            throw new Exception($"couldn't convert {type}");
-        }
-
         public static bool TryGetValue(this StackItem item, string type, out string value)
         {
             if (item != null && !string.IsNullOrEmpty(type))
             {
                 switch (type)
                 {
+                    case "Boolean":
+                        value = item.GetBoolean().ToString();
+                        return true;
                     case "Integer":
                         value = item.GetBigInteger().ToString();
                         return true;
                     case "String":
                         value = item.GetString();
-                        return true;
-                    case "ByteArray":
-                        value = $@"byte[{item.GetByteArray().Length}]
-as string:  ""{item.GetString()}""
-as boolean: {item.GetBoolean()}
-as integer: {item.GetBigInteger()}";
                         return true;
                 }
             }
