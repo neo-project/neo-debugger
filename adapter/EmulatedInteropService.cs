@@ -12,18 +12,12 @@ namespace Neo.DebugAdapter
     {
         private readonly Dictionary<uint, Func<ExecutionEngine, bool>> methods = new Dictionary<uint, Func<ExecutionEngine, bool>>();
         public EmulatedStorage Storage { get; } = new EmulatedStorage();
+        public EmulatedRuntime Runtime { get; } = new EmulatedRuntime();
 
         public EmulatedInteropService()
         {
-            Register("Neo.Storage.GetContext", Storage.GetContext);
-            Register("Neo.Storage.Get", Storage.Get);
-            Register("Neo.Storage.Put", Storage.Put);
-            Register("Neo.Storage.Delete", Storage.Delete);
-
-            Register("System.Storage.GetContext", Storage.GetContext);
-            Register("System.Storage.Get", Storage.Get);
-            Register("System.Storage.Put", Storage.Put);
-            Register("System.Storage.Delete", Storage.Delete);
+            Storage.RegisterServices(Register);
+            Runtime.RegisterServices(Register);
         }
 
         public bool Invoke(byte[] method, ExecutionEngine engine)
@@ -49,8 +43,20 @@ namespace Neo.DebugAdapter
 
         protected void Register(string methodName, Func<ExecutionEngine, bool> handler)
         {
-            var hash = InteropMethodHash(methodName);
-            methods.Add(hash, handler);
+            void register(string name)
+            {
+                methods.Add(InteropMethodHash(name), handler);
+            }
+
+            if (methodName[0] == '.')
+            {
+                register("Neo" + methodName);
+                register("System" + methodName);
+            }
+            else
+            {
+                register(methodName);
+            }
         }
     }
 }

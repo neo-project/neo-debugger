@@ -41,6 +41,14 @@ namespace Neo.DebugAdapter
             }
         }
 
+        public void RegisterServices(Action<string, Func<ExecutionEngine, bool>> register)
+        {
+            register(".Storage.GetContext", GetContext);
+            register(".Storage.Get", Get);
+            register(".Storage.Put", Put);
+            register(".Storage.Delete", Delete);
+        }
+
         static bool TryGetStorageContext(RandomAccessStack<StackItem> evalStack, out StorageContext context)
         {
             if (evalStack.Pop() is VM.Types.InteropInterface interop)
