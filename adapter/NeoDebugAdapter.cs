@@ -146,16 +146,36 @@ namespace Neo.DebugAdapter
 
         protected override LaunchResponse HandleLaunchRequest(LaunchArguments arguments)
         {
+            IEnumerable<ContractArgument> GetArguments(Method method)
+            {
+                if (arguments.ConfigurationProperties.TryGetValue("args", out var token))
+                {
+                    return arguments.ConfigurationProperties["args"]
+                        .Zip(method.Parameters, ConvertArg);
+                }
+
+                return Enumerable.Empty<ContractArgument>();
+            }
+
+            IEnumerable<(byte[], byte[])> GetStorage()
+            {
+                if (arguments.ConfigurationProperties.TryGetValue("storage", out var token))
+                {
+                    return token.Select(t =>
+                        (ConvertString(t["key"]), 
+                        ConvertString(t["value"])));
+                }
+
+                return Enumerable.Empty<(byte[], byte[])>();
+            }
+
             var programFileName = (string)arguments.ConfigurationProperties["program"];
             var contract = Contract.Load(programFileName);
 
             var entrypoint = contract.GetEntryPoint();
 
-            var args = arguments.ConfigurationProperties["args"]
-                .Zip(entrypoint.Parameters, ConvertArg);
-
-            var storage = arguments.ConfigurationProperties["storage"]
-                .Select(t => (ConvertString(t["key"]), ConvertString(t["value"])));
+            var args = GetArguments(contract.GetEntryPoint());
+            var storage = GetStorage();
 
             session = new NeoDebugSession(contract, args, storage);
             session.StepIn();
