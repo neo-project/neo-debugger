@@ -13,7 +13,7 @@
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/neo-project/neo-debugger.git"
-	  },
+	},
 	"activationEvents": [
 		"onDebug"
 	],
@@ -43,10 +43,17 @@
 								"type": "array",
 								"items": {
 									"type": "object",
-									"required": ["key", "value"],
+									"required": [
+										"key",
+										"value"
+									],
 									"properties": {
-										"key": { "type": "string" },
-										"value": { "type": "string" }
+										"key": {
+											"type": "string"
+										},
+										"value": {
+											"type": "string"
+										}
 									}
 								},
 								"default": []
@@ -55,16 +62,20 @@
 								"type": "object",
 								"properties": {
 									"witnesses": {
-										"oneOf":[
-											{ 
-												"type": "array", 
-												"items": "string" 
+										"oneOf": [
+											{
+												"type": "array",
+												"items": "string"
 											},
 											{
 												"type": "object",
-												"required": ["check-result"],
+												"required": [
+													"check-result"
+												],
 												"properties": {
-													"check-result": { "type": "boolean" }
+													"check-result": {
+														"type": "boolean"
+													}
 												}
 											}
 										]
@@ -113,8 +124,9 @@
 		"@types/vscode": "^1.36.0",
 		"glob": "^7.1.4",
 		"mocha": "^6.1.4",
-		"typescript": "^3.3.1",
 		"tslint": "^5.12.1",
+		"typescript": "^3.3.1",
+		"vsce": "^1.66.0",
 		"vscode-test": "^1.0.0-next.0"
 	}
 }

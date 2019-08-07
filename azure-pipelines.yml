@@ -5,12 +5,22 @@ pool:
   vmImage: 'windows-2019'
 
 steps:
+- task: Npm@1
+  inputs:
+    command: 'install'
+    workingDir: './src/extension' 
+
+- task: CmdLine@2
+  inputs:
+    script: './node_modules/.bin/vsce package --out $(Build.ArtifactStagingDirectory)/adapter'
+    workingDirectory: './src/extension'
+
 - task: DotNetCoreCLI@2
   displayName: 'dotnet pack'
   inputs:
     command: 'custom'
     custom: pack
-    arguments: '--version-suffix preview-$(Build.BuildNumber) -c $(configuration) -o $(Build.ArtifactStagingDirectory)/adapter --include-symbols'
+    arguments: './src/adapter --version-suffix preview-$(Build.BuildNumber) -c $(configuration) -o $(Build.ArtifactStagingDirectory)/adapter --include-symbols'
 
 - task: PublishBuildArtifacts@1
   displayName: 'publish build artifacts'
