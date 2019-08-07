@@ -34,3 +34,11 @@ steps:
     packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg;!$(Build.ArtifactStagingDirectory)/**/*.symbols.nupkg'
     nuGetFeedType: 'internal'
     publishVstsFeed: 'e4a31b7b-a6f8-4d1e-92d1-92d68bffefe3'
+
+- task: UniversalPackages@0
+  inputs:
+    command: 'publish'
+    publishDirectory: '$(Build.ArtifactStagingDirectory)/extension/*.vsix'
+    feedsToUsePublish: 'internal'
+    vstsFeedPublish: 'e4a31b7b-a6f8-4d1e-92d1-92d68bffefe3'
+    versionOption: 'patch'
