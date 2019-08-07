@@ -612,4 +612,4 @@ typings/
 
 
 # generated JS files for extension
-extension/out
+src/extension/out
