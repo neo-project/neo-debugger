@@ -50,7 +50,8 @@ steps:
 - task: UniversalPackages@0
   inputs:
     command: 'publish'
-    publishDirectory: '$(Build.ArtifactStagingDirectory)/extension/*.vsix'
+    publishDirectory: '$(Build.ArtifactStagingDirectory)/extension/'
     feedsToUsePublish: 'internal'
     vstsFeedPublish: 'e4a31b7b-a6f8-4d1e-92d1-92d68bffefe3'
-    versionOption: 'patch'
+    vstsFeedPackagePublish: 'neo-debugger'
+    packagePublishDescription: 'NEO Smart Contract Debugger extension for VSCode'
