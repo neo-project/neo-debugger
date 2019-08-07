@@ -1,14 +1,19 @@
 {
 	"name": "neo-contract-debug",
-	"displayName": "neo-contract-debug",
+	"publisher": "ngd-seattle",
+	"displayName": "NEO Smart Contract Debugger",
 	"description": "Debugger Extension for NEO Smart Contracts",
-	"version": "0.0.1",
+	"version": "0.5.0",
 	"engines": {
 		"vscode": "^1.36.0"
 	},
 	"categories": [
 		"Other"
 	],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/neo-project/neo-debugger.git"
+	  },
 	"activationEvents": [
 		"onDebug"
 	],

@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <VersionPrefix>0.5.0</VersionPrefix>
     <TargetFramework>netcoreapp2.2</TargetFramework>
     <RootNamespace>Neo.DebugAdapter</RootNamespace>
     <LangVersion>7.3</LangVersion>
