@@ -12,8 +12,14 @@ steps:
 
 - task: CmdLine@2
   inputs:
-    script: './node_modules/.bin/vsce package --out $(Build.ArtifactStagingDirectory)/extension'
+    script: './node_modules/.bin/vsce package'
     workingDirectory: './src/extension'
+
+- task: CopyFiles@2
+  inputs:
+    SourceFolder: './src/extension'
+    Contents: '*.vsix'
+    TargetFolder: '$(Build.ArtifactStagingDirectory)/extension'
 
 - task: DotNetCoreCLI@2
   displayName: 'dotnet pack'
