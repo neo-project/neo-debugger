@@ -26,7 +26,13 @@ steps:
   displayName: 'publish build artifacts'
   inputs:
     pathToPublish: '$(Build.ArtifactStagingDirectory)/adapter'
-    artifactName: 'nuget package'
+    artifactName: 'nuget-package'
+
+- task: PublishBuildArtifacts@1
+  displayName: 'publish build artifacts'
+  inputs:
+    pathToPublish: '$(Build.ArtifactStagingDirectory)/extension'
+    artifactName: 'VSIX-package'
 
 - task: NuGetCommand@2
   inputs:
