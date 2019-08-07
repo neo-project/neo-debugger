@@ -4,6 +4,15 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp2.2</TargetFramework>
     <RootNamespace>Neo.DebugAdapter</RootNamespace>
+    <LangVersion>7.3</LangVersion>
+    <AssemblyName>neo-debug-adapter</AssemblyName>
+    <PackAsTool>true</PackAsTool>
+    <Description>neo-express is a NEO developer blockchain tool</Description>
+    <PackageTags>NEO;Blockchain;Smart Contract;Debugger</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Authors>Neo Global Development Seattle</Authors>
+    <PackageProjectUrl>https://github.com/neo-project/neo-debugger</PackageProjectUrl>
+    <PackageIconUrl>https://neo-cdn.azureedge.net/images/neo-logo/72.png</PackageIconUrl>
   </PropertyGroup>
 
   <ItemGroup>
