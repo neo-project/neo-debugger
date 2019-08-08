@@ -12,8 +12,14 @@ steps:
 
 - task: CmdLine@2
   inputs:
-    script: './node_modules/.bin/vsce package --out $(Build.ArtifactStagingDirectory)/adapter'
+    script: './node_modules/.bin/vsce package'
     workingDirectory: './src/extension'
+
+- task: CopyFiles@2
+  inputs:
+    SourceFolder: './src/extension'
+    Contents: '*.vsix'
+    TargetFolder: '$(Build.ArtifactStagingDirectory)/extension'
 
 - task: DotNetCoreCLI@2
   displayName: 'dotnet pack'
@@ -26,7 +32,13 @@ steps:
   displayName: 'publish build artifacts'
   inputs:
     pathToPublish: '$(Build.ArtifactStagingDirectory)/adapter'
-    artifactName: 'nuget package'
+    artifactName: 'nuget-package'
+
+- task: PublishBuildArtifacts@1
+  displayName: 'publish build artifacts'
+  inputs:
+    pathToPublish: '$(Build.ArtifactStagingDirectory)/extension'
+    artifactName: 'VSIX-package'
 
 - task: NuGetCommand@2
   inputs:
@@ -34,3 +46,12 @@ steps:
     packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg;!$(Build.ArtifactStagingDirectory)/**/*.symbols.nupkg'
     nuGetFeedType: 'internal'
     publishVstsFeed: 'e4a31b7b-a6f8-4d1e-92d1-92d68bffefe3'
+
+- task: UniversalPackages@0
+  inputs:
+    command: 'publish'
+    publishDirectory: '$(Build.ArtifactStagingDirectory)/extension/'
+    feedsToUsePublish: 'internal'
+    vstsFeedPublish: 'e4a31b7b-a6f8-4d1e-92d1-92d68bffefe3'
+    vstsFeedPackagePublish: 'neo-debugger'
+    packagePublishDescription: 'NEO Smart Contract Debugger extension for VSCode'
