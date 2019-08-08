@@ -34,7 +34,7 @@ namespace Neo.DebugAdapter
         public string ReturnType { get; set; }
 
         [JsonProperty("variables")]
-        public List<object> Variables { get; set; }
+        public List<Parameter> Variables { get; set; }
 
         [JsonProperty("sequence-points")]
         public List<SequencePoint> SequencePoints { get; set; }

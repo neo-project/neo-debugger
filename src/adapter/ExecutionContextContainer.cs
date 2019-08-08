@@ -22,12 +22,16 @@ namespace Neo.DebugAdapter
 
         public IEnumerable<Variable> GetVariables(VariablesArguments args)
         {
+            var debugVariables = method == null
+                ? new Parameter[0]
+                : method.Parameters.Concat(method.Variables).ToArray();
+
             var variables = (Neo.VM.Types.Array)context.AltStack.Peek(0);
 
             for (int i = 0; i < variables.Count; i++)
             {
-                var parameter = method != null && i < method.Parameters.Count
-                    ? method.Parameters[i]
+                var parameter = i < debugVariables.Length
+                    ? debugVariables[i]
                     : null;
                 var variable = variables[i].GetVariable(session, parameter);
                 variable.Name = string.IsNullOrEmpty(variable.Name)

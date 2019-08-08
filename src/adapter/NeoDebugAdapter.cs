@@ -273,7 +273,7 @@ namespace Neo.DebugAdapter
 
         private static string GetResult(StackItem item, string type)
         {
-            if (type == "ByteArray")
+            if (type == "ByteArray" || type == string.Empty)
             {
                 return $@"byte[{item.GetByteArray().Length}]
 as string:  ""{item.GetString()}""
