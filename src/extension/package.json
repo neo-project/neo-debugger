@@ -5,7 +5,7 @@
 	"description": "Debugger Extension for NEO Smart Contracts",
 	"version": "0.5.0",
 	"engines": {
-		"vscode": "^1.36.0"
+		"vscode": "^1.37.0"
 	},
 	"categories": [
 		"Other"
