@@ -11,9 +11,23 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDescriptorFactory {
+
 	createDebugAdapterDescriptor(session: vscode.DebugSession, executable: vscode.DebugAdapterExecutable | undefined): vscode.ProviderResult<vscode.DebugAdapterDescriptor> {
+		const config = vscode.workspace.getConfiguration("neo-debugger");
 		const path = String.raw`C:\Users\harry\Source\neo\seattle\debug\src\adapter\bin\Debug\netcoreapp2.2\neo-debug-adapter.dll`;
-		return new vscode.DebugAdapterExecutable("dotnet", [path]);
+		var args = [path];
+		
+		if (config.get<Boolean>("debug", false))
+		{
+			args.push("--debug");
+		}
+
+		if (config.get<Boolean>("log", false))
+		{
+			args.push("--log");
+		}
+
+		return new vscode.DebugAdapterExecutable("dotnet", args);
 	}
 }
 

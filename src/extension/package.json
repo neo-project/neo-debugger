@@ -19,6 +19,22 @@
 	],
 	"main": "./out/extension.js",
 	"contributes": {
+		"configuration": {
+			"type": "object",
+			"title": "NEO Debugger",
+			"properties": {
+				"neo-debugger.log": {
+					"type": "boolean",
+					"default": false,
+					"description": "Enable debug adapter logging to %LOCALAPPDATA%/neo-debugger/logs"
+				},
+				"neo-debugger.debug": {
+					"type": "boolean",
+					"default": false,
+					"description": "Pass the --debug flag when launching the NEO Debugger server"
+				}
+			}
+		},
 		"debuggers": [
 			{
 				"type": "neo-contract",

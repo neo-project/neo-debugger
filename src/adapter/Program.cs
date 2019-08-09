@@ -5,11 +5,17 @@ using System.IO;
 
 namespace Neo.DebugAdapter
 {
-    class Program
+    internal class Program
     {
-        static void Main(string[] args) => CommandLineApplication.Execute<Program>(args);
+        private static void Main(string[] args) => CommandLineApplication.Execute<Program>(args);
 
-        readonly string logFile;
+        private readonly string logFile;
+
+        [Option]
+        private bool Debug { get; }
+
+        [Option]
+        private bool Log { get; }
 
         public Program()
         {
@@ -26,15 +32,6 @@ namespace Neo.DebugAdapter
             logFile = Path.Combine(neoDebugLogPath, $"neo-debug-{DateTime.Now:yyMMdd-hhmmss}.log");
         }
 
-
-        public void Log(string message, LogCategory category = LogCategory.Trace)
-        {
-            File.AppendAllText(logFile, $"\n{category} {message}");
-        }
-
-        [Option]
-        bool Debug { get; }
-        
         private void OnExecute(CommandLineApplication app, IConsole console)
         {
             if (Debug)
@@ -45,10 +42,18 @@ namespace Neo.DebugAdapter
             NeoDebugAdapter adapter = new NeoDebugAdapter(
                 Console.OpenStandardInput(),
                 Console.OpenStandardOutput(),
-                (cat,msg) => Log(msg, cat));
+                (cat,msg) => LogMessage(msg, cat));
 
-            adapter.Protocol.LogMessage += (sender, args) => Log(args.Message, args.Category);
+            adapter.Protocol.LogMessage += (sender, args) => LogMessage(args.Message, args.Category);
             adapter.Run();
+        }
+
+        public void LogMessage(string message, LogCategory category = LogCategory.Trace)
+        {
+            if (Log)
+            {
+                File.AppendAllText(logFile, $"\n{category} {message}");
+            }
         }
     }
 }
