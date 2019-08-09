@@ -32,6 +32,11 @@
 					"type": "boolean",
 					"default": false,
 					"description": "Pass the --debug flag when launching the NEO Debugger server"
+				},
+				"neo-debugger.debug-adapter": {
+					"type": "array",
+					"items": "string",
+					"description": "Path to the NEO Debugger server"
 				}
 			}
 		},
@@ -39,7 +44,6 @@
 			{
 				"type": "neo-contract",
 				"label": "NEO Contract",
-				"program": "dotnet C:\\Users\\harry\\Source\\neo\\seattle\\debug\\adapter\\bin\\Debug\\netcoreapp2.2\\neo-debug-adapter.dll",
 				"configurationAttributes": {
 					"launch": {
 						"required": [
