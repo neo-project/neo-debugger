@@ -2,8 +2,9 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import { WorkspaceFolder, DebugConfiguration, ProviderResult, CancellationToken } from 'vscode';
-import { join, basename } from 'path';
+import { join, basename, relative } from 'path';
 import { unwatchFile } from 'fs';
+import { create } from 'domain';
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -15,23 +16,6 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.debug.registerDebugAdapterDescriptorFactory("neo-contract", factory));
 }
 
-async function* findNeoVmFiles(uri: vscode.Uri) : AsyncIterableIterator<string> {
-	for (var [fileName,fileType] of await vscode.workspace.fs.readDirectory(uri)) {
-		if (fileType === vscode.FileType.File && fileName.endsWith(".avm"))
-		{
-			yield join(uri.fsPath, fileName);
-		}
-
-		if (fileType === vscode.FileType.Directory)
-		{
-			for await (var file of findNeoVmFiles(vscode.Uri.file(join(uri.fsPath, fileName))))
-			{
-				yield file;
-			}
-		}
-	}
-}
-
 class NeoContractDebugConfigurationProvider implements vscode.DebugConfigurationProvider {
 	public async provideDebugConfigurations(folder: WorkspaceFolder | undefined, token?: CancellationToken): Promise<DebugConfiguration[]> {
 		
@@ -40,7 +24,9 @@ class NeoContractDebugConfigurationProvider implements vscode.DebugConfiguration
 				name: programPath ? basename(programPath) : "NEO Contract",
 				type: "neo-contract",
 				request: "launch",
-				program: "${workspaceFolder}" + (programPath ? programPath : ""),
+				program: programPath && folder 
+					? join("${workspaceFolder}", relative(folder.uri.fsPath, programPath)) 
+					: "${workspaceFolder}",
 				args: [],
 				storage: [],
 				runtime: {
@@ -53,15 +39,9 @@ class NeoContractDebugConfigurationProvider implements vscode.DebugConfiguration
 		
 		if (folder)
 		{
-			var configs : DebugConfiguration[] = [];
-			for await (var neoVmFile of findNeoVmFiles(folder.uri))
-			{
-				var programPath = neoVmFile.slice(folder.uri.fsPath.length);
-				configs.push(createConfig(programPath));
-			}
-
-			if (configs.length > 0) {
-				return configs;
+			var neoVmFiles = await vscode.workspace.findFiles(new vscode.RelativePattern(folder, "**/*.{avm,nvm}"));
+			if (neoVmFiles.length > 0) {
+				return neoVmFiles.map(f => createConfig(f.fsPath));
 			}
 		}
 
