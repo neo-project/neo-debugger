@@ -158,16 +158,17 @@ namespace Neo.DebugAdapter
                 return Enumerable.Empty<ContractArgument>();
             }
 
-            IEnumerable<(byte[], byte[])> GetStorage()
+            IEnumerable<(byte[], byte[], bool)> GetStorage()
             {
                 if (arguments.ConfigurationProperties.TryGetValue("storage", out var token))
                 {
                     return token.Select(t =>
-                        (ConvertString(t["key"]), 
-                        ConvertString(t["value"])));
+                        (ConvertString(t["key"]),
+                        ConvertString(t["value"]),
+                        t.Value<bool?>("constant") ?? false));
                 }
 
-                return Enumerable.Empty<(byte[], byte[])>();
+                return Enumerable.Empty<(byte[], byte[], bool)>();
             }
 
             (bool? checkResult, IEnumerable<byte[]> witnesses) GetWitnesses()

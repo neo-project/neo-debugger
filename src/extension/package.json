@@ -73,6 +73,9 @@
 										},
 										"value": {
 											"type": "string"
+										},
+										"constant": {
+											"type": "boolean"
 										}
 									}
 								},

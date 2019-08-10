@@ -43,20 +43,7 @@ namespace Neo.DebugAdapter
 
         protected void Register(string methodName, Func<ExecutionEngine, bool> handler)
         {
-            void register(string name)
-            {
-                methods.Add(InteropMethodHash(name), handler);
-            }
-
-            if (methodName[0] == '.')
-            {
-                register("Neo" + methodName);
-                register("System" + methodName);
-            }
-            else
-            {
-                register(methodName);
-            }
+            methods.Add(InteropMethodHash(methodName), handler);
         }
     }
 }

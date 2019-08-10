@@ -16,18 +16,26 @@ namespace Neo.DebugAdapter
             private readonly NeoDebugSession session;
             private readonly byte[] key;
             private readonly byte[] value;
+            private readonly bool constant;
 
-            public KvpContainer(NeoDebugSession session, (byte[] key, byte[] value) kvp)
+            public KvpContainer(NeoDebugSession session, (byte[] key, byte[] value, bool constant) kvp)
             {
                 this.session = session;
-                this.key = kvp.key;
-                this.value = kvp.value;
+                key = kvp.key;
+                value = kvp.value;
+                constant = kvp.constant;
             }
 
             public IEnumerable<Variable> GetVariables(VariablesArguments args)
             {
                 yield return ByteArrayContainer.GetVariable(key, session, "key");
                 yield return ByteArrayContainer.GetVariable(value, session, "value");
+                yield return new Variable()
+                {
+                    Name = "constant",
+                    Value = constant.ToString(),
+                    Type = "Boolean"
+                };
             }
         }
 
@@ -49,7 +57,7 @@ namespace Neo.DebugAdapter
                     Name = "0x" + new BigInteger(kvp.Value.key).ToString("x"),
                     VariablesReference = session.AddVariableContainer(
                         new KvpContainer(session, kvp.Value)),
-                    NamedVariables = 2
+                    NamedVariables = 3
                 };
             }
         }

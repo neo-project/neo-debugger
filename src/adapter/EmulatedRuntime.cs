@@ -15,7 +15,9 @@ namespace Neo.DebugAdapter
 
         public void RegisterServices(Action<string, Func<ExecutionEngine, bool>> register)
         {
-            register(".Runtime.CheckWitness", CheckWitness);
+            register("System.Runtime.CheckWitness", CheckWitness);
+            register("Neo.Runtime.CheckWitness", CheckWitness);
+            register("AntShares.Runtime.CheckWitness", CheckWitness);
         }
 
         public void BypassCheckWitness(bool value)
