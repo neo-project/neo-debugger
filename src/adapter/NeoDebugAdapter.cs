@@ -102,22 +102,22 @@ namespace Neo.DebugAdapter
             }
         }
 
-        static object ConvertArg(JToken arg, ContractParameterType paramType)
+        static object ConvertArg(ContractParameterType paramType, JToken arg)
         {
             switch (paramType)
             {
                 case ContractParameterType.Boolean:
-                    return arg.Type == JTokenType.Boolean
+                    return arg?.Type == JTokenType.Boolean
                         ? arg.Value<bool>()
                         : bool.Parse(arg.ToString());
                 case ContractParameterType.Integer:
-                    return arg.Type == JTokenType.Integer
+                    return arg?.Type == JTokenType.Integer
                         ? new BigInteger(arg.Value<int>())
                         : BigInteger.Parse(arg.ToString());
                 case ContractParameterType.String:
-                    return arg.ToString();
+                    return arg?.ToString() ?? "";
                 case ContractParameterType.Array:
-                    return arg.Select(ConvertArg).ToArray();
+                    return arg?.Select(ConvertArg).ToArray() ?? new object[0];
                 default:
                     throw new NotImplementedException($"ConvertArg {paramType}");
             }
@@ -129,7 +129,7 @@ namespace Neo.DebugAdapter
             return new ContractArgument()
             {
                 Type = type,
-                Value = ConvertArg(arg, type)
+                Value = ConvertArg(type, arg)
             };
         }
 
@@ -149,13 +149,23 @@ namespace Neo.DebugAdapter
         {
             IEnumerable<ContractArgument> GetArguments(Method method)
             {
-                if (arguments.ConfigurationProperties.TryGetValue("args", out var token))
+                if (!arguments.ConfigurationProperties.TryGetValue("args", out var args))
                 {
-                    return arguments.ConfigurationProperties["args"]
-                        .Zip(method.Parameters, ConvertArg);
+                    // initialize args to empty JArray
+                    args = new JArray();
                 }
 
-                return Enumerable.Empty<ContractArgument>();
+                if (args.Type != JTokenType.Array)
+                {
+                    args = new JArray(args);
+                }
+
+                for (int i = 0; i < method.Parameters.Count; i++)
+                {
+                    var param = method.Parameters[i];
+                    var arg = args.ElementAtOrDefault(i);
+                    yield return ConvertArg(arg, param);
+                }
             }
 
             IEnumerable<(byte[], byte[], bool)> GetStorage()
