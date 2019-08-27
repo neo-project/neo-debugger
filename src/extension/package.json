@@ -3,7 +3,7 @@
 	"publisher": "ngd-seattle",
 	"displayName": "NEO Smart Contract Debugger",
 	"description": "Debugger Extension for NEO Smart Contracts",
-	"version": "0.5.0",
+	"version": "0.0.0",
 	"engines": {
 		"vscode": "^1.37.0"
 	},
@@ -136,10 +136,11 @@
 		"watch": "tsc -watch -p ./",
 		"pretest": "npm run compile",
 		"test": "node ./out/test/runTest.js",
-		"gulp": "gulp"
+		"setversion": "gulp setversion"
 	},
 	"devDependencies": {
 		"@types/glob": "^7.1.1",
+		"@types/gulp": "^4.0.6",
 		"@types/mocha": "^5.2.6",
 		"@types/node": "^10.12.21",
 		"@types/vscode": "^1.37.0",
@@ -147,6 +148,7 @@
 		"gulp": "4.0.0",
 		"mocha": "^6.1.4",
 		"nerdbank-gitversioning": "^3.1.7-beta",
+		"ts-node": "^8.3.0",
 		"tslint": "^5.12.1",
 		"typescript": "^3.3.1",
 		"vsce": "^1.66.0",
