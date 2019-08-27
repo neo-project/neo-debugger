@@ -5,6 +5,27 @@ pool:
   vmImage: 'windows-2019'
 
 steps:
+# build debug adapter 
+- task: DotNetCoreCLI@2
+  displayName: 'dotnet pack'
+  inputs:
+    command: 'custom'
+    custom: pack
+    arguments: './src/adapter -c $(configuration) -o $(Build.ArtifactStagingDirectory)/adapter --include-symbols'
+
+- task: PublishBuildArtifacts@1
+  displayName: 'publish build artifacts'
+  inputs:
+    pathToPublish: '$(Build.ArtifactStagingDirectory)/adapter'
+    artifactName: 'nuget-package'
+
+# copy debug adapter into extension folder so that it will be included in the vsix package
+- task: CopyFiles@2
+  inputs:
+    SourceFolder: '$(Build.ArtifactStagingDirectory)/adapter'
+    Contents: '*.nupkg'
+    TargetFolder: './src/extension'
+
 - task: Npm@1
   displayName: 'npm install'
   inputs:
@@ -29,30 +50,3 @@ steps:
   inputs:
     pathToPublish: '$(Build.ArtifactStagingDirectory)/extension'
     artifactName: 'VSIX-package'
-
-- task: DotNetCoreCLI@2
-  displayName: 'dotnet pack'
-  inputs:
-    command: 'custom'
-    custom: pack
-    arguments: './src/adapter -c $(configuration) -o $(Build.ArtifactStagingDirectory)/adapter --include-symbols'
-
-- task: PublishBuildArtifacts@1
-  displayName: 'publish build artifacts'
-  inputs:
-    pathToPublish: '$(Build.ArtifactStagingDirectory)/adapter'
-    artifactName: 'nuget-package'
-
-- task: NuGetCommand@2
-  inputs:
-    command: 'push'
-    packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg;!$(Build.ArtifactStagingDirectory)/**/*.symbols.nupkg'
-    nuGetFeedType: 'internal'
-    publishVstsFeed: '176ef395-dca6-4e1c-a5e7-cb4f884a7fdf'
-
-- task: NuGetCommand@2
-  inputs:
-    command: 'push'
-    packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg;!$(Build.ArtifactStagingDirectory)/**/*.symbols.nupkg'
-    nuGetFeedType: 'internal'
-    publishVstsFeed: '4b2bd186-f7a1-4f00-a22c-521ae5c47cd7/dba619f4-5991-46bf-9421-ec89e31006e5'
