@@ -14,17 +14,24 @@ steps:
     arguments: './src/adapter -c $(configuration) -o $(Build.ArtifactStagingDirectory)/adapter --include-symbols'
 
 - task: PublishBuildArtifacts@1
-  displayName: 'publish build artifacts'
+  displayName: 'publish nuget build artifacts'
   inputs:
     pathToPublish: '$(Build.ArtifactStagingDirectory)/adapter'
     artifactName: 'nuget-package'
 
 # copy debug adapter into extension folder so that it will be included in the vsix package
 - task: CopyFiles@2
+  displayName: 'copy nuget packages into extension folder'
   inputs:
     SourceFolder: '$(Build.ArtifactStagingDirectory)/adapter'
     Contents: '*.nupkg'
     TargetFolder: './src/extension'
+
+- task: DeleteFiles@1
+  displayName: 'remove symbol nuget packages from extension folder'
+  inputs:
+    sourceFolder:  './src/extension'
+    contents: '*.symbols.nupkg'
 
 - task: Npm@1
   displayName: 'npm install'
@@ -40,13 +47,14 @@ steps:
     workingDir: './src/extension' 
 
 - task: CopyFiles@2
+  displayName: 'copy VSIX package to Artifact Staging Directory'
   inputs:
     SourceFolder: './src/extension'
     Contents: '*.vsix'
     TargetFolder: '$(Build.ArtifactStagingDirectory)/extension'
 
 - task: PublishBuildArtifacts@1
-  displayName: 'publish build artifacts'
+  displayName: 'publish vsix build artifacts'
   inputs:
     pathToPublish: '$(Build.ArtifactStagingDirectory)/extension'
     artifactName: 'VSIX-package'
