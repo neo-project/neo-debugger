@@ -50,11 +50,9 @@ steps:
     nuGetFeedType: 'internal'
     publishVstsFeed: '176ef395-dca6-4e1c-a5e7-cb4f884a7fdf'
 
-- task: UniversalPackages@0
+- task: NuGetCommand@2
   inputs:
-    command: 'publish'
-    publishDirectory: '$(Build.ArtifactStagingDirectory)/extension/'
-    feedsToUsePublish: 'internal'
-    vstsFeedPublish: '176ef395-dca6-4e1c-a5e7-cb4f884a7fdf'
-    vstsFeedPackagePublish: 'neo-debugger'
-    packagePublishDescription: 'NEO Smart Contract Debugger extension for VSCode'
+    command: 'push'
+    packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg;!$(Build.ArtifactStagingDirectory)/**/*.symbols.nupkg'
+    nuGetFeedType: 'internal'
+    publishVstsFeed: '4b2bd186-f7a1-4f00-a22c-521ae5c47cd7/dba619f4-5991-46bf-9421-ec89e31006e5'
