@@ -615,4 +615,4 @@ typings/
 src/extension/out
 src/extension/neo-contract-debug-*.vsix
 src/extension/neo-debug-adapter.*.nupkg
-src/extension/bin
+src/extension/adapter
