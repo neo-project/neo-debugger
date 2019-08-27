@@ -6,14 +6,17 @@ pool:
 
 steps:
 - task: Npm@1
+  displayName: 'npm install'
   inputs:
     command: 'install'
     workingDir: './src/extension' 
 
-- task: CmdLine@2
+- task: Npm@1
+  displayName: 'npm run package-vsix'
   inputs:
-    script: './node_modules/.bin/vsce package'
-    workingDirectory: './src/extension'
+    command: 'custom'
+    customCommand: 'run package-vsix'
+    workingDir: './src/extension' 
 
 - task: CopyFiles@2
   inputs:
@@ -21,24 +24,24 @@ steps:
     Contents: '*.vsix'
     TargetFolder: '$(Build.ArtifactStagingDirectory)/extension'
 
+- task: PublishBuildArtifacts@1
+  displayName: 'publish build artifacts'
+  inputs:
+    pathToPublish: '$(Build.ArtifactStagingDirectory)/extension'
+    artifactName: 'VSIX-package'
+
 - task: DotNetCoreCLI@2
   displayName: 'dotnet pack'
   inputs:
     command: 'custom'
     custom: pack
-    arguments: './src/adapter --version-suffix preview-$(Build.BuildNumber) -c $(configuration) -o $(Build.ArtifactStagingDirectory)/adapter --include-symbols'
+    arguments: './src/adapter -c $(configuration) -o $(Build.ArtifactStagingDirectory)/adapter --include-symbols'
 
 - task: PublishBuildArtifacts@1
   displayName: 'publish build artifacts'
   inputs:
     pathToPublish: '$(Build.ArtifactStagingDirectory)/adapter'
     artifactName: 'nuget-package'
-
-- task: PublishBuildArtifacts@1
-  displayName: 'publish build artifacts'
-  inputs:
-    pathToPublish: '$(Build.ArtifactStagingDirectory)/extension'
-    artifactName: 'VSIX-package'
 
 - task: NuGetCommand@2
   inputs:

@@ -138,7 +138,7 @@
 		"test": "node ./out/test/runTest.js",
 		"setversion": "gulp setversion",
 		"vsce": "vsce",
-		"package": "npm run setversion && npm run vsce package"
+		"package-vsix": "npm run setversion && npm run vsce package"
 	},
 	"devDependencies": {
 		"@types/glob": "^7.1.1",
