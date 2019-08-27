@@ -613,3 +613,6 @@ typings/
 
 # generated JS files for extension
 src/extension/out
+src/extension/neo-contract-debug-*.vsix
+src/extension/neo-debug-adapter.*.nupkg
+src/extension/bin
