@@ -32,3 +32,38 @@ Additionally, we intend to standardize and document the debug information genera
 by NEON-DE so that other NEO smart contract compilers such as
 [neo-boa](https://github.com/CityOfZion/neo-boa) can generate it. It is an explicit
 goal for this debugger to work with any language that can compile NEO smart contracts.
+
+## A Message from the Engineer
+
+Thanks for checking out the NEO Smart Contract Debugger for VSCode!
+I am eager to hear your opinion of the product.
+
+If you like the debugger, please let me know on [Twitter](https://twitter.com/devhawk),
+[email](mailto:harrypierson@ngd.neo.org) or the [NEO Discord server](https://discord.gg/G5WEPwC).
+
+If there are things about the debugger you don't like, please file issues in our
+[GitHub repo](https://github.com/neo-project/neo-debugger/issues). You can hit me up on
+Twitter, Discord or email as well, but GitHub issues are how we track bugs and new
+features. Don't be shy - file an issue if there is anything you'd like to see changed
+in the product.
+
+Before you get started, I'd just like to point out again that the NEO Smart Contract
+Debugger is currently in early preview. Only a handful of features have been implemented
+so far. And those that are implemented are  more likely to have bugs in them. So please,
+have some patience and provide as much feedback as you can. We also accept pull requests
+if you want to get involved!
+
+Most software is built by teams of people. However, the NEO Smart Contract Debugger
+so far has been a solo effort. I'm looking forward to having other folks contribute
+in the future, but so far it's just been me. That means that the debugger has been
+designed around my experiences and my perspective. I can't help it, my perspective
+is the only one I have! :) So while I find the debugger intuitive, I realize that
+you may not feel the same. Please let me know if this is the case! I didn't build
+the NEO Smart Contract Debugger for me, I built it for the NEO developer community
+at large. So if there are changes we can make to make it more accessible, intuitive,
+easier to use or just flat-out better - I want to hear about them.
+
+Thanks again for checking out the NEO Smart Contract Debugger. I look forward to
+hearing from you.
+
+\- Harry Pierson (aka [DevHawk](http://devhawk.net)), Chief Architect NGD Seattle
