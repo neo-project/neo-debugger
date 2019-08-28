@@ -93,7 +93,6 @@ async function processRuntimeDependencies(): Promise<void> {
 				`dotnet tool install neo-debug-adapter --version ${extension.packageJSON.version} --tool-path ./adapter --add-source .`,
 				extension.extensionPath);
 			await deleteFile(getDebugAdapterPackagePath(extension));
-			vscode.window.showInformationMessage(response);
 		} else {
 			if (!inDevelopmentMode()) {
 				vscode.window.showErrorMessage("Neo Debug adapter tool and package are both missing. Please reinstall the extension");
