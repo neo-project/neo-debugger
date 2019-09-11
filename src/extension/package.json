@@ -161,7 +161,7 @@
 		"mocha": "^6.1.4",
 		"nerdbank-gitversioning": "^3.1.7-beta",
 		"ts-node": "^8.3.0",
-		"tslint": "^5.12.1",
+		"tslint": "^5.19.0",
 		"typescript": "^3.3.1",
 		"vsce": "^1.66.0",
 		"vscode-test": "^1.0.0-next.0"
