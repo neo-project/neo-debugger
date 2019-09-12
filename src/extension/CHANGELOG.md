@@ -13,6 +13,11 @@ will not have contiguous patch numbers. Initial major and minor releases will be
 in this file without a patch number. Patch version will be included for bug fix releases, but
 may not exactly match a publicly released version.
 
+## [0.6] - Unreleased
+
+- Refactored NeoDebug Adapter to seperate common debug functionally from isolated debug
+  adapter implementation.
+
 ## [0.5] - 2019-09-06
 
 Initial Release
