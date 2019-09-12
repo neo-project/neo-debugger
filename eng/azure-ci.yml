@@ -5,9 +5,15 @@ pool:
   vmImage: 'windows-2019'
 
 steps:
-# build debug adapter 
 - task: DotNetCoreCLI@2
-  displayName: 'dotnet pack'
+  displayName: 'dotnet pack neodebug library'
+  inputs:
+    command: 'custom'
+    custom: pack
+    arguments: './src/library -c $(configuration) -o $(Build.ArtifactStagingDirectory)/adapter --include-symbols'
+
+- task: DotNetCoreCLI@2
+  displayName: 'dotnet pack neodebug adapter'
   inputs:
     command: 'custom'
     custom: pack
@@ -19,12 +25,11 @@ steps:
     pathToPublish: '$(Build.ArtifactStagingDirectory)/adapter'
     artifactName: 'nuget-package'
 
-# copy debug adapter into extension folder so that it will be included in the vsix package
 - task: CopyFiles@2
-  displayName: 'copy nuget packages into extension folder'
+  displayName: 'copy adapter nuget package into extension folder'
   inputs:
     SourceFolder: '$(Build.ArtifactStagingDirectory)/adapter'
-    Contents: '*.nupkg'
+    Contents: 'neodebug-adapter.*.nupkg'
     TargetFolder: './src/extension'
 
 - task: DeleteFiles@1
