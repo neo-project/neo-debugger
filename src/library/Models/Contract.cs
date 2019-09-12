@@ -1,38 +1,37 @@
 ﻿using Neo.VM;
-using Newtonsoft.Json.Linq;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-namespace Neo.DebugAdapter
+namespace NeoDebug.Models
 {
-    class Contract
+    public class Contract
     {
         public byte[] Script { get; }
         public DebugInfo DebugInfo { get; }
-
         public byte[] ScriptHash { get; }
 
-        public Contract(byte[] script, DebugInfo debugInfo)
+        public Contract(byte[] script, DebugInfo debugInfo, Func<byte[], byte[]> scriptHashFunc)
         {
             Script = script;
-            ScriptHash = Crypto.Hash160(script);
+            ScriptHash = scriptHashFunc(script);
             DebugInfo = debugInfo;
         }
+
+        public Method EntryPoint => DebugInfo.Methods.Single(m => m.Name == DebugInfo.Entrypoint);
 
         public ScriptBuilder BuildInvokeScript(ContractArgument[] arguments)
         {
             var builder = new ScriptBuilder();
-            foreach (var arg in arguments.Reverse())
+            for (int i = arguments.Length - 1; i >= 0; i--)
             {
-                arg.EmitPush(builder);
+                arguments[i].EmitPush(builder);
             }
             builder.EmitAppCall(ScriptHash);
             return builder;
         }
 
-        public static Contract Load(string vmFileName)
+        public static Contract Load(string vmFileName, Func<byte[], byte[]> scriptHashFunc)
         {
             if (!File.Exists(vmFileName))
                 throw new ArgumentException($"{nameof(vmFileName)} file doesn't exist");
@@ -41,14 +40,10 @@ namespace Neo.DebugAdapter
             if (!File.Exists(debugJsonFileName))
                 throw new ArgumentException($"{nameof(vmFileName)} debug info file doesn't exist");
 
-            var abiJsonFileName = Path.ChangeExtension(vmFileName, ".abi.json");
-            if (!File.Exists(abiJsonFileName))
-                throw new ArgumentException($"{nameof(vmFileName)} ABI info file doesn't exist");
-
             var script = File.ReadAllBytes(vmFileName);
             var debugInfo = DebugInfo.FromJson(File.ReadAllText(debugJsonFileName));
 
-            return new Contract(script, debugInfo);
+            return new Contract(script, debugInfo, scriptHashFunc);
         }
     }
 }

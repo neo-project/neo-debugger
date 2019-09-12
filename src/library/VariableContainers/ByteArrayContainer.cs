@@ -1,14 +1,10 @@
 ﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
-using Neo.VM;
 using Neo.VM.Types;
-using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 
-namespace Neo.DebugAdapter
+namespace NeoDebug.VariableContainers
 {
-    internal class ByteArrayContainer : IVariableContainer
+    public class ByteArrayContainer : IVariableContainer
     {
         internal class ValuesContainer : IVariableContainer
         {
@@ -33,21 +29,21 @@ namespace Neo.DebugAdapter
             }
         }
 
-        private readonly NeoDebugSession session;
+        private readonly IVariableContainerSession session;
         private readonly ByteArray array;
 
-        public ByteArrayContainer(NeoDebugSession session, ByteArray array)
+        public ByteArrayContainer(IVariableContainerSession session, ByteArray array)
         {
             this.session = session;
             this.array = array;
         }
 
-        public static Variable GetVariable(byte[] byteArray, NeoDebugSession session, string name = null)
+        public static Variable GetVariable(byte[] byteArray, IVariableContainerSession session, string name = null)
         {
             return GetVariable(new ByteArray(byteArray), session, name);
         }
 
-        public static Variable GetVariable(ByteArray byteArray, NeoDebugSession session, string name = null)
+        public static Variable GetVariable(ByteArray byteArray, IVariableContainerSession session, string name = null)
         {
             var container = new ByteArrayContainer(session, byteArray);
             var containerID = session.AddVariableContainer(container);

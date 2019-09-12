@@ -1,6 +1,6 @@
-﻿namespace Neo.DebugAdapter
+﻿namespace NeoDebug.Models
 {
-    enum ContractParameterType : byte
+    public enum ContractParameterType : byte
     {
         Signature = 0x00,
         Boolean = 0x01,

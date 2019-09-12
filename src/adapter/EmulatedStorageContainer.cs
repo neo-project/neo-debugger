@@ -1,24 +1,20 @@
 ﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
-using Neo.VM;
-using System;
+using NeoDebug.VariableContainers;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Numerics;
-using System.Text;
 
-namespace Neo.DebugAdapter
+namespace NeoDebug.Adapter
 {
     internal class EmulatedStorageContainer : IVariableContainer
     {
         internal class KvpContainer : IVariableContainer
         {
-            private readonly NeoDebugSession session;
+            private readonly IVariableContainerSession session;
             private readonly byte[] key;
             private readonly byte[] value;
             private readonly bool constant;
 
-            public KvpContainer(NeoDebugSession session, (byte[] key, byte[] value, bool constant) kvp)
+            public KvpContainer(IVariableContainerSession session, (byte[] key, byte[] value, bool constant) kvp)
             {
                 this.session = session;
                 key = kvp.key;
@@ -39,10 +35,10 @@ namespace Neo.DebugAdapter
             }
         }
 
-        private readonly NeoDebugSession session;
+        private readonly IVariableContainerSession session;
         private readonly EmulatedStorage storage;
 
-        public EmulatedStorageContainer(NeoDebugSession session, EmulatedStorage storage)
+        public EmulatedStorageContainer(IVariableContainerSession session, EmulatedStorage storage)
         {
             this.storage = storage;
             this.session = session;

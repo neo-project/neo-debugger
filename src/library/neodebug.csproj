@@ -1,15 +1,10 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <VersionPrefix>0.5.0</VersionPrefix>
-    <TargetFramework>netcoreapp2.2</TargetFramework>
-    <RootNamespace>Neo.DebugAdapter</RootNamespace>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>NeoDebug</RootNamespace>
     <LangVersion>7.3</LangVersion>
-    <AssemblyName>neo-debug-adapter</AssemblyName>
-    <PackAsTool>true</PackAsTool>
-    <Description>neo-express is a NEO developer blockchain tool</Description>
-    <PackageTags>NEO;Blockchain;Smart Contract;Debugger</PackageTags>
+    <AssemblyName>neodebug</AssemblyName>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Authors>Neo Global Development Seattle</Authors>
     <PackageProjectUrl>https://github.com/neo-project/neo-debugger</PackageProjectUrl>
@@ -17,7 +12,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="2.3.4" />
     <PackageReference Include="Microsoft.VisualStudio.Shared.VsCodeDebugProtocol" Version="16.2.30529.1" />
     <PackageReference Include="Neo.VM" Version="2.4.3.1" />
     <PackageReference Include="System.Security.Permissions" Version="4.5.0" />

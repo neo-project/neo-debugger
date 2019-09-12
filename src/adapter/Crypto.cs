@@ -2,7 +2,7 @@
 using System;
 using System.Security.Cryptography;
 
-namespace Neo.DebugAdapter
+namespace NeoDebug.Adapter
 {
     class Crypto : ICrypto
     {

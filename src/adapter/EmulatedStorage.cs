@@ -1,13 +1,10 @@
-﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
-using Neo.VM;
+﻿using Neo.VM;
+using NeoDebug.VariableContainers;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Numerics;
-using System.Text;
 
-namespace Neo.DebugAdapter
+namespace NeoDebug.Adapter
 {
     internal class EmulatedStorage
     {
@@ -42,14 +39,19 @@ namespace Neo.DebugAdapter
 
         public IReadOnlyDictionary<int, (byte[] key, byte[] value, bool constant)> Storage => storage;
 
-        public void Populate(byte[] scriptHash, IEnumerable<(byte[] key, byte[] value, bool constant)> items)
+        public EmulatedStorage(byte[] scriptHash, IEnumerable<(byte[] key, byte[] value, bool constant)> items = null)
         {
             var storageContext = new StorageContext(scriptHash, false);
-            foreach (var item in items)
+            foreach (var item in items ?? Enumerable.Empty<(byte[], byte[], bool)>())
             {
                 var storageHash = storageContext.GetHashCode(item.key);
                 storage[storageHash] = item;
             }
+        }
+
+        public IVariableContainer GetStorageContainer(IVariableContainerSession session)
+        {
+            return new EmulatedStorageContainer(session, this);
         }
 
         public void RegisterServices(Action<string, Func<ExecutionEngine, bool>> register)
@@ -104,7 +106,7 @@ namespace Neo.DebugAdapter
 
         private static bool TryGetStorageContext(RandomAccessStack<StackItem> evalStack, out StorageContext context)
         {
-            if (evalStack.Pop() is VM.Types.InteropInterface interop)
+            if (evalStack.Pop() is Neo.VM.Types.InteropInterface interop)
             {
                 context = interop.GetInterface<StorageContext>();
                 return true;

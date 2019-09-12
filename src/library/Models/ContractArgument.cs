@@ -1,12 +1,11 @@
 ﻿using Neo.VM;
-using Newtonsoft.Json.Linq;
 using System;
 using System.Linq;
 using System.Numerics;
 
-namespace Neo.DebugAdapter
+namespace NeoDebug.Models
 {
-    class ContractArgument
+    public class ContractArgument
     {
         public ContractParameterType Type;
         public object Value;

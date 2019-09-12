@@ -1,27 +1,32 @@
-﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
+using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.VM;
+using NeoDebug.Models;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Numerics;
-using System.Text;
 
-namespace Neo.DebugAdapter
+namespace NeoDebug
 {
-    class NeoDebugAdapter : DebugAdapterBase
+    public class DebugAdapter : DebugAdapterBase
     {
-        Action<LogCategory, string> logger;
+        private readonly Action<LogCategory, string> logger;
+        private readonly Func<Contract, LaunchArguments, IExecutionEngine> createEngineFunc;
+        private readonly Func<byte[], byte[]> scriptHashFunc;
+        private DebugSession session;
 
-        public NeoDebugAdapter(Stream @in, Stream @out, Action<LogCategory, string> logger = null)
+        public DebugAdapter(Stream @in, Stream @out, Func<Contract, LaunchArguments, IExecutionEngine> createEngineFunc,
+                            Func<byte[], byte[]> scriptHashFunc, Action<LogCategory, string> logger = null)
         {
-            Action<LogCategory, string> nullLogger = (__, _) => { };
-            this.logger = logger ?? nullLogger;
+            this.createEngineFunc = createEngineFunc;
+            this.scriptHashFunc = scriptHashFunc;
+            this.logger = logger ?? ((_, __) => { });
 
             InitializeProtocolClient(@in, @out);
+            Protocol.LogMessage += (sender, args) => logger(args.Category, args.Message);
         }
 
         public void Run()
@@ -29,15 +34,14 @@ namespace Neo.DebugAdapter
             Protocol.Run();
         }
 
-        void Log(string message, LogCategory cat = LogCategory.DebugAdapterOutput)
+        void Log(string message, LogCategory category = LogCategory.DebugAdapterOutput)
         {
-            logger(cat, message);
+            logger(category, message);
         }
 
         protected override InitializeResponse HandleInitializeRequest(InitializeArguments arguments)
         {
             this.Protocol.SendEvent(new InitializedEvent());
-
 
             return new InitializeResponse()
             {
@@ -50,9 +54,7 @@ namespace Neo.DebugAdapter
             return new ConfigurationDoneResponse();
         }
 
-        NeoDebugSession session;
-
-        static ContractParameterType ConvertTypeName(string typeName)
+        private static ContractParameterType ParseTypeName(string typeName)
         {
             switch (typeName)
             {
@@ -67,7 +69,7 @@ namespace Neo.DebugAdapter
             }
         }
 
-        static object ConvertArg(JToken arg)
+        private static object ConvertArgument(JToken arg)
         {
             switch (arg.Type)
             {
@@ -78,31 +80,29 @@ namespace Neo.DebugAdapter
                         Value = new BigInteger(arg.Value<int>()),
                     };
                 case JTokenType.String:
+                    var value = arg.Value<string>();
+                    if (value.TryParseBigInteger(out var bigInteger))
                     {
-                        var value = arg.Value<string>();
-                        if (value.TryParseBigInteger(out var bigInteger))
+                        return new ContractArgument
                         {
-                            return new ContractArgument
-                            {
-                                Type = ContractParameterType.Integer,
-                                Value = bigInteger,
-                            };
-                        }
-                        else
+                            Type = ContractParameterType.Integer,
+                            Value = bigInteger,
+                        };
+                    }
+                    else
+                    {
+                        return new ContractArgument
                         {
-                            return new ContractArgument
-                            {
-                                Type = ContractParameterType.String,
-                                Value = value,
-                            };
-                        }
+                            Type = ContractParameterType.String,
+                            Value = value,
+                        };
                     }
                 default:
-                    throw new NotImplementedException($"ConvertArg {arg.Type}");
+                    throw new NotImplementedException($"DebugAdapter.ConvertArgument {arg.Type}");
             }
         }
 
-        static object ConvertArg(ContractParameterType paramType, JToken arg)
+        private static object ConvertArgument(ContractParameterType paramType, JToken arg)
         {
             switch (paramType)
             {
@@ -117,33 +117,21 @@ namespace Neo.DebugAdapter
                 case ContractParameterType.String:
                     return arg?.ToString() ?? "";
                 case ContractParameterType.Array:
-                    return arg?.Select(ConvertArg).ToArray() ?? new object[0];
+                    return arg?.Select(ConvertArgument).ToArray() ?? new object[0];
                 default:
-                    throw new NotImplementedException($"ConvertArg {paramType}");
+                    throw new NotImplementedException($"DebugAdapter.ConvertArgument {paramType} {arg}");
             }
         }
 
-        static ContractArgument ConvertArg(JToken arg, Parameter param)
+        private static ContractArgument ConvertArgument(JToken arg, Parameter param)
         {
-            var type = ConvertTypeName(param.Type);
+            var type = ParseTypeName(param.Type);
             return new ContractArgument()
             {
                 Type = type,
-                Value = ConvertArg(type, arg)
+                Value = ConvertArgument(type, arg)
             };
         }
-
-        static byte[] ConvertString(string value)
-        {
-            if (value.TryParseBigInteger(out var bigInteger))
-            {
-                return bigInteger.ToByteArray();
-            }
-
-            return Encoding.UTF8.GetBytes(value);
-        }
-
-        static byte[] ConvertString(JToken token) => ConvertString(token.Value<string>());
 
         protected override LaunchResponse HandleLaunchRequest(LaunchArguments arguments)
         {
@@ -164,59 +152,16 @@ namespace Neo.DebugAdapter
                 {
                     var param = method.Parameters[i];
                     var arg = args.ElementAtOrDefault(i);
-                    yield return ConvertArg(arg, param);
+                    yield return ConvertArgument(arg, param);
                 }
-            }
-
-            IEnumerable<(byte[], byte[], bool)> GetStorage()
-            {
-                if (arguments.ConfigurationProperties.TryGetValue("storage", out var token))
-                {
-                    return token.Select(t =>
-                        (ConvertString(t["key"]),
-                        ConvertString(t["value"]),
-                        t.Value<bool?>("constant") ?? false));
-                }
-
-                return Enumerable.Empty<(byte[], byte[], bool)>();
-            }
-
-            (bool? checkResult, IEnumerable<byte[]> witnesses) GetWitnesses()
-            {
-                if (arguments.ConfigurationProperties.TryGetValue("runtime", out var token))
-                {
-                    var witnessesJson = token["witnesses"];
-                    if (witnessesJson?.Type == JTokenType.Object)
-                    {
-                        var result = witnessesJson.Value<bool>("check-result");
-                        return (result, null);
-                    }
-                    if (witnessesJson?.Type == JTokenType.Array)
-                    {
-                        var _witnesses = witnessesJson
-                            .Select(t => t.Value<string>().ParseBigInteger().ToByteArray());
-                        return (null, _witnesses);
-                    }
-                }
-
-                return (null, Enumerable.Empty<byte[]>());
             }
 
             var programFileName = (string)arguments.ConfigurationProperties["program"];
-            var contract = Contract.Load(programFileName);
+            var contract = Contract.Load(programFileName, scriptHashFunc);
+            var contractArgs = GetArguments(contract.EntryPoint);
+            var engine = createEngineFunc(contract, arguments);
 
-            session = new NeoDebugSession(contract, GetArguments(contract.GetEntryPoint()));
-            session.InteropService.Storage.Populate(contract.ScriptHash, GetStorage());
-
-            var (checkResult, witnesses) = GetWitnesses();
-            if (checkResult.HasValue)
-            {
-                session.InteropService.Runtime.BypassCheckWitness(checkResult.Value);
-            }
-            else
-            {
-                session.InteropService.Runtime.PopulateWitnesses(witnesses);
-            }
+            session = new DebugSession(engine, contract, contractArgs.ToArray());
 
             session.StepIn();
             Protocol.SendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Entry) { ThreadId = 1 });
@@ -258,8 +203,27 @@ namespace Neo.DebugAdapter
             return new VariablesResponse(variables);
         }
 
-        private void FireEvents(StoppedEvent.ReasonValue reasonValue)
+        private void FireStoppedEvent(StoppedEvent.ReasonValue reasonValue)
         {
+            string GetResult(StackItem item, string type)
+            {
+                if (type == "ByteArray" || type == string.Empty)
+                {
+                    return $@"byte[{item.GetByteArray().Length}]
+as string:  ""{item.GetString()}""
+as boolean: {item.GetBoolean()}
+as integer: {item.GetBigInteger()}
+as hex:     0x{item.GetBigInteger().ToString("x")}";
+                }
+
+                if (item.TryGetValue(type, out var value))
+                {
+                    return value;
+                }
+
+                throw new Exception($"couldn't convert {type}");
+            }
+
             session.ClearVariableContainers();
 
             if ((session.EngineState & VMState.FAULT) == 0)
@@ -268,11 +232,10 @@ namespace Neo.DebugAdapter
             }
             if ((session.EngineState & VMState.HALT) != 0)
             {
-                var entryPoint = session.Contract.GetEntryPoint();
 
                 foreach (var item in session.GetResults())
                 {
-                    Protocol.SendEvent(new OutputEvent(GetResult(item, entryPoint.ReturnType)));
+                    Protocol.SendEvent(new OutputEvent(GetResult(item, session.Contract.EntryPoint.ReturnType)));
                 }
                 Protocol.SendEvent(new TerminatedEvent());
             }
@@ -282,67 +245,42 @@ namespace Neo.DebugAdapter
             }
         }
 
-        private static string GetResult(StackItem item, string type)
-        {
-            if (type == "ByteArray" || type == string.Empty)
-            {
-                return $@"byte[{item.GetByteArray().Length}]
-as string:  ""{item.GetString()}""
-as boolean: {item.GetBoolean()}
-as integer: {item.GetBigInteger()}
-as hex:     0x{item.GetBigInteger().ToString("x")}";
-            }
-
-            if (item.TryGetValue(type, out var value))
-            {
-                return value;
-            }
-
-            throw new Exception($"couldn't convert {type}");
-        }
-
-
-        // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Continue
         protected override ContinueResponse HandleContinueRequest(ContinueArguments arguments)
         {
             session.Continue();
-            FireEvents(StoppedEvent.ReasonValue.Step);
+            FireStoppedEvent(StoppedEvent.ReasonValue.Step);
 
             return new ContinueResponse();
         }
 
-        // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_StepIn
         protected override StepInResponse HandleStepInRequest(StepInArguments arguments)
         {
             session.StepIn();
-            FireEvents(StoppedEvent.ReasonValue.Step);
+            FireStoppedEvent(StoppedEvent.ReasonValue.Step);
 
             return new StepInResponse();
         }
 
-        // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_StepOut
         protected override StepOutResponse HandleStepOutRequest(StepOutArguments arguments)
         {
             session.StepOut();
-            FireEvents(StoppedEvent.ReasonValue.Step);
+            FireStoppedEvent(StoppedEvent.ReasonValue.Step);
 
             return new StepOutResponse();
         }
 
         // Next == StepOver in VSCode UI
-        // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Next
         protected override NextResponse HandleNextRequest(NextArguments arguments)
         {
             session.StepOver();
-            FireEvents(StoppedEvent.ReasonValue.Step);
+            FireStoppedEvent(StoppedEvent.ReasonValue.Step);
 
             return new NextResponse();
         }
 
         protected override SetBreakpointsResponse HandleSetBreakpointsRequest(SetBreakpointsArguments arguments)
         {
-            var breakpoints = session.SetBreakpoints(arguments.Source, arguments.Breakpoints)
-                .ToList();
+            var breakpoints = session.SetBreakpoints(arguments.Source, arguments.Breakpoints).ToList();
             return new SetBreakpointsResponse(breakpoints);
         }
     }

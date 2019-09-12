@@ -1,19 +1,14 @@
 ﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
-using Neo.VM;
-using Neo.VM.Types;
-using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 
-namespace Neo.DebugAdapter
+namespace NeoDebug.VariableContainers
 {
-    internal class ArrayContainer : IVariableContainer
+    internal class NeoArrayContainer : IVariableContainer
     {
-        private readonly NeoDebugSession session;
+        private readonly IVariableContainerSession session;
         private readonly Neo.VM.Types.Array array;
 
-        public ArrayContainer(NeoDebugSession session, Neo.VM.Types.Array array)
+        public NeoArrayContainer(IVariableContainerSession session, Neo.VM.Types.Array array)
         {
             this.session = session;
             this.array = array;

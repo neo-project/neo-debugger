@@ -48,7 +48,7 @@ function execChildProcess(command: string, workingDirectory: string): Promise<st
 }
 
 function getDebugAdapterFileName(): string {
-	return os.platform() === "win32" ? "neo-debug-adapter.exe" : "neo-debug-adapter";
+	return os.platform() === "win32" ? "neodebug-adapter.exe" : "neodebug-adapter";
 }
 
 function getDebugAdapterPath(extension:vscode.Extension<any>): string {
@@ -56,7 +56,7 @@ function getDebugAdapterPath(extension:vscode.Extension<any>): string {
 }
 
 function getDebugAdapterPackageFileName(extension:vscode.Extension<any>): string {
-	return "neo-debug-adapter." + extension.packageJSON.version + ".nupkg";
+	return "neodebug-adapter." + extension.packageJSON.version + ".nupkg";
 }
 
 function getDebugAdapterPackagePath(extension:vscode.Extension<any>): string {
@@ -90,7 +90,7 @@ async function processRuntimeDependencies(): Promise<void> {
 	} else {
 		if (debugAdapterPackageExists) {
 			let response = await execChildProcess(
-				`dotnet tool install neo-debug-adapter --version ${extension.packageJSON.version} --tool-path ./adapter --add-source .`,
+				`dotnet tool install neodebug-adapter --version ${extension.packageJSON.version} --tool-path ./adapter --add-source .`,
 				extension.extensionPath);
 			await deleteFile(getDebugAdapterPackagePath(extension));
 		} else {

@@ -1,23 +1,29 @@
 ﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.VM;
+using NeoDebug.Models;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
+using System.Text;
 
-namespace Neo.DebugAdapter
+namespace NeoDebug.VariableContainers
 {
     internal class ExecutionContextContainer : IVariableContainer
     {
-        private readonly NeoDebugSession session;
+        private readonly IVariableContainerSession session;
         private readonly ExecutionContext context;
         private readonly Method method;
 
-        public ExecutionContextContainer(NeoDebugSession session, ExecutionContext context)
+        public ExecutionContextContainer(IVariableContainerSession session, ExecutionContext context, Contract contract)
+            : this(session, context, contract.GetMethod(context))
+        {
+        }
+
+        public ExecutionContextContainer(IVariableContainerSession session, ExecutionContext context, Method method)
         {
             this.session = session;
             this.context = context;
-            method = session.Contract.GetMethod(context);
+            this.method = method;
         }
 
         public IEnumerable<Variable> GetVariables(VariablesArguments args)

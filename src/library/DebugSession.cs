@@ -1,58 +1,38 @@
 ﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.VM;
+using NeoDebug.Models;
+using NeoDebug.VariableContainers;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 
-namespace Neo.DebugAdapter
+namespace NeoDebug
 {
-    internal class NeoDebugSession
+    internal class DebugSession : IVariableContainerSession
     {
-        // Helper class to expose ExecutionEngine internals to NeoDebugSession
-        class DebugExecutionEngine : ExecutionEngine
-        {
-            public DebugExecutionEngine(IScriptContainer container, ICrypto crypto, IScriptTable table = null, IInteropService service = null) : base(container, crypto, table, service)
-            {
-            }
+        private readonly IExecutionEngine engine;
+        private readonly Dictionary<int, HashSet<int>> breakPoints = new Dictionary<int, HashSet<int>>();
+        private readonly Dictionary<int, IVariableContainer> variableContainers = new Dictionary<int, IVariableContainer>();
 
-            new public VMState State
-            {
-                get { return base.State; }
-                set { base.State = value; }
-            }
-
-            new public void ExecuteNext()
-            {
-                base.ExecuteNext();
-            }
-        }
-
-        public readonly Contract Contract;
-        public readonly ContractArgument[] Arguments;
-        private readonly ScriptTable ScriptTable = new ScriptTable();
-        public EmulatedInteropService InteropService { get; } = new EmulatedInteropService();
-        private readonly DebugExecutionEngine engine;
+        public Contract Contract { get; }
 
         public VMState EngineState => engine.State;
 
         public IEnumerable<StackItem> GetResults() => engine.ResultStack;
 
-        public NeoDebugSession(Contract contract, IEnumerable<ContractArgument> arguments)
+        public DebugSession(IExecutionEngine engine, Contract contract, ContractArgument[] arguments)
         {
+            this.engine = engine;
             Contract = contract;
-            Arguments = arguments.ToArray();
-            ScriptTable.Add(Contract);
 
-            using (var builder = contract.BuildInvokeScript(Arguments))
+            engine.LoadContract(Contract);
+
+            using (var builder = contract.BuildInvokeScript(arguments))
             {
-                engine = new DebugExecutionEngine(null, new Crypto(), ScriptTable, InteropService);
                 engine.LoadScript(builder.ToArray());
             }
         }
-
-        private readonly Dictionary<int, HashSet<int>> breakPoints = new Dictionary<int, HashSet<int>>();
 
         public IEnumerable<Breakpoint> SetBreakpoints(Source source, IReadOnlyList<SourceBreakpoint> sourceBreakpoints)
         {
@@ -102,6 +82,7 @@ namespace Neo.DebugAdapter
             }
         }
 
+
         const VMState HALT_OR_FAULT = VMState.HALT | VMState.FAULT;
 
         bool CheckBreakpoint()
@@ -110,7 +91,7 @@ namespace Neo.DebugAdapter
             {
                 var context = engine.CurrentContext;
 
-                if (Contract.ScriptHash.AsSpan().SequenceEqual(context.ScriptHash))
+                if (Utilities.Compare(Contract.ScriptHash, context.ScriptHash))
                 {
                     var ip = context.InstructionPointer;
                     foreach (var kvp in breakPoints)
@@ -230,9 +211,6 @@ namespace Neo.DebugAdapter
             }
         }
 
-        private readonly Dictionary<int, IVariableContainer> variableContainers =
-            new Dictionary<int, IVariableContainer>();
-
         public void ClearVariableContainers()
         {
             variableContainers.Clear();
@@ -251,11 +229,10 @@ namespace Neo.DebugAdapter
             {
                 var context = engine.InvocationStack.Peek(args.FrameId);
                 var contextID = AddVariableContainer(
-                    new ExecutionContextContainer(this, context));
+                    new ExecutionContextContainer(this, context, Contract));
                 yield return new Scope("Locals", contextID, false);
 
-                var storageID = AddVariableContainer(
-                    new EmulatedStorageContainer(this, InteropService.Storage));
+                var storageID = AddVariableContainer(engine.GetStorageContainer(this));
                 yield return new Scope("Storage", storageID, false);
             }
         }

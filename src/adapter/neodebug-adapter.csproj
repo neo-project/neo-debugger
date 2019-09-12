@@ -1,0 +1,49 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <VersionPrefix>0.5.0</VersionPrefix>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
+    <RootNamespace>NeoDebug.Adapter</RootNamespace>
+    <LangVersion>7.3</LangVersion>
+    <AssemblyName>neodebug-adapter</AssemblyName>
+    <PackAsTool>true</PackAsTool>
+    <Description>neo-express is a NEO developer blockchain tool</Description>
+    <PackageTags>NEO;Blockchain;Smart Contract;Debugger</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Authors>Neo Global Development Seattle</Authors>
+    <PackageProjectUrl>https://github.com/neo-project/neo-debugger</PackageProjectUrl>
+    <PackageIconUrl>https://neo-cdn.azureedge.net/images/neo-logo/72.png</PackageIconUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="JSON\**" />
+    <EmbeddedResource Remove="JSON\**" />
+    <None Remove="JSON\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="ArrayContainer.cs" />
+    <Compile Remove="ByteArrayContainer.cs" />
+    <Compile Remove="Contract.cs" />
+    <Compile Remove="ContractArgument.cs" />
+    <Compile Remove="ContractParameterType.cs" />
+    <Compile Remove="ExecutionContextContainer.cs" />
+    <Compile Remove="Extensions.cs" />
+    <Compile Remove="IVariableContainer.cs" />
+    <Compile Remove="NeoDebugAdapter.cs" />
+    <Compile Remove="NeoDebugSession.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="2.3.4" />
+    <PackageReference Include="Microsoft.VisualStudio.Shared.VsCodeDebugProtocol" Version="16.2.30529.1" />
+    <PackageReference Include="Neo.VM" Version="2.4.3.1" />
+    <PackageReference Include="System.Security.Permissions" Version="4.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\library\neodebug.csproj" />
+  </ItemGroup>
+
+</Project>
