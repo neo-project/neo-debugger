@@ -1,23 +1,29 @@
-﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
-using Neo.VM;
+﻿using Neo.VM;
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Text;
 
-namespace Neo.DebugAdapter
+namespace NeoDebug.Adapter
 {
     internal class EmulatedInteropService : IInteropService
     {
         private readonly Dictionary<uint, Func<ExecutionEngine, bool>> methods = new Dictionary<uint, Func<ExecutionEngine, bool>>();
-        public EmulatedStorage Storage { get; } = new EmulatedStorage();
-        public EmulatedRuntime Runtime { get; } = new EmulatedRuntime();
+        private readonly EmulatedStorage storage;
+        private readonly EmulatedRuntime runtime;
 
-        public EmulatedInteropService()
+        public EmulatedInteropService(EmulatedStorage storage, EmulatedRuntime runtime)
         {
-            Storage.RegisterServices(Register);
-            Runtime.RegisterServices(Register);
+            if (storage == null)
+                throw new ArgumentNullException(nameof(storage));
+
+            if (runtime == null)
+                throw new ArgumentNullException(nameof(runtime));
+
+            this.storage = storage;
+            this.runtime = runtime;
+
+            storage.RegisterServices(Register);
+            runtime.RegisterServices(Register);
         }
 
         public bool Invoke(byte[] method, ExecutionEngine engine)

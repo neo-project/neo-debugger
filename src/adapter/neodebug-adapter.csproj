@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -17,10 +17,33 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="JSON\**" />
+    <EmbeddedResource Remove="JSON\**" />
+    <None Remove="JSON\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="ArrayContainer.cs" />
+    <Compile Remove="ByteArrayContainer.cs" />
+    <Compile Remove="Contract.cs" />
+    <Compile Remove="ContractArgument.cs" />
+    <Compile Remove="ContractParameterType.cs" />
+    <Compile Remove="ExecutionContextContainer.cs" />
+    <Compile Remove="Extensions.cs" />
+    <Compile Remove="IVariableContainer.cs" />
+    <Compile Remove="NeoDebugAdapter.cs" />
+    <Compile Remove="NeoDebugSession.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="2.3.4" />
     <PackageReference Include="Microsoft.VisualStudio.Shared.VsCodeDebugProtocol" Version="16.2.30529.1" />
     <PackageReference Include="Neo.VM" Version="2.4.3.1" />
     <PackageReference Include="System.Security.Permissions" Version="4.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\library\neodebug.csproj" />
   </ItemGroup>
 
 </Project>

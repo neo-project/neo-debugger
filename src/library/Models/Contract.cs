@@ -11,10 +11,10 @@ namespace NeoDebug.Models
         public DebugInfo DebugInfo { get; }
         public byte[] ScriptHash { get; }
 
-        public Contract(byte[] script, DebugInfo debugInfo)
+        public Contract(byte[] script, DebugInfo debugInfo, Func<byte[], byte[]> scriptHashFunc)
         {
             Script = script;
-            //ScriptHash = Crypto.Hash160(script);
+            ScriptHash = scriptHashFunc(script);
             DebugInfo = debugInfo;
         }
 
@@ -31,7 +31,7 @@ namespace NeoDebug.Models
             return builder;
         }
 
-        public static Contract Load(string vmFileName)
+        public static Contract Load(string vmFileName, Func<byte[], byte[]> scriptHashFunc)
         {
             if (!File.Exists(vmFileName))
                 throw new ArgumentException($"{nameof(vmFileName)} file doesn't exist");
@@ -43,7 +43,7 @@ namespace NeoDebug.Models
             var script = File.ReadAllBytes(vmFileName);
             var debugInfo = DebugInfo.FromJson(File.ReadAllText(debugJsonFileName));
 
-            return new Contract(script, debugInfo);
+            return new Contract(script, debugInfo, scriptHashFunc);
         }
     }
 }

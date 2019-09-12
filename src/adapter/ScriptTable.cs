@@ -1,11 +1,7 @@
-﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
-using System;
+﻿using NeoDebug.Models;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 
-namespace Neo.DebugAdapter
+namespace NeoDebug.Adapter
 {
     internal class ScriptTable : Neo.VM.IScriptTable
     {

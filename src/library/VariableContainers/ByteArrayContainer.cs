@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace NeoDebug.VariableContainers
 {
-    internal class ByteArrayContainer : IVariableContainer
+    public class ByteArrayContainer : IVariableContainer
     {
         internal class ValuesContainer : IVariableContainer
         {

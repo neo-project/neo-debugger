@@ -11,7 +11,7 @@ using System.Text;
 
 namespace NeoDebug
 {
-    internal static class Utilities
+    public static class Utilities
     {
         public static bool TryParseBigInteger(this string value, out BigInteger bigInteger)
         {
@@ -27,7 +27,17 @@ namespace NeoDebug
             return false;
         }
 
-        public static bool TryGetValue(this StackItem item, string type, out string value)
+        public static BigInteger ParseBigInteger(this string value)
+        {
+            if (TryParseBigInteger(value, out var bigInteger))
+            {
+                return bigInteger;
+            }
+
+            throw new Exception($"could not parse {value} as BigInteger");
+        }
+
+        internal static bool TryGetValue(this StackItem item, string type, out string value)
         {
             if (item != null && !string.IsNullOrEmpty(type))
             {
@@ -49,7 +59,7 @@ namespace NeoDebug
             return false;
         }
 
-        public static bool Compare(byte[] a1, byte[] a2)
+        internal static bool Compare(byte[] a1, byte[] a2)
         {
             // Note, ScriptHash.AsSpan().SequenceEqual would be preferanble to Utilities.Compare, 
             //       but Span isn't available in netstandard2.0
@@ -68,7 +78,7 @@ namespace NeoDebug
             return true;
         }
 
-        public static Method GetMethod(this Contract contract, ExecutionContext context)
+        internal static Method GetMethod(this Contract contract, ExecutionContext context)
         {
             if (Compare(contract.ScriptHash, context.ScriptHash))
             {
@@ -80,7 +90,7 @@ namespace NeoDebug
             return null;
         }
 
-        public static bool CheckSequencePoint(this Contract contract, ExecutionContext context)
+        internal static bool CheckSequencePoint(this Contract contract, ExecutionContext context)
         {
             if (Compare(contract.ScriptHash, context.ScriptHash))
             {
@@ -90,12 +100,12 @@ namespace NeoDebug
             return false;
         }
 
-        public static SequencePoint GetCurrentSequencePoint(this Method method, ExecutionContext context)
+        internal static SequencePoint GetCurrentSequencePoint(this Method method, ExecutionContext context)
         {
             return method?.SequencePoints.SingleOrDefault(sp => sp.Address == context.InstructionPointer);
         }
 
-        public static Variable GetVariable(this StackItem item, IVariableContainerSession session, Parameter parameter = null)
+        internal static Variable GetVariable(this StackItem item, IVariableContainerSession session, Parameter parameter = null)
         {
             if (parameter?.Type == "ByteArray")
             {

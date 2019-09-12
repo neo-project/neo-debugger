@@ -1,12 +1,9 @@
-﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
-using Neo.VM;
+﻿using Neo.VM;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Text;
 
-namespace Neo.DebugAdapter
+namespace NeoDebug.Adapter
 {
     internal class EmulatedRuntime
     {
@@ -20,16 +17,16 @@ namespace Neo.DebugAdapter
             register("AntShares.Runtime.CheckWitness", CheckWitness);
         }
 
-        public void BypassCheckWitness(bool value)
+        public EmulatedRuntime(bool value)
         {
             checkWitnessBypass = value;
             witnesses = null;
         }
 
-        public void PopulateWitnesses(IEnumerable<byte[]> witnesses)
+        public EmulatedRuntime(IEnumerable<byte[]> witnesses = null)
         {
             checkWitnessBypass = null;
-            this.witnesses = witnesses.ToArray();
+            this.witnesses = (witnesses ?? Enumerable.Empty<byte[]>()).ToArray();
         }
 
         private bool CheckWitness(ExecutionEngine engine)

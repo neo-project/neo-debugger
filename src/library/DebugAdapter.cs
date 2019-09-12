@@ -14,12 +14,15 @@ namespace NeoDebug
     public class DebugAdapter : DebugAdapterBase
     {
         private readonly Action<LogCategory, string> logger;
-        private readonly Func<LaunchArguments, IExecutionEngine> createEngine;
+        private readonly Func<Contract, LaunchArguments, IExecutionEngine> createEngineFunc;
+        private readonly Func<byte[], byte[]> scriptHashFunc;
         private DebugSession session;
 
-        public DebugAdapter(Stream @in, Stream @out, Func<LaunchArguments, IExecutionEngine> createEngine, Action<LogCategory, string> logger = null)
+        public DebugAdapter(Stream @in, Stream @out, Func<Contract, LaunchArguments, IExecutionEngine> createEngineFunc,
+                            Func<byte[], byte[]> scriptHashFunc, Action<LogCategory, string> logger = null)
         {
-            this.createEngine = createEngine;
+            this.createEngineFunc = createEngineFunc;
+            this.scriptHashFunc = scriptHashFunc;
             this.logger = logger ?? ((_, __) => { });
 
             InitializeProtocolClient(@in, @out);
@@ -154,9 +157,9 @@ namespace NeoDebug
             }
 
             var programFileName = (string)arguments.ConfigurationProperties["program"];
-            var contract = Contract.Load(programFileName);
+            var contract = Contract.Load(programFileName, scriptHashFunc);
             var contractArgs = GetArguments(contract.EntryPoint);
-            var engine = createEngine(arguments);
+            var engine = createEngineFunc(contract, arguments);
 
             session = new DebugSession(engine, contract, contractArgs.ToArray());
 
