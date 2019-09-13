@@ -56,7 +56,7 @@ function getDebugAdapterPath(extension:vscode.Extension<any>): string {
 }
 
 function getDebugAdapterPackageFileName(extension:vscode.Extension<any>): string {
-	return "neodebug-adapter." + extension.packageJSON.version + ".nupkg";
+	return "neo.debug.adapter." + extension.packageJSON.version + ".nupkg";
 }
 
 function getDebugAdapterPackagePath(extension:vscode.Extension<any>): string {

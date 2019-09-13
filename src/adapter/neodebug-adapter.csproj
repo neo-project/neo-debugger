@@ -12,6 +12,7 @@
     <PackageTags>NEO;Blockchain;Smart Contract;Debugger</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Authors>Neo Global Development Seattle</Authors>
+    <PackageId>Neo.Debug.Adapter</PackageId>
     <PackageProjectUrl>https://github.com/neo-project/neo-debugger</PackageProjectUrl>
     <PackageIconUrl>https://neo-cdn.azureedge.net/images/neo-logo/72.png</PackageIconUrl>
   </PropertyGroup>
