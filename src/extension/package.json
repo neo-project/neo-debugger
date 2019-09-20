@@ -64,6 +64,10 @@
 								"type": "string",
 								"description": "Absolute path to AVM file"
 							},
+							"debugger": {
+								"type": "string",
+								"enum": ["emulated", "integrated"]
+							},
 							"args": {
 								"type": "array",
 								"description": "Command line arguments passed to the program.",

@@ -168,20 +168,27 @@ async function getDebugAdapterCommand(config:vscode.WorkspaceConfiguration) : Pr
 class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDescriptorFactory {
 
 	async createDebugAdapterDescriptor(session: vscode.DebugSession, executable: vscode.DebugAdapterExecutable | undefined): Promise<vscode.DebugAdapterDescriptor> {
-		const config = vscode.workspace.getConfiguration("neo-debugger");
-		let [cmd, args] = await getDebugAdapterCommand(config);
-		
-		if (config.get<Boolean>("debug", false))
-		{
-			args.push("--debug");
-		}
 
-		if (config.get<Boolean>("log", false))
-		{
-			args.push("--log");
+		if (session.configuration["debugger"] === "integrated") {
+			// TODO: read debug port from session and/or neo-express json file
+			return new vscode.DebugAdapterServer(49335);
 		}
+		else {
+			const config = vscode.workspace.getConfiguration("neo-debugger");
+			let [cmd, args] = await getDebugAdapterCommand(config);
+			
+			if (config.get<Boolean>("debug", false))
+			{
+				args.push("--debug");
+			}
 
-		return new vscode.DebugAdapterExecutable(cmd, args);
+			if (config.get<Boolean>("log", false))
+			{
+				args.push("--log");
+			}
+
+			return new vscode.DebugAdapterExecutable(cmd, args);
+		}
 	}
 }
 
