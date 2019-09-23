@@ -64,6 +64,8 @@ namespace NeoDebug
                     return ContractParameterType.String;
                 case "Array":
                     return ContractParameterType.Array;
+                case "Boolean":
+                    return ContractParameterType.Boolean;
                 default:
                     throw new NotImplementedException();
             }
