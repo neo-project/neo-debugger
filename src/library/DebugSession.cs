@@ -1,4 +1,4 @@
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.VM;
 using NeoDebug.Models;
 using NeoDebug.VariableContainers;
@@ -180,24 +180,24 @@ namespace NeoDebug
                     var frame = new StackFrame()
                     {
                         Id = i,
-                        Name = method?.DisplayName ?? "unnamed frame",
+                        Name = method?.DisplayName ?? "<unknown>",
                         ModuleId = context.ScriptHash,
                     };
 
                     var sequencePoint = method.GetCurrentSequencePoint(context);
 
-                        if (sequencePoint != null)
+                    if (sequencePoint != null)
+                    {
+                        frame.Source = new Source()
                         {
-                            frame.Source = new Source()
-                            {
-                                Name = Path.GetFileName(sequencePoint.Document),
-                                Path = sequencePoint.Document
-                            };
-                            frame.Line = sequencePoint.StartLine;
-                            frame.Column = sequencePoint.StartColumn;
-                            frame.EndLine = sequencePoint.EndLine;
-                            frame.EndColumn = sequencePoint.EndColumn;
-                        }
+                            Name = Path.GetFileName(sequencePoint.Document),
+                            Path = sequencePoint.Document
+                        };
+                        frame.Line = sequencePoint.StartLine;
+                        frame.Column = sequencePoint.StartColumn;
+                        frame.EndLine = sequencePoint.EndLine;
+                        frame.EndColumn = sequencePoint.EndColumn;
+                    }
 
                     yield return frame;
                 }
@@ -236,11 +236,50 @@ namespace NeoDebug
             {
                 if (variableContainers.TryGetValue(args.VariablesReference, out var container))
                 {
-                    return container.GetVariables(args);
+                    return container.GetVariables();
                 }
             }
 
             return Enumerable.Empty<Variable>();
+        }
+
+        public EvaluateResponse Evaluate(EvaluateArguments args)
+        {
+            if ((engine.State & HALT_OR_FAULT) == 0)
+            {
+                for (var stackIndex = 0; stackIndex < engine.InvocationStack.Count; stackIndex++)
+                {
+                    var context = engine.InvocationStack.Peek(stackIndex);
+                    if (context.AltStack.Count > 0)
+                    {
+                        var method = Contract.GetMethod(context);
+                        var variables = (Neo.VM.Types.Array)context.AltStack.Peek(0);
+
+                        for (int variableIndex = 0; variableIndex < variables.Count; variableIndex++)
+                        {
+                            var local = method.Locals.ElementAtOrDefault(variableIndex);
+                            if (local?.Name == args.Expression)
+                            {
+                                var variable = variables[variableIndex].GetVariable(this, local);
+                                return new EvaluateResponse()
+                                {
+                                    Result = variable.Value,
+                                    VariablesReference = variable.VariablesReference,
+                                    Type = variable.Type
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+
+            return new EvaluateResponse()
+            {
+                PresentationHint = new VariablePresentationHint()
+                {
+                    Attributes = VariablePresentationHint.AttributesValue.FailedEvaluation
+                }
+            };
         }
     }
 }

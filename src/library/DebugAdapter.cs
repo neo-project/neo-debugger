@@ -46,6 +46,7 @@ namespace NeoDebug
             return new InitializeResponse()
             {
                 SupportsConfigurationDoneRequest = true,
+                SupportsEvaluateForHovers = true,
             };
         }
 
@@ -203,6 +204,11 @@ namespace NeoDebug
         {
             var variables = session.GetVariables(arguments).ToList();
             return new VariablesResponse(variables);
+        }
+
+        protected override EvaluateResponse HandleEvaluateRequest(EvaluateArguments arguments)
+        {
+            return session.Evaluate(arguments);
         }
 
         private void FireStoppedEvent(StoppedEvent.ReasonValue reasonValue)
