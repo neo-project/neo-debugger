@@ -43,7 +43,7 @@ steps:
   displayName: 'copy adapter nuget package into extension folder'
   inputs:
     SourceFolder: '$(Build.ArtifactStagingDirectory)/adapter'
-    Contents: 'neodebug-adapter.*.nupkg'
+    Contents: 'Neo.Debug.Adapter.*.nupkg'
     TargetFolder: './src/extension'
 
 - task: DeleteFiles@1
