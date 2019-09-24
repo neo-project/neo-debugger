@@ -102,7 +102,31 @@ namespace NeoDebug
 
         internal static SequencePoint GetCurrentSequencePoint(this Method method, ExecutionContext context)
         {
-            return method?.SequencePoints.SingleOrDefault(sp => sp.Address == context.InstructionPointer);
+            if (method != null)
+            {
+                var sequencePoints = method.SequencePoints.OrderBy(sp => sp.Address).ToArray();
+                if (sequencePoints.Length > 0)
+                {
+                    var ip = context.InstructionPointer;
+
+                    for (int i = 0; i < sequencePoints.Length; i++)
+                    {
+                        if (ip == sequencePoints[i].Address)
+                            return sequencePoints[i];
+                    }
+
+                    if (ip <= sequencePoints[0].Address)
+                        return sequencePoints[0];
+
+                    for (int i = 0; i < sequencePoints.Length - 1; i++)
+                    {
+                        if (ip > sequencePoints[i].Address && ip <= sequencePoints[i+1].Address)
+                            return sequencePoints[i];
+                    }
+                }
+            }
+
+            return null;
         }
 
         internal static Variable GetVariable(this StackItem item, IVariableContainerSession session, Parameter parameter = null)

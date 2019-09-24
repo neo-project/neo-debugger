@@ -1,4 +1,4 @@
-﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.VM;
 using NeoDebug.Models;
 using NeoDebug.VariableContainers;
@@ -175,20 +175,16 @@ namespace NeoDebug
                 for (var i = start; i < end; i++)
                 {
                     var context = engine.InvocationStack.Peek(i);
+                    var method = Contract.GetMethod(context);
 
                     var frame = new StackFrame()
                     {
                         Id = i,
-                        Name = $"unnamed frame",
+                        Name = method?.DisplayName ?? "unnamed frame",
                         ModuleId = context.ScriptHash,
                     };
 
-                    var method = Contract.GetMethod(context);
-
-                    if (method != null)
-                    {
-                        frame.Name = method.DisplayName;
-                        SequencePoint sequencePoint = method.GetCurrentSequencePoint(context);
+                    var sequencePoint = method.GetCurrentSequencePoint(context);
 
                         if (sequencePoint != null)
                         {
@@ -202,7 +198,6 @@ namespace NeoDebug
                             frame.EndLine = sequencePoint.EndLine;
                             frame.EndColumn = sequencePoint.EndColumn;
                         }
-                    }
 
                     yield return frame;
                 }
