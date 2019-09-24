@@ -3,6 +3,7 @@
 
 using Newtonsoft.Json;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace NeoDebug.Models
 {
@@ -34,5 +35,10 @@ namespace NeoDebug.Models
 
         [JsonProperty("sequence-points")]
         public List<SequencePoint> SequencePoints { get; set; }
+
+        [JsonIgnore]
+        public IEnumerable<Parameter> Locals => 
+            (Parameters ?? Enumerable.Empty<Parameter>())
+                .Concat(Variables ?? Enumerable.Empty<Parameter>());
     }
 }
