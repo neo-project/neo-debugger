@@ -86,17 +86,20 @@ namespace NeoDebug.Adapter
             {
                 if (arguments.ConfigurationProperties.TryGetValue("runtime", out var token))
                 {
+                    var trigger = "verification".Equals(token.Value<string>("trigger"), StringComparison.InvariantCultureIgnoreCase)
+                        ? EmulatedRuntime.TriggerType.Verification : EmulatedRuntime.TriggerType.Application;
+
                     var witnessesJson = token["witnesses"];
                     if (witnessesJson?.Type == JTokenType.Object)
                     {
                         var result = witnessesJson.Value<bool>("check-result");
-                        return new EmulatedRuntime(result);
+                        return new EmulatedRuntime(trigger, result);
                     }
                     if (witnessesJson?.Type == JTokenType.Array)
                     {
-                        var _witnesses = witnessesJson
+                        var witnesses = witnessesJson
                             .Select(t => t.Value<string>().ParseBigInteger().ToByteArray());
-                        return new EmulatedRuntime(_witnesses);
+                        return new EmulatedRuntime(trigger, witnesses);
                     }
                 }
 

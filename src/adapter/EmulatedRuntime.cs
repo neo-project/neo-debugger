@@ -7,24 +7,41 @@ namespace NeoDebug.Adapter
 {
     internal class EmulatedRuntime
     {
-        bool? checkWitnessBypass;
-        byte[][] witnesses;
+        public enum TriggerType
+        {
+            Verification = 0x00,
+            Application = 0x10,
+        }
+
+        private readonly bool? checkWitnessBypass;
+        private readonly byte[][] witnesses;
+        private readonly TriggerType trigger;
 
         public void RegisterServices(Action<string, Func<ExecutionEngine, bool>> register)
         {
             register("System.Runtime.CheckWitness", CheckWitness);
             register("Neo.Runtime.CheckWitness", CheckWitness);
             register("AntShares.Runtime.CheckWitness", CheckWitness);
+
+            register("System.Runtime.GetTrigger", GetTrigger);
+            register("Neo.Runtime.GetTrigger", GetTrigger);
         }
 
-        public EmulatedRuntime(bool value)
+        public EmulatedRuntime()
+            : this(TriggerType.Application, true)
         {
+        }
+
+        public EmulatedRuntime(TriggerType triggerType, bool value)
+        {
+            trigger = triggerType;
             checkWitnessBypass = value;
             witnesses = null;
         }
 
-        public EmulatedRuntime(IEnumerable<byte[]> witnesses = null)
+        public EmulatedRuntime(TriggerType triggerType, IEnumerable<byte[]> witnesses)
         {
+            trigger = triggerType;
             checkWitnessBypass = null;
             this.witnesses = (witnesses ?? Enumerable.Empty<byte[]>()).ToArray();
         }
@@ -54,6 +71,12 @@ namespace NeoDebug.Adapter
                 evalStack.Push(false);
                 return true;
             }
+        }
+
+        private bool GetTrigger(ExecutionEngine engine)
+        {
+            engine.CurrentContext.EvaluationStack.Push((int)trigger);
+            return true;
         }
     }
 }
