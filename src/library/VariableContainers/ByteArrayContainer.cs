@@ -15,7 +15,7 @@ namespace NeoDebug.VariableContainers
                 this.array = array;
             }
 
-            public IEnumerable<Variable> GetVariables(VariablesArguments args)
+            public IEnumerable<Variable> GetVariables()
             {
                 for (int i = 0; i < array.Length; i++)
                 {
@@ -56,7 +56,7 @@ namespace NeoDebug.VariableContainers
             };
         }
 
-        public IEnumerable<Variable> GetVariables(VariablesArguments args)
+        public IEnumerable<Variable> GetVariables()
         {
             yield return new Variable()
             {

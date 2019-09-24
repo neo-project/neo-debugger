@@ -1,4 +1,4 @@
-﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.VM;
 using NeoDebug.Models;
 using System;
@@ -26,7 +26,7 @@ namespace NeoDebug.VariableContainers
             this.method = method;
         }
 
-        public IEnumerable<Variable> GetVariables(VariablesArguments args)
+        public IEnumerable<Variable> GetVariables()
         {
             var debugVariables = method == null
                 ? new Parameter[0]

@@ -14,7 +14,7 @@ namespace NeoDebug.VariableContainers
             this.array = array;
         }
 
-        public IEnumerable<Variable> GetVariables(VariablesArguments args)
+        public IEnumerable<Variable> GetVariables()
         {
             for (int i = 0; i < array.Count; i++)
             {

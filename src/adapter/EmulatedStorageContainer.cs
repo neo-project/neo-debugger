@@ -22,7 +22,7 @@ namespace NeoDebug.Adapter
                 constant = kvp.constant;
             }
 
-            public IEnumerable<Variable> GetVariables(VariablesArguments args)
+            public IEnumerable<Variable> GetVariables()
             {
                 yield return ByteArrayContainer.GetVariable(key, session, "key");
                 yield return ByteArrayContainer.GetVariable(value, session, "value");
@@ -44,7 +44,7 @@ namespace NeoDebug.Adapter
             this.session = session;
         }
 
-        public IEnumerable<Variable> GetVariables(VariablesArguments args)
+        public IEnumerable<Variable> GetVariables()
         {
             foreach (var kvp in storage.Storage)
             {

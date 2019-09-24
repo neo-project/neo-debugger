@@ -7,6 +7,6 @@ namespace NeoDebug.VariableContainers
 {
     public interface IVariableContainer
     {
-        IEnumerable<Variable> GetVariables(VariablesArguments args);
+        IEnumerable<Variable> GetVariables();
     }
 }
