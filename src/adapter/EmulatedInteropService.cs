@@ -8,6 +8,7 @@ namespace NeoDebug.Adapter
     internal class EmulatedInteropService : IInteropService
     {
         private readonly Dictionary<uint, Func<ExecutionEngine, bool>> methods = new Dictionary<uint, Func<ExecutionEngine, bool>>();
+
         private readonly EmulatedStorage storage;
         private readonly EmulatedRuntime runtime;
 
@@ -24,6 +25,11 @@ namespace NeoDebug.Adapter
 
             storage.RegisterServices(Register);
             runtime.RegisterServices(Register);
+
+            Register("System.ExecutionEngine.GetScriptContainer", GetScriptContainer);
+            Register("System.ExecutionEngine.GetExecutingScriptHash", GetExecutingScriptHash);
+            Register("System.ExecutionEngine.GetCallingScriptHash", GetCallingScriptHash);
+            Register("System.ExecutionEngine.GetEntryScriptHash", GetEntryScriptHash);
         }
 
         public bool Invoke(byte[] method, ExecutionEngine engine)
@@ -50,6 +56,30 @@ namespace NeoDebug.Adapter
         protected void Register(string methodName, Func<ExecutionEngine, bool> handler)
         {
             methods.Add(InteropMethodHash(methodName), handler);
+        }
+
+        private bool GetEntryScriptHash(ExecutionEngine engine)
+        {
+            engine.CurrentContext.EvaluationStack.Push(engine.EntryContext.ScriptHash);
+            return true;
+        }
+
+        private bool GetCallingScriptHash(ExecutionEngine engine)
+        {
+            engine.CurrentContext.EvaluationStack.Push(engine.CallingContext?.ScriptHash ?? new byte[0]);
+            return true;
+        }
+
+        private bool GetExecutingScriptHash(ExecutionEngine engine)
+        {
+            engine.CurrentContext.EvaluationStack.Push(engine.CurrentContext.ScriptHash);
+            return true;
+        }
+
+        private bool GetScriptContainer(ExecutionEngine engine)
+        {
+            engine.CurrentContext.EvaluationStack.Push(StackItem.FromInterface(engine.ScriptContainer));
+            return true;
         }
     }
 }
