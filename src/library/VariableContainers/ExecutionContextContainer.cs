@@ -32,19 +32,22 @@ namespace NeoDebug.VariableContainers
                 ? new Parameter[0]
                 : method.Parameters.Concat(method.Variables).ToArray();
 
-            var variables = (Neo.VM.Types.Array)context.AltStack.Peek(0);
-
-            for (int i = 0; i < variables.Count; i++)
+            if (context.AltStack.Count > 0)
             {
-                var parameter = i < debugVariables.Length
-                    ? debugVariables[i]
-                    : null;
-                var variable = variables[i].GetVariable(session, parameter);
-                variable.Name = string.IsNullOrEmpty(variable.Name)
-                    ? $"<variable {i}>"
-                    : variable.Name;
+                var variables = (Neo.VM.Types.Array)context.AltStack.Peek(0);
 
-                yield return variable;
+                for (int i = 0; i < variables.Count; i++)
+                {
+                    var parameter = i < debugVariables.Length
+                        ? debugVariables[i]
+                        : null;
+                    var variable = variables[i].GetVariable(session, parameter);
+                    variable.Name = string.IsNullOrEmpty(variable.Name)
+                        ? $"<variable {i}>"
+                        : variable.Name;
+
+                    yield return variable;
+                }
             }
         }
     }
