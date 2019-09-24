@@ -5,9 +5,7 @@ VisualStudioVersion = 16.0.29102.190
 MinimumVisualStudioVersion = 15.0.26124.0
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "neodebug-adapter", "src\adapter\neodebug-adapter.csproj", "{9F68B9CF-A26D-4356-A05C-85D112E926C0}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{A3116AE4-FF72-4893-96F4-16F887FD08DF}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "neodebug", "src\library\neodebug.csproj", "{A14260C5-A213-4CD2-A927-16076E724A24}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "neodebug", "src\library\neodebug.csproj", "{A14260C5-A213-4CD2-A927-16076E724A24}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -49,8 +47,5 @@ Global
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {CA84F9F8-7909-43B0-B1E1-07FC2B01ED64}
-	EndGlobalSection
-	GlobalSection(NestedProjects) = preSolution
-		{A14260C5-A213-4CD2-A927-16076E724A24} = {A3116AE4-FF72-4893-96F4-16F887FD08DF}
 	EndGlobalSection
 EndGlobal
