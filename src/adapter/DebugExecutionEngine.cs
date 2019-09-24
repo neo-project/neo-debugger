@@ -17,9 +17,12 @@ namespace NeoDebug.Adapter
             this.storage = storage;
         }
 
-        public static DebugExecutionEngine Create(EmulatedStorage storage, EmulatedRuntime runtime)
+        public static DebugExecutionEngine Create(Contract contract, EmulatedStorage storage, EmulatedRuntime runtime)
         {
-            return new DebugExecutionEngine(new ScriptTable(), storage, runtime);
+            var table = new ScriptTable();
+            table.Add(contract);
+            
+            return new DebugExecutionEngine(table, storage, runtime);
         }
 
         VMState IExecutionEngine.State { get => State; set { State = value; } }
@@ -35,7 +38,5 @@ namespace NeoDebug.Adapter
         void IExecutionEngine.ExecuteNext() => ExecuteNext();
 
         IVariableContainer IExecutionEngine.GetStorageContainer(IVariableContainerSession session) => storage.GetStorageContainer(session);
-
-        void IExecutionEngine.LoadContract(Contract contract) => scriptTable.Add(contract);
     }
 }

@@ -15,7 +15,6 @@ namespace NeoDebug
 
         void ExecuteNext();
         ExecutionContext LoadScript(byte[] script, int rvcount = -1);
-        void LoadContract(Contract contract);
         RandomAccessStack<ExecutionContext> InvocationStack { get; }
 
         IVariableContainer GetStorageContainer(IVariableContainerSession session);

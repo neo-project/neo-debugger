@@ -26,8 +26,6 @@ namespace NeoDebug
             this.engine = engine;
             Contract = contract;
 
-            engine.LoadContract(Contract);
-
             using (var builder = contract.BuildInvokeScript(arguments))
             {
                 engine.LoadScript(builder.ToArray());

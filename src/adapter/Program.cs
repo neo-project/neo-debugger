@@ -103,7 +103,7 @@ namespace NeoDebug.Adapter
                 return new EmulatedRuntime();
             }
 
-            return DebugExecutionEngine.Create(GetStorage(), GetRuntime());
+            return DebugExecutionEngine.Create(contract, GetStorage(), GetRuntime());
         }
 
         public void LogMessage(string message, LogCategory category = LogCategory.Trace)
