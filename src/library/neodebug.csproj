@@ -4,7 +4,6 @@
     <AssemblyName>neodebug</AssemblyName>
     <Authors>Neo Global Development Seattle</Authors>
     <LangVersion>8</LangVersion>
-    <Nullable>enable</Nullable>
     <PackageIconUrl>https://neo-cdn.azureedge.net/images/neo-logo/72.png</PackageIconUrl>
     <PackageId>Neo.Debug</PackageId>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

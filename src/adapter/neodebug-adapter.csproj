@@ -5,7 +5,6 @@
     <Authors>Neo Global Development Seattle</Authors>
     <Description>neo-express is a NEO developer blockchain tool</Description>
     <LangVersion>8</LangVersion>
-    <Nullable>enable</Nullable>
     <OutputType>Exe</OutputType>
     <PackageIconUrl>https://neo-cdn.azureedge.net/images/neo-logo/72.png</PackageIconUrl>
     <PackageId>Neo.Debug.Adapter</PackageId>
