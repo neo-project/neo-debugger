@@ -1,20 +1,26 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <RootNamespace>NeoDebug</RootNamespace>
-    <LangVersion>7.3</LangVersion>
     <AssemblyName>neodebug</AssemblyName>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Authors>Neo Global Development Seattle</Authors>
-    <PackageId>Neo.Debug</PackageId>
-    <PackageProjectUrl>https://github.com/neo-project/neo-debugger</PackageProjectUrl>
+    <LangVersion>8</LangVersion>
+    <Nullable>enable</Nullable>
     <PackageIconUrl>https://neo-cdn.azureedge.net/images/neo-logo/72.png</PackageIconUrl>
+    <PackageId>Neo.Debug</PackageId>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/neo-project/neo-debugger</PackageProjectUrl>
+    <RootNamespace>NeoDebug</RootNamespace>
+    <TargetFramework>netstandard2.1</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.VisualStudio.Shared.VsCodeDebugProtocol" Version="16.3.30820.2" />
+    <PackageReference Include="Microsoft.VisualStudio.Shared.VsCodeDebugProtocol" Version="16.3.30820.2">
+      <NoWarn>NU1701</NoWarn>
+    </PackageReference>
     <PackageReference Include="Neo.VM" Version="2.4.3.1" />
+    <PackageReference Include="Newtonsoft.Json " Version="8.0.1">
+      <NoWarn>NU1701</NoWarn>
+    </PackageReference>
     <PackageReference Include="System.Security.Permissions" Version="4.6.0" />
   </ItemGroup>
 
