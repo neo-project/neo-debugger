@@ -15,26 +15,14 @@ namespace NeoDebug
     {
         public static bool TryParseBigInteger(this string value, out BigInteger bigInteger)
         {
-            // Note, value.AsSpan().Slice(2) is a better choice than value.Substring(2), but Span isn't available in netstandard2.0
-
             if (value.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
-                && BigInteger.TryParse(value.Substring(2), NumberStyles.HexNumber, null, out bigInteger))
+                && BigInteger.TryParse(value.AsSpan().Slice(2), NumberStyles.HexNumber, null, out bigInteger))
             {
                 return true;
             }
 
             bigInteger = default;
             return false;
-        }
-
-        public static BigInteger ParseBigInteger(this string value)
-        {
-            if (TryParseBigInteger(value, out var bigInteger))
-            {
-                return bigInteger;
-            }
-
-            throw new Exception($"could not parse {value} as BigInteger");
         }
 
         internal static bool TryGetValue(this StackItem item, string type, out string value)

@@ -6,27 +6,28 @@ using NeoFx;
 using NeoFx.Models;
 using NeoFx.Storage;
 using Newtonsoft.Json.Linq;
-using OneOf;
 using System.Collections.Generic;
 using System.Linq;
+
+#nullable enable
 
 namespace NeoDebug.Adapter
 {
     internal class DebugExecutionEngine : ExecutionEngine, IExecutionEngine
     {
         private readonly ScriptTable scriptTable;
-        private readonly EmulatedStorage storage;
+        private readonly InteropService interopService;
 
-        private DebugExecutionEngine(IScriptContainer container, ScriptTable scriptTable, EmulatedStorage storage, EmulatedRuntime runtime)
-            : base(container, new Crypto(), scriptTable, new EmulatedInteropService(storage, runtime))
+        private DebugExecutionEngine(IScriptContainer container, ScriptTable scriptTable, InteropService interopService)
+            : base(container, new Crypto(), scriptTable, interopService)
         {
             this.scriptTable = scriptTable;
-            this.storage = storage;
+            this.interopService = interopService;
         }
 
-        private static IBlockchainStorage? GetBlockchain(LaunchArguments arguments)
+        private static IBlockchainStorage? GetBlockchain(Dictionary<string, JToken> config)
         {
-            if (arguments.ConfigurationProperties.TryGetValue("checkpoint", out var checkpoint))
+            if (config.TryGetValue("checkpoint", out var checkpoint))
             {
                 return NeoFx.RocksDb.RocksDbStore.OpenCheckpoint(checkpoint.Value<string>());
             }
@@ -35,12 +36,12 @@ namespace NeoDebug.Adapter
         }
 
         static (IEnumerable<CoinReference> inputs, IEnumerable<TransactionOutput> outputs) 
-            GetUtxo(LaunchArguments arguments, IBlockchainStorage? blockchain)
+            GetUtxo(Dictionary<string, JToken> config, IBlockchainStorage? blockchain)
         {
             static UInt160 ParseAddress(string address) =>
                 UInt160.TryParse(address, out var result) ? result : address.ToScriptHash();
 
-            UInt256 GetAssetId(string asset)
+            static UInt256 GetAssetId(IBlockchainStorage blockchain, string asset)
             {
                 if (string.Compare("neo", asset, true) == 0)
                     return blockchain.GoverningTokenHash;
@@ -51,8 +52,7 @@ namespace NeoDebug.Adapter
                 return UInt256.Parse(asset);
             }
 
-            if (blockchain != null 
-                && arguments.ConfigurationProperties.TryGetValue("utxo", out var utxo))
+            if (blockchain != null && config.TryGetValue("utxo", out var utxo))
             {
                 var _inputs = (utxo["inputs"] ?? Enumerable.Empty<JToken>())
                     .Select(t => new CoinReference(
@@ -61,7 +61,7 @@ namespace NeoDebug.Adapter
 
                 var _outputs = (utxo["outputs"] ?? Enumerable.Empty<JToken>())
                     .Select(t => new TransactionOutput(
-                        GetAssetId(t.Value<string>("asset")),
+                        GetAssetId(blockchain, t.Value<string>("asset")),
                         t.Value<long>("value"),
                         ParseAddress(t.Value<string>("address"))));
 
@@ -71,65 +71,10 @@ namespace NeoDebug.Adapter
             return (Enumerable.Empty<CoinReference>(), Enumerable.Empty<TransactionOutput>());
         }
 
-        private static IEnumerable<(byte[] key, byte[] value, bool constant)> 
-            GetStorage(LaunchArguments arguments)
-        {
-            static byte[] ConvertString(JToken token)
-            {
-                var value = token.Value<string>();
-                if (value.TryParseBigInteger(out var bigInteger))
-                {
-                    return bigInteger.ToByteArray();
-                }
-                return System.Text.Encoding.UTF8.GetBytes(value);
-            }
-
-            if (arguments.ConfigurationProperties.TryGetValue("storage", out var token))
-            {
-                return token.Select(t =>
-                    (ConvertString(t["key"]),
-                    ConvertString(t["value"]),
-                    t.Value<bool?>("constant") ?? false));
-            }
-
-            return Enumerable.Empty<(byte[] key, byte[] value, bool constant)>();
-        }
-
-        private static EmulatedRuntime.TriggerType GetTriggerType(LaunchArguments arguments)
-        {
-            if (arguments.ConfigurationProperties.TryGetValue("runtime", out var token))
-            {
-                return "verification".Equals(token.Value<string>("trigger"))
-                    ? EmulatedRuntime.TriggerType.Verification
-                    : EmulatedRuntime.TriggerType.Application;
-            }
-
-            return EmulatedRuntime.TriggerType.Application;
-        }
-
-        private static OneOf<bool, IEnumerable<byte[]>> GetWitnesses(LaunchArguments arguments)
-        {
-            if (arguments.ConfigurationProperties.TryGetValue("runtime", out var token))
-            {
-                var witnessesJson = token["witnesses"];
-                if (witnessesJson?.Type == JTokenType.Object)
-                {
-                    return witnessesJson.Value<bool>("check-result");
-                }
-                if (witnessesJson?.Type == JTokenType.Array)
-                {
-                    return OneOf<bool, IEnumerable<byte[]>>.FromT1(witnessesJson
-                        .Select(t => t.Value<string>().ParseBigInteger().ToByteArray()));
-                }
-            }
-
-            return true;
-        }
-
         public static DebugExecutionEngine Create(Contract contract, LaunchArguments arguments)
         {
-            var blockchain = GetBlockchain(arguments);
-            var (inputs, outputs) = GetUtxo(arguments, blockchain);
+            var blockchain = GetBlockchain(arguments.ConfigurationProperties);
+            var (inputs, outputs) = GetUtxo(arguments.ConfigurationProperties, blockchain);
 
             var tx = new Transaction(
                 TransactionType.Invocation,
@@ -142,7 +87,8 @@ namespace NeoDebug.Adapter
             var table = new ScriptTable();
             table.Add(contract);
 
-            return new DebugExecutionEngine(container, table, null, null);
+            var interopService = new InteropService(blockchain, arguments.ConfigurationProperties);
+            return new DebugExecutionEngine(container, table, interopService);
         }
 
         VMState IExecutionEngine.State { get => State; set { State = value; } }
@@ -157,6 +103,7 @@ namespace NeoDebug.Adapter
 
         void IExecutionEngine.ExecuteNext() => ExecuteNext();
 
-        IVariableContainer IExecutionEngine.GetStorageContainer(IVariableContainerSession session) => storage.GetStorageContainer(session);
+        IVariableContainer IExecutionEngine.GetStorageContainer(IVariableContainerSession session) => 
+            interopService.GetStorageContainer(session);
     }
 }

@@ -1,14 +1,6 @@
-﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
-using Neo.VM;
-using NeoDebug.Models;
-using NeoDebug.VariableContainers;
-using NeoFx;
-using NeoFx.Models;
-using NeoFx.Storage;
-using Newtonsoft.Json.Linq;
-using OneOf;
-using System.Collections.Generic;
-using System.Linq;
+﻿using Neo.VM;
+
+#nullable enable
 
 namespace NeoDebug.Adapter
 {
