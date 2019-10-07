@@ -1,32 +1,14 @@
 ﻿using Neo.VM;
 using NeoDebug.VariableContainers;
 using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.Diagnostics.CodeAnalysis;
+
+#nullable enable
 
 namespace NeoDebug.Adapter
 {
-    internal class EmulatedStorage
+    internal partial class InteropService
     {
-        private class StorageContext
-        {
-            public byte[] ScriptHash { get; }
-            public bool ReadOnly { get; }
-
-            public StorageContext(byte[] scriptHash, bool readOnly = true)
-            {
-                ScriptHash = scriptHash;
-                ReadOnly = readOnly;
-            }
-
-            public int GetHashCode(ReadOnlySpan<byte> key)
-            {
-                var keyHash = Crypto.GetHashCode(key);
-                var contextHash = Crypto.GetHashCode<byte>(ScriptHash.AsSpan());
-                return HashCode.Combine(keyHash, contextHash);
-            }
-        }
-
         [Flags]
         private enum StorageFlags : byte
         {
@@ -34,77 +16,58 @@ namespace NeoDebug.Adapter
             Constant = 0x01
         }
 
-        private readonly Dictionary<int, (byte[] key, byte[] value, bool constant)> storage =
-            new Dictionary<int, (byte[] key, byte[] value, bool constant)>();
-
-        public IReadOnlyDictionary<int, (byte[] key, byte[] value, bool constant)> Storage => storage;
-
-        public EmulatedStorage(byte[] scriptHash, IEnumerable<(byte[] key, byte[] value, bool constant)> items = null)
+        private class StorageContext
         {
-            var storageContext = new StorageContext(scriptHash, false);
-            foreach (var item in items ?? Enumerable.Empty<(byte[], byte[], bool)>())
+            public byte[] ScriptHash { get; }
+            public bool ReadOnly { get; }
+
+            public StorageContext(byte[] scriptHash, bool readOnly)
             {
-                var storageHash = storageContext.GetHashCode(item.key);
-                storage[storageHash] = item;
+                ScriptHash = scriptHash;
+                ReadOnly = readOnly;
             }
+
+            public int GetHashCode(ReadOnlySpan<byte> key)
+            {
+                return GetHashCode(ScriptHash, key);
+            }
+
+            public static int GetHashCode(ReadOnlySpan<byte> scriptHash, ReadOnlySpan<byte> key)
+            {
+                return HashCode.Combine(Crypto.GetHashCode(key), Crypto.GetHashCode<byte>(scriptHash));
+            }
+        }
+
+        public void RegisterStorage(Action<string, Func<ExecutionEngine, bool>, int> register)
+        {
+            register("Neo.Storage.GetContext", Storage_GetContext, 1);
+            register("Neo.Storage.GetReadOnlyContext", Storage_GetReadOnlyContext, 1);
+            register("Neo.Storage.Get", Storage_Get, 100);
+            register("Neo.Storage.Put", Storage_Put, 0);
+            register("Neo.Storage.Delete", Storage_Delete, 100);
+            register("Neo.Storage.Find", Storage_Find, 1);
+            register("Neo.StorageContext.AsReadOnly", StorageContext_AsReadOnly, 1);
+
+            register("System.Storage.GetContext", Storage_GetContext, 1);
+            register("System.Storage.GetReadOnlyContext", Storage_GetReadOnlyContext, 1);
+            register("System.Storage.Get", Storage_Get, 100);
+            register("System.Storage.Put", Storage_Put, 0);
+            register("System.Storage.PutEx", Storage_PutEx, 0);
+            register("System.Storage.Delete", Storage_Delete, 100);
+            register("System.StorageContext.AsReadOnly", StorageContext_AsReadOnly, 1);
+
+            register("AntShares.Storage.GetContext", Storage_GetContext, 1);
+            register("AntShares.Storage.Get", Storage_Get, 100);
+            register("AntShares.Storage.Put", Storage_Put, 0);
+            register("AntShares.Storage.Delete", Storage_Delete, 100);
         }
 
         public IVariableContainer GetStorageContainer(IVariableContainerSession session)
         {
-            return new EmulatedStorageContainer(session, this);
+            return new EmulatedStorageContainer(session, storage);
         }
 
-        public void RegisterServices(Action<string, Func<ExecutionEngine, bool>> register)
-        {
-            register("AntShares.Storage.GetContext", GetContext);
-            register("AntShares.Storage.Get", Get);
-            register("AntShares.Storage.Put", Put);
-            register("AntShares.Storage.Delete", Delete);
-
-            register("Neo.Storage.GetContext", GetContext);
-            register("Neo.Storage.GetReadOnlyContext", GetReadOnlyContext);
-            register("Neo.Storage.Get", Get);
-            register("Neo.Storage.Put", Put);
-            register("Neo.Storage.Delete", Delete);
-            //register("Neo.Storage.Find", Find);
-
-            register("System.Storage.GetContext", GetContext);
-            register("System.Storage.GetReadOnlyContext", GetReadOnlyContext);
-            register("System.Storage.Get", Get);
-            register("System.Storage.Put", Put);
-            register("System.Storage.PutEx", PutEx);
-            register("System.Storage.Delete", Delete);
-            register("System.StorageContext.AsReadOnly", StorageContextAsReadOnly);
-        }
-
-        private bool GetContext(ExecutionEngine engine)
-        {
-            var storageContext = new StorageContext(engine.CurrentContext.ScriptHash, false);
-            engine.CurrentContext.EvaluationStack.Push(StackItem.FromInterface(storageContext));
-            return true;
-        }
-
-        private bool GetReadOnlyContext(ExecutionEngine engine)
-        {
-            var storageContext = new StorageContext(engine.CurrentContext.ScriptHash, true);
-            engine.CurrentContext.EvaluationStack.Push(StackItem.FromInterface(storageContext));
-            return true;
-        }
-
-        private bool StorageContextAsReadOnly(ExecutionEngine engine)
-        {
-            var evalStack = engine.CurrentContext.EvaluationStack;
-            if (TryGetStorageContext(evalStack, out var storageContext))
-            {
-                var readOnlyStorageContext = new StorageContext(storageContext.ScriptHash, true);
-                evalStack.Push(StackItem.FromInterface(readOnlyStorageContext));
-                return true;
-            }
-
-            return false;
-        }
-
-        private static bool TryGetStorageContext(RandomAccessStack<StackItem> evalStack, out StorageContext context)
+        private static bool TryGetStorageContext(RandomAccessStack<StackItem> evalStack, [NotNullWhen(true)] out StorageContext? context)
         {
             if (evalStack.Pop() is Neo.VM.Types.InteropInterface interop)
             {
@@ -116,7 +79,33 @@ namespace NeoDebug.Adapter
             return false;
         }
 
-        private bool Get(ExecutionEngine engine)
+        private bool Storage_GetContext(ExecutionEngine engine)
+        {
+            var storageContext = new StorageContext(engine.CurrentContext.ScriptHash, false);
+            engine.CurrentContext.EvaluationStack.Push(StackItem.FromInterface(storageContext));
+            return true;
+        }
+
+        private bool Storage_GetReadOnlyContext(ExecutionEngine engine)
+        {
+            var storageContext = new StorageContext(engine.CurrentContext.ScriptHash, true);
+            engine.CurrentContext.EvaluationStack.Push(StackItem.FromInterface(storageContext));
+            return true;
+        }
+
+        private bool StorageContext_AsReadOnly(ExecutionEngine engine)
+        {
+            var evalStack = engine.CurrentContext.EvaluationStack;
+            if (TryGetStorageContext(evalStack, out var storageContext))
+            {
+                var readOnlyStorageContext = new StorageContext(storageContext.ScriptHash, true);
+                evalStack.Push(StackItem.FromInterface(readOnlyStorageContext));
+                return true;
+            }
+            return false;
+        }
+
+        private bool Storage_Get(ExecutionEngine engine)
         {
             var evalStack = engine.CurrentContext.EvaluationStack;
             if (TryGetStorageContext(evalStack, out var storageContext))
@@ -130,7 +119,7 @@ namespace NeoDebug.Adapter
                 }
                 else
                 {
-                    evalStack.Push(new byte[0]);
+                    evalStack.Push(Array.Empty<byte>());
                 }
 
                 return true;
@@ -139,14 +128,15 @@ namespace NeoDebug.Adapter
             return false;
         }
 
-        private bool PutWorkhorse(StorageContext storageContext, byte[] key, byte[] value, bool constant = false)
+        private bool PutHelper(StorageContext storageContext, byte[] key, byte[] value, bool constant = false)
         {
-            // check storage context
+            if (trigger != TriggerType.Application) return false;
             if (key.Length > 1024) return false;
             if (storageContext.ReadOnly) return false;
+            // TODO: CheckStorageContext
 
             var storageHash = storageContext.GetHashCode(key);
-            if (storage.TryGetValue(storageHash, out var currentValue) 
+            if (storage.TryGetValue(storageHash, out var currentValue)
                 && currentValue.constant)
             {
                 return false;
@@ -156,37 +146,34 @@ namespace NeoDebug.Adapter
             return true;
         }
 
-        private bool Put(ExecutionEngine engine)
+        private bool Storage_Put(ExecutionEngine engine)
         {
             var evalStack = engine.CurrentContext.EvaluationStack;
             if (TryGetStorageContext(evalStack, out var storageContext))
             {
                 var key = evalStack.Pop().GetByteArray();
                 var value = evalStack.Pop().GetByteArray();
-
-                return PutWorkhorse(storageContext, key, value);
+                return PutHelper(storageContext, key, value);
             }
 
             return false;
         }
 
-        private bool PutEx(ExecutionEngine engine)
+        private bool Storage_PutEx(ExecutionEngine engine)
         {
             var evalStack = engine.CurrentContext.EvaluationStack;
             if (TryGetStorageContext(evalStack, out var storageContext))
             {
-                if (storageContext.ReadOnly) return false;
                 var key = evalStack.Pop().GetByteArray();
                 var value = evalStack.Pop().GetByteArray();
                 var storageFlags = (StorageFlags)(byte)evalStack.Pop().GetBigInteger();
-
-                return PutWorkhorse(storageContext, key, value, (storageFlags & StorageFlags.Constant) != 0);
+                return PutHelper(storageContext, key, value, (storageFlags & StorageFlags.Constant) != 0);
             }
 
             return false;
         }
 
-        private bool Delete(ExecutionEngine engine)
+        private bool Storage_Delete(ExecutionEngine engine)
         {
             var evalStack = engine.CurrentContext.EvaluationStack;
             if (TryGetStorageContext(evalStack, out var storageContext))
@@ -207,6 +194,11 @@ namespace NeoDebug.Adapter
             }
 
             return false;
+        }
+
+        private bool Storage_Find(ExecutionEngine engine)
+        {
+            throw new NotImplementedException(nameof(Storage_Find));
         }
     }
 }

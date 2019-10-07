@@ -36,17 +36,17 @@ namespace NeoDebug.Adapter
         }
 
         private readonly IVariableContainerSession session;
-        private readonly EmulatedStorage storage;
+        private readonly IReadOnlyDictionary<int, (byte[] key, byte[] value, bool constant)> storage;
 
-        public EmulatedStorageContainer(IVariableContainerSession session, EmulatedStorage storage)
+        public EmulatedStorageContainer(IVariableContainerSession session, IReadOnlyDictionary<int, (byte[] key, byte[] value, bool constant)> storage)
         {
-            this.storage = storage;
             this.session = session;
+            this.storage = storage;
         }
 
         public IEnumerable<Variable> GetVariables()
         {
-            foreach (var kvp in storage.Storage)
+            foreach (var kvp in storage)
             {
                 yield return new Variable()
                 {

@@ -76,12 +76,18 @@
 								"description": "Command line arguments passed to the program.",
 								"default": []
 							},
+							"checkpoint": {
+								"type": "string"
+							},
 							"utxo": {
 								"type": "object",
 								"properties": {
 									"inputs": {
 										"type": "array",
-										"required": ["txid", "n"],
+										"required": [
+											"txid",
+											"n"
+										],
 										"properties": {
 											"txid": {
 												"type": "string"
@@ -96,7 +102,11 @@
 									},
 									"outputs": {
 										"type": "array",
-										"required": ["asset", "value", "address"],
+										"required": [
+											"asset",
+											"value",
+											"address"
+										],
 										"properties": {
 											"asset": {
 												"type": "string"

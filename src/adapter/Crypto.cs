@@ -1,5 +1,6 @@
 ﻿using Neo.VM;
 using System;
+using System.Diagnostics;
 using System.Security.Cryptography;
 
 namespace NeoDebug.Adapter
@@ -7,18 +8,40 @@ namespace NeoDebug.Adapter
     class Crypto : ICrypto
     {
         public static readonly Lazy<SHA256> SHA256 = new Lazy<SHA256>(() => System.Security.Cryptography.SHA256.Create());
-        static readonly Lazy<SHA1> SHA1 = new Lazy<SHA1>(() => System.Security.Cryptography.SHA1.Create());
+
+        // TODO: replace SHA1 with RIPEMD-160 implementaiton
+        private static readonly Lazy<SHA1> SHA1 = new Lazy<SHA1>(() => System.Security.Cryptography.SHA1.Create());
 
         public static byte[] Hash256(byte[] message)
         {
-            var hash1 = SHA256.Value.ComputeHash(message);
-            return SHA256.Value.ComputeHash(hash1);
+            Span<byte> firstHashBuffer = stackalloc byte[32];
+            var secondHashBuffer = new byte[32];
+            if (SHA256.Value.TryComputeHash(message, firstHashBuffer, out var firstWritten)
+                && SHA256.Value.TryComputeHash(message, secondHashBuffer, out var secondWritten))
+            {
+                Debug.Assert(firstWritten == firstHashBuffer.Length);
+                Debug.Assert(secondWritten == secondHashBuffer.Length);
+
+                return secondHashBuffer;
+            }
+
+            throw new Exception();
         }
 
         public static byte[] Hash160(byte[] message)
         {
-            var hash1 = SHA256.Value.ComputeHash(message);
-            return SHA1.Value.ComputeHash(hash1);
+            Span<byte> firstHashBuffer = stackalloc byte[32];
+            var secondHashBuffer = new byte[20];
+            if (SHA256.Value.TryComputeHash(message, firstHashBuffer, out var firstWritten)
+                && SHA1.Value.TryComputeHash(message, secondHashBuffer, out var secondWritten))
+            {
+                Debug.Assert(firstWritten == firstHashBuffer.Length);
+                Debug.Assert(secondWritten == secondHashBuffer.Length);
+
+                return secondHashBuffer;
+            }
+
+            throw new Exception();
         }
 
         // Note, byte arrays have reference semantics for GetHashCode
