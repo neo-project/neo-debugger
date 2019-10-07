@@ -51,57 +51,13 @@ namespace NeoDebug.Adapter
             var adapter = new DebugAdapter(
                 Console.OpenStandardInput(),
                 Console.OpenStandardOutput(),
-                CreateExecutionEngine,
+                DebugExecutionEngine.Create,
                 Crypto.Hash160,
                 (cat, msg) => LogMessage(msg, cat));
 
             adapter.Run();
         }
 
-
-        private static IExecutionEngine CreateExecutionEngine(Contract contract, LaunchArguments arguments)
-        {
-
-            //EmulatedRuntime GetRuntime()
-            //{
-            //    if (arguments.ConfigurationProperties.TryGetValue("runtime", out var token))
-            //    {
-            //        var trigger = "verification".Equals(token.Value<string>("trigger"))
-            //            ? EmulatedRuntime.TriggerType.Verification : EmulatedRuntime.TriggerType.Application;
-
-            //        var witnessesJson = token["witnesses"];
-            //        if (witnessesJson?.Type == JTokenType.Object)
-            //        {
-            //            var result = witnessesJson.Value<bool>("check-result");
-            //            return new EmulatedRuntime(trigger, result);
-            //        }
-            //        if (witnessesJson?.Type == JTokenType.Array)
-            //        {
-            //            var witnesses = witnessesJson
-            //                .Select(t => t.Value<string>().ParseBigInteger().ToByteArray());
-            //            return new EmulatedRuntime(trigger, witnesses);
-            //        }
-            //    }
-
-            //    return new EmulatedRuntime();
-            //}
-
-            //IBlockchainStorage? GetBlockchain()
-            //{
-            //    if (arguments.ConfigurationProperties.TryGetValue("checkpoint", out var checkpoint))
-            //    {
-            //        return NeoFx.RocksDb.RocksDbStore.OpenCheckpoint(checkpoint.Value<string>());
-            //    }
-
-            //    return null;
-            //}
-
-            //var blockchain = GetBlockchain();
-
-            //return DebugExecutionEngine.Create(contract, GetStorage(), GetRuntime());
-
-            return null;
-        }
 
         public void LogMessage(string message, LogCategory category = LogCategory.Trace)
         {
