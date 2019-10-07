@@ -10,8 +10,8 @@ steps:
   inputs:
     command: 'restore'
     restoreSolution: './neo-debugger.sln'
-    feedsToUse: 'config'
-    nugetConfigPath: './NuGet.Config'
+    feedsToUse: 'select'
+    vstsFeed: '176ef395-dca6-4e1c-a5e7-cb4f884a7fdf'
 
 - task: DotNetCoreCLI@2
   displayName: 'dotnet pack neodebug library'
