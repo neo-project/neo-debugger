@@ -87,7 +87,7 @@ namespace NeoDebug.Adapter
             var table = new ScriptTable();
             table.Add(contract);
 
-            var interopService = new InteropService(blockchain, arguments.ConfigurationProperties);
+            var interopService = new InteropService(contract, blockchain, arguments.ConfigurationProperties);
             return new DebugExecutionEngine(container, table, interopService);
         }
 

@@ -31,7 +31,7 @@ namespace NeoDebug.Adapter
         public static byte[] Hash160(byte[] message)
         {
             Span<byte> firstHashBuffer = stackalloc byte[32];
-            var secondHashBuffer = new byte[32];
+            var secondHashBuffer = new byte[20];
             if (SHA256.Value.TryComputeHash(message, firstHashBuffer, out var firstWritten)
                 && SHA1.Value.TryComputeHash(message, secondHashBuffer, out var secondWritten))
             {
