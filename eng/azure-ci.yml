@@ -6,10 +6,16 @@ pool:
 
 steps:
 
-- task: NuGetCommand@2
+- task: UseDotNet@2
+  displayName: 'use .NET Core SDK from global.json'
+  inputs:
+    packageType: 'sdk'
+    useGlobalJson: true
+    
+- task: DotNetCoreCLI@2
+  displayName: 'dotnet restore (using azure artifacts feed)'
   inputs:
     command: 'restore'
-    restoreSolution: './neo-debugger.sln'
     feedsToUse: 'select'
     vstsFeed: '176ef395-dca6-4e1c-a5e7-cb4f884a7fdf'
 
