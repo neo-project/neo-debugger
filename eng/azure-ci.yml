@@ -5,6 +5,14 @@ pool:
   vmImage: 'windows-2019'
 
 steps:
+
+- task: NuGetCommand@2
+  inputs:
+    command: 'restore'
+    restoreSolution: './neo-debugger.sln'
+    feedsToUse: 'config'
+    nugetConfigPath: './NuGet.Config'
+
 - task: DotNetCoreCLI@2
   displayName: 'dotnet pack neodebug library'
   inputs:
