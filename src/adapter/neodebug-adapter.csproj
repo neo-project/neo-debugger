@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <AssemblyName>neodebug-adapter</AssemblyName>
@@ -32,6 +32,7 @@
   <ItemGroup>
     <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="2.4.2" />
     <PackageReference Include="Neo.VM" Version="2.4.3.1" />
+    <PackageReference Include="OneOf" Version="2.1.150" />
     <PackageReference Include="System.Security.Permissions" Version="4.6.0" />
   </ItemGroup>
 

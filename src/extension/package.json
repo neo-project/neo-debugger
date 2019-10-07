@@ -76,6 +76,9 @@
 								"description": "Command line arguments passed to the program.",
 								"default": []
 							},
+							"checkpoint": {
+								"type": "string"
+							},
 							"utxo": {
 								"type": "object",
 								"properties": {

@@ -2,8 +2,12 @@
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using NeoDebug.Models;
+using NeoFx;
+using NeoFx.Models;
+using NeoFx.Storage;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
@@ -54,59 +58,49 @@ namespace NeoDebug.Adapter
             adapter.Run();
         }
 
-        private static byte[] ConvertString(string value)
-        {
-            if (value.TryParseBigInteger(out var bigInteger))
-            {
-                return bigInteger.ToByteArray();
-            }
-
-            return System.Text.Encoding.UTF8.GetBytes(value);
-        }
-
-        static byte[] ConvertString(JToken token) => ConvertString(token.Value<string>());
 
         private static IExecutionEngine CreateExecutionEngine(Contract contract, LaunchArguments arguments)
         {
-            EmulatedStorage GetStorage()
-            {
-                if (arguments.ConfigurationProperties.TryGetValue("storage", out var token))
-                {
-                    var items = token.Select(t =>
-                        (ConvertString(t["key"]),
-                        ConvertString(t["value"]),
-                        t.Value<bool?>("constant") ?? false));
-                    return new EmulatedStorage(contract.ScriptHash, items);
-                }
 
-                return new EmulatedStorage(contract.ScriptHash);
-            }
+            //EmulatedRuntime GetRuntime()
+            //{
+            //    if (arguments.ConfigurationProperties.TryGetValue("runtime", out var token))
+            //    {
+            //        var trigger = "verification".Equals(token.Value<string>("trigger"))
+            //            ? EmulatedRuntime.TriggerType.Verification : EmulatedRuntime.TriggerType.Application;
 
-            EmulatedRuntime GetRuntime()
-            {
-                if (arguments.ConfigurationProperties.TryGetValue("runtime", out var token))
-                {
-                    var trigger = "verification".Equals(token.Value<string>("trigger"), StringComparison.InvariantCultureIgnoreCase)
-                        ? EmulatedRuntime.TriggerType.Verification : EmulatedRuntime.TriggerType.Application;
+            //        var witnessesJson = token["witnesses"];
+            //        if (witnessesJson?.Type == JTokenType.Object)
+            //        {
+            //            var result = witnessesJson.Value<bool>("check-result");
+            //            return new EmulatedRuntime(trigger, result);
+            //        }
+            //        if (witnessesJson?.Type == JTokenType.Array)
+            //        {
+            //            var witnesses = witnessesJson
+            //                .Select(t => t.Value<string>().ParseBigInteger().ToByteArray());
+            //            return new EmulatedRuntime(trigger, witnesses);
+            //        }
+            //    }
 
-                    var witnessesJson = token["witnesses"];
-                    if (witnessesJson?.Type == JTokenType.Object)
-                    {
-                        var result = witnessesJson.Value<bool>("check-result");
-                        return new EmulatedRuntime(trigger, result);
-                    }
-                    if (witnessesJson?.Type == JTokenType.Array)
-                    {
-                        var witnesses = witnessesJson
-                            .Select(t => t.Value<string>().ParseBigInteger().ToByteArray());
-                        return new EmulatedRuntime(trigger, witnesses);
-                    }
-                }
+            //    return new EmulatedRuntime();
+            //}
 
-                return new EmulatedRuntime();
-            }
+            //IBlockchainStorage? GetBlockchain()
+            //{
+            //    if (arguments.ConfigurationProperties.TryGetValue("checkpoint", out var checkpoint))
+            //    {
+            //        return NeoFx.RocksDb.RocksDbStore.OpenCheckpoint(checkpoint.Value<string>());
+            //    }
 
-            return DebugExecutionEngine.Create(contract, GetStorage(), GetRuntime());
+            //    return null;
+            //}
+
+            //var blockchain = GetBlockchain();
+
+            //return DebugExecutionEngine.Create(contract, GetStorage(), GetRuntime());
+
+            return null;
         }
 
         public void LogMessage(string message, LogCategory category = LogCategory.Trace)
