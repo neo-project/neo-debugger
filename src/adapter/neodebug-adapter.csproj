@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <AssemblyName>neodebug-adapter</AssemblyName>
@@ -6,7 +6,6 @@
     <Description>neo-express is a NEO developer blockchain tool</Description>
     <LangVersion>8</LangVersion>
     <OutputType>Exe</OutputType>
-    <PackageIconUrl>https://neo-cdn.azureedge.net/images/neo-logo/72.png</PackageIconUrl>
     <PackageId>Neo.Debug.Adapter</PackageId>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/neo-project/neo-debugger</PackageProjectUrl>
@@ -17,25 +16,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="ArrayContainer.cs" />
-    <Compile Remove="ByteArrayContainer.cs" />
-    <Compile Remove="Contract.cs" />
-    <Compile Remove="ContractArgument.cs" />
-    <Compile Remove="ContractParameterType.cs" />
-    <Compile Remove="EmulatedInteropService.cs" />
-    <Compile Remove="EmulatedRuntime.cs" />
-    <Compile Remove="EmulatedStorage.cs" />
-    <Compile Remove="EmulatedStorageContainer.cs" />
-    <Compile Remove="ExecutionContextContainer.cs" />
-    <Compile Remove="Extensions.cs" />
-    <Compile Remove="IVariableContainer.cs" />
-    <Compile Remove="NeoDebugAdapter.cs" />
-    <Compile Remove="NeoDebugSession.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="2.4.2" />
     <PackageReference Include="Neo.VM" Version="2.4.3.1" />
+    <PackageReference Include="NeoFx" Version="0.2.22" />
+    <PackageReference Include="NeoFx.RocksDb" Version="0.2.22" />
     <PackageReference Include="System.Security.Permissions" Version="4.6.0" />
   </ItemGroup>
 
