@@ -14,15 +14,10 @@ namespace NeoDebug.Adapter
 
         public static byte[] Hash256(byte[] message)
         {
-            Span<byte> firstHashBuffer = stackalloc byte[32];
-            var secondHashBuffer = new byte[32];
-            if (SHA256.Value.TryComputeHash(message, firstHashBuffer, out var firstWritten)
-                && SHA256.Value.TryComputeHash(message, secondHashBuffer, out var secondWritten))
+            var hashBuffer = new byte[32];
+            if (NeoFx.Utility.TryHash256(message, hashBuffer))
             {
-                Debug.Assert(firstWritten == firstHashBuffer.Length);
-                Debug.Assert(secondWritten == secondHashBuffer.Length);
-
-                return secondHashBuffer;
+                return hashBuffer;
             }
 
             throw new Exception();
@@ -30,15 +25,10 @@ namespace NeoDebug.Adapter
 
         public static byte[] Hash160(byte[] message)
         {
-            Span<byte> firstHashBuffer = stackalloc byte[32];
-            var secondHashBuffer = new byte[20];
-            if (SHA256.Value.TryComputeHash(message, firstHashBuffer, out var firstWritten)
-                && SHA1.Value.TryComputeHash(message, secondHashBuffer, out var secondWritten))
+            var hashBuffer = new byte[20];
+            if (NeoFx.Utility.TryHash160(message, hashBuffer))
             {
-                Debug.Assert(firstWritten == firstHashBuffer.Length);
-                Debug.Assert(secondWritten == secondHashBuffer.Length);
-
-                return secondHashBuffer;
+                return hashBuffer;
             }
 
             throw new Exception();
