@@ -18,8 +18,8 @@
   <ItemGroup>
     <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="2.4.2" />
     <PackageReference Include="Neo.VM" Version="2.4.3.1" />
-    <PackageReference Include="NeoFx" Version="0.3.3-preview" />
-    <PackageReference Include="NeoFx.RocksDb" Version="0.3.3-preview" />
+    <PackageReference Include="NeoFx" Version="0.3.9-preview" />
+    <PackageReference Include="NeoFx.RocksDb" Version="0.3.9-preview" />
     <PackageReference Include="System.Security.Permissions" Version="4.6.0" />
   </ItemGroup>
 
