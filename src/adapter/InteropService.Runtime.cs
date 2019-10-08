@@ -158,7 +158,6 @@ namespace NeoDebug.Adapter
                 var @event = new OutputEvent()
                 {
                     Output = $"Notify: {name}\n",
-                    
                 };
                 sendOutput(@event);
             }

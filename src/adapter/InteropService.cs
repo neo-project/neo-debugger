@@ -93,7 +93,9 @@ namespace NeoDebug.Adapter
                 }
             }
 
+            RegisterBlockchain(Register);
             RegisterExecutionEngine(Register);
+            RegisterInput(Register);
             RegisterOutput(Register);
             RegisterRuntime(Register);
             RegisterStorage(Register);
