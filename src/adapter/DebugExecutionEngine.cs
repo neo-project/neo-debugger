@@ -6,6 +6,7 @@ using NeoFx;
 using NeoFx.Models;
 using NeoFx.Storage;
 using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -15,13 +16,11 @@ namespace NeoDebug.Adapter
 {
     internal class DebugExecutionEngine : ExecutionEngine, IExecutionEngine
     {
-        private readonly ScriptTable scriptTable;
         private readonly InteropService interopService;
 
         private DebugExecutionEngine(IScriptContainer container, ScriptTable scriptTable, InteropService interopService)
             : base(container, new Crypto(), scriptTable, interopService)
         {
-            this.scriptTable = scriptTable;
             this.interopService = interopService;
         }
 
@@ -71,7 +70,7 @@ namespace NeoDebug.Adapter
             return (Enumerable.Empty<CoinReference>(), Enumerable.Empty<TransactionOutput>());
         }
 
-        public static DebugExecutionEngine Create(Contract contract, LaunchArguments arguments)
+        public static DebugExecutionEngine Create(Contract contract, LaunchArguments arguments, Action<OutputEvent> sendOutput)
         {
             var blockchain = GetBlockchain(arguments.ConfigurationProperties);
             var (inputs, outputs) = GetUtxo(arguments.ConfigurationProperties, blockchain);
@@ -82,12 +81,12 @@ namespace NeoDebug.Adapter
                 Transaction.InvocationTxData(contract.Script, 0),
                 inputs: inputs.ToArray(),
                 outputs: outputs.ToArray());
-            var container = new ScriptContainer<Transaction>(tx);
+            var container = new StructContainer<Transaction>(tx);
 
             var table = new ScriptTable();
             table.Add(contract);
 
-            var interopService = new InteropService(contract, blockchain, arguments.ConfigurationProperties);
+            var interopService = new InteropService(contract, blockchain, arguments.ConfigurationProperties, sendOutput);
             return new DebugExecutionEngine(container, table, interopService);
         }
 

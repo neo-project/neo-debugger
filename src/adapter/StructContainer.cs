@@ -4,14 +4,14 @@
 
 namespace NeoDebug.Adapter
 {
-    class ScriptContainer<T> : IScriptContainer
+    class StructContainer<T> : IScriptContainer where T : struct
     {
         public delegate byte[] GetMessageDelegate(in T item);
 
         public readonly T Item;
         private readonly GetMessageDelegate? getMessage;
 
-        public ScriptContainer(in T item, GetMessageDelegate? getMessage = null)
+        public StructContainer(in T item, GetMessageDelegate? getMessage = null)
         {
             Item = item;
             this.getMessage = getMessage;

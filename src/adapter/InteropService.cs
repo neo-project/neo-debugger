@@ -17,7 +17,6 @@ namespace NeoDebug.Adapter
 {
     internal partial class InteropService : IInteropService
     {
-
         public enum TriggerType
         {
             Verification = 0x00,
@@ -27,7 +26,7 @@ namespace NeoDebug.Adapter
         private readonly Dictionary<uint, Func<ExecutionEngine, bool>> methods = new Dictionary<uint, Func<ExecutionEngine, bool>>();
 
         private readonly IBlockchainStorage? blockchain;
-
+        private readonly Action<OutputEvent> sendOutput;
         private readonly Dictionary<int, (byte[] key, byte[] value, bool constant)> storage =
             new Dictionary<int, (byte[] key, byte[] value, bool constant)>();
 
@@ -55,7 +54,7 @@ namespace NeoDebug.Adapter
             return Enumerable.Empty<(byte[], byte[], bool)>();
         }
 
-        public InteropService(Contract contract, IBlockchainStorage? blockchain, Dictionary<string, JToken> config)
+        public InteropService(Contract contract, IBlockchainStorage? blockchain, Dictionary<string, JToken> config, Action<OutputEvent> sendOutput)
         {
             static byte[] ParseWitness(JToken value)
             {
@@ -67,6 +66,7 @@ namespace NeoDebug.Adapter
                 throw new Exception($"TryParseBigInteger for {value} failed");
             }
 
+            this.sendOutput = sendOutput;
             this.blockchain = blockchain;
 
             foreach (var item in GetStorage(config))
@@ -94,8 +94,10 @@ namespace NeoDebug.Adapter
             }
 
             RegisterExecutionEngine(Register);
+            RegisterOutput(Register);
             RegisterRuntime(Register);
             RegisterStorage(Register);
+            RegisterTransaction(Register);
         }
 
         protected void Register(string methodName, Func<ExecutionEngine, bool> handler, int price)

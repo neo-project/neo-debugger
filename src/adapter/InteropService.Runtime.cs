@@ -1,4 +1,6 @@
-﻿using Neo.VM;
+﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using Neo.VM;
+using Neo.VM.Types;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,6 +10,20 @@ using System.Text;
 
 namespace NeoDebug.Adapter
 {
+    using VMArray = Neo.VM.Types.Array;
+    using VMBoolean = Neo.VM.Types.Boolean;
+
+    internal enum StackItemType : byte
+    {
+        ByteArray = 0x00,
+        Boolean = 0x01,
+        Integer = 0x02,
+        InteropInterface = 0x40,
+        Array = 0x80,
+        Struct = 0x81,
+        Map = 0x82,
+    }
+
     internal partial class InteropService
     {
         private readonly TriggerType trigger = TriggerType.Application;
@@ -49,9 +65,78 @@ namespace NeoDebug.Adapter
             throw new NotImplementedException(nameof(Runtime_Deserialize));
         }
 
+        // TODO: rewrite SerializeStackItem
+        private void SerializeStackItem(StackItem item, System.IO.BinaryWriter writer)
+        {
+            List<StackItem> serialized = new List<StackItem>();
+            Stack<StackItem> unserialized = new Stack<StackItem>();
+            unserialized.Push(item);
+            while (unserialized.Count > 0)
+            {
+                item = unserialized.Pop();
+                switch (item)
+                {
+                    case ByteArray _:
+                        writer.Write((byte)StackItemType.ByteArray);
+                        writer.WriteVarBytes(item.GetByteArray());
+                        break;
+                    case VMBoolean _:
+                        writer.Write((byte)StackItemType.Boolean);
+                        writer.Write(item.GetBoolean());
+                        break;
+                    case Integer _:
+                        writer.Write((byte)StackItemType.Integer);
+                        writer.WriteVarBytes(item.GetByteArray());
+                        break;
+                    case InteropInterface _:
+                        throw new NotSupportedException();
+                    case VMArray array:
+                        if (serialized.Any(p => ReferenceEquals(p, array)))
+                            throw new NotSupportedException();
+                        serialized.Add(array);
+                        if (array is Struct)
+                            writer.Write((byte)StackItemType.Struct);
+                        else
+                            writer.Write((byte)StackItemType.Array);
+                        writer.WriteVarInt(array.Count);
+                        for (int i = array.Count - 1; i >= 0; i--)
+                            unserialized.Push(array[i]);
+                        break;
+                    case Map map:
+                        if (serialized.Any(p => ReferenceEquals(p, map)))
+                            throw new NotSupportedException();
+                        serialized.Add(map);
+                        writer.Write((byte)StackItemType.Map);
+                        writer.WriteVarInt(map.Count);
+                        foreach (var pair in map.Reverse())
+                        {
+                            unserialized.Push(pair.Value);
+                            unserialized.Push(pair.Key);
+                        }
+                        break;
+                }
+            }
+        }
+
         private bool Runtime_Serialize(ExecutionEngine engine)
         {
-            throw new NotImplementedException(nameof(Runtime_Serialize));
+            using (var ms = new System.IO.MemoryStream())
+            using (var writer = new System.IO.BinaryWriter(ms))
+            {
+                try
+                {
+                    SerializeStackItem(engine.CurrentContext.EvaluationStack.Pop(), writer);
+                }
+                catch (NotSupportedException)
+                {
+                    return false;
+                }
+                writer.Flush();
+                if (ms.Length > engine.MaxItemSize)
+                    return false;
+                engine.CurrentContext.EvaluationStack.Push(ms.ToArray());
+            }
+            return true;
         }
 
         private bool Runtime_GetTime(ExecutionEngine engine)
@@ -66,7 +151,18 @@ namespace NeoDebug.Adapter
 
         private bool Runtime_Notify(ExecutionEngine engine)
         {
-            throw new NotImplementedException(nameof(Runtime_Notify));
+            var state = engine.CurrentContext.EvaluationStack.Pop() as VMArray;
+            if (state != null)
+            {
+                var name = Encoding.UTF8.GetString(state[0].GetByteArray());
+                var @event = new OutputEvent()
+                {
+                    Output = $"Notify: {name}\n",
+                    
+                };
+                sendOutput(@event);
+            }
+            return true;
         }
 
         private bool Runtime_CheckWitness(ExecutionEngine engine)
