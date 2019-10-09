@@ -95,9 +95,9 @@ namespace NeoDebug.Adapter
 
             // TBD:
             //  * Header
-            //  * Account
             //  * Asset
 
+            RegisterAccount(Register);
             RegisterBlock(Register);
             RegisterBlockchain(Register);
             RegisterContract(Register);

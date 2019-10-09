@@ -10,7 +10,6 @@ using System.Text;
 
 namespace NeoDebug.Adapter
 {
-
     internal partial class InteropService
     {
         public void RegisterBlock(Action<string, Func<ExecutionEngine, bool>, int> register)
