@@ -78,7 +78,6 @@ namespace NeoDebug.Adapter
             }
 
             return false;
-
         }
 
         private bool Transaction_GetInputs(ExecutionEngine engine)
