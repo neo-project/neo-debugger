@@ -91,7 +91,7 @@ namespace NeoDebug.Adapter
             var hash = new UInt256(evalStack.Pop().GetByteArray());
             if (blockchain.TryGetTransaction(hash, out var _, out var tx))
             {
-                evalStack.Push(StructContainer.ToStackItem(tx));
+                evalStack.Push(new ModelAdapters.TransactionAdapter(tx));
                 return true;
             }
 

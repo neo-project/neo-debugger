@@ -39,7 +39,6 @@ namespace NeoDebug.Adapter.ModelAdapters
                 engine.CurrentContext.EvaluationStack.Push(references);
                 return true;
             }
-
             return false;
         }
 
@@ -51,7 +50,6 @@ namespace NeoDebug.Adapter.ModelAdapters
                 engine.CurrentContext.EvaluationStack.Push(items);
                 return true;
             }
-
             return false;
         }
 
@@ -63,7 +61,6 @@ namespace NeoDebug.Adapter.ModelAdapters
                 engine.CurrentContext.EvaluationStack.Push(items);
                 return true;
             }
-
             return false;
         }
 
@@ -75,7 +72,17 @@ namespace NeoDebug.Adapter.ModelAdapters
                 engine.CurrentContext.EvaluationStack.Push(items);
                 return true;
             }
+            return false;
+        }
 
+        public bool GetWitnesses(ExecutionEngine engine)
+        {
+            if (Value.Witnesses.Length <= engine.MaxArraySize)
+            {
+                var items = Value.Witnesses.WrapStackItems(WitnessAdapter.Create);
+                engine.CurrentContext.EvaluationStack.Push(items);
+                return true;
+            }
             return false;
         }
 
@@ -95,6 +102,16 @@ namespace NeoDebug.Adapter.ModelAdapters
             }
 
             return false;
+        }
+
+        public bool GetScript(ExecutionEngine engine)
+        {
+            throw new NotImplementedException();
+        }
+
+        public bool GetUnspentCoins(ExecutionEngine engine)
+        {
+            throw new NotImplementedException();
         }
 
         public Variable GetVariable(IVariableContainerSession session)

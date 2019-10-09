@@ -41,6 +41,8 @@ namespace NeoDebug.Adapter
                 return true;
             }
 
+            // TODO: add BlockAdapter
+
             return false;
         }
     }

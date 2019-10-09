@@ -1,11 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq.Expressions;
-using System.Text;
 using Neo.VM;
-using Neo.VM.Types;
 using NeoDebug.Adapter.ModelAdapters;
-using NeoFx.Models;
 
 namespace NeoDebug.Adapter
 {
@@ -60,29 +55,22 @@ namespace NeoDebug.Adapter
 
         private bool Witness_GetVerificationScript(ExecutionEngine engine)
         {
-            var evalStack = engine.CurrentContext.EvaluationStack;
-            if (evalStack.TryPopContainedStruct<Witness>(out var witness))
-            {
-                evalStack.Push(witness.VerificationScript.ToArray());
-                return true;
-            }
-
-            return false;
+            return engine.TryAdapterOperation<WitnessAdapter>(adapter => adapter.GetVerificationScript(engine));
         }
 
         private bool InvocationTransaction_GetScript(ExecutionEngine engine)
         {
-            throw new NotImplementedException();
+            return engine.TryAdapterOperation<TransactionAdapter>(adapter => adapter.GetScript(engine));
         }
 
         private bool Transaction_GetWitnesses(ExecutionEngine engine)
         {
-            throw new NotImplementedException();
+            return engine.TryAdapterOperation<TransactionAdapter>(adapter => adapter.GetWitnesses(engine));
         }
 
         private bool Transaction_GetUnspentCoins(ExecutionEngine engine)
         {
-            throw new NotImplementedException();
+            return engine.TryAdapterOperation<TransactionAdapter>(adapter => adapter.GetUnspentCoins(engine));
         }
 
         private bool Transaction_GetReferences(ExecutionEngine engine)
