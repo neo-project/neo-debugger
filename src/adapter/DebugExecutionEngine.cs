@@ -81,7 +81,7 @@ namespace NeoDebug.Adapter
                 Transaction.InvocationTxData(contract.Script, 0),
                 inputs: inputs.ToArray(),
                 outputs: outputs.ToArray());
-            var container = new StructContainer<Transaction>(tx);
+            var container = new ModelAdapters.TransactionAdapter(tx);
 
             var table = new ScriptTable();
             table.Add(contract);

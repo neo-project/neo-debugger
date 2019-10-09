@@ -27,6 +27,7 @@ namespace NeoDebug.Adapter
 
         private readonly IBlockchainStorage? blockchain;
         private readonly Action<OutputEvent> sendOutput;
+
         private readonly Dictionary<int, (byte[] key, byte[] value, bool constant)> storage =
             new Dictionary<int, (byte[] key, byte[] value, bool constant)>();
 
@@ -93,17 +94,14 @@ namespace NeoDebug.Adapter
                 }
             }
 
-            // TBD:
-            //  * Header
-            //  * Account
-            //  * Asset
-            //  * Contract
-            //  * Enumerator
-            //  * Iterator
-
+            RegisterAccount(Register);
+            RegisterAsset(Register);
             RegisterBlock(Register);
             RegisterBlockchain(Register);
+            RegisterContract(Register);
+            RegisterEnumerator(Register);
             RegisterExecutionEngine(Register);
+            RegisterHeader(Register);
             RegisterRuntime(Register);
             RegisterStorage(Register);
             RegisterTransaction(Register);
@@ -122,7 +120,18 @@ namespace NeoDebug.Adapter
 
             if (methods.TryGetValue(hash, out var func))
             {
-                return func(engine);
+                try
+                {
+                    return func(engine);
+                }
+                catch (Exception ex)
+                {
+                    sendOutput(new OutputEvent()
+                    {
+                        Category = OutputEvent.CategoryValue.Stderr,
+                        Output = ex.ToString(),
+                    });
+                }
             }
 
             return false;

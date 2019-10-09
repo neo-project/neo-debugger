@@ -136,6 +136,8 @@ namespace NeoDebug
 
             switch (item)
             {
+                case IVariableProvider provider:
+                    return provider.GetVariable(session);
                 case Neo.VM.Types.Boolean _:
                     return new Variable()
                     {
