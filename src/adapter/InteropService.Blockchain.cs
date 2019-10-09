@@ -1,6 +1,7 @@
 ﻿using Neo.VM;
 using NeoFx;
 using NeoFx.Models;
+using NeoFx.Storage;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -40,7 +41,16 @@ namespace NeoDebug.Adapter
 
         private bool Blockchain_GetContract(ExecutionEngine engine)
         {
-            throw new NotImplementedException();
+            var evalStack = engine.CurrentContext.EvaluationStack;
+            var hash = new UInt160(evalStack.Pop().GetByteArray());
+            if (blockchain.TryGetContract(hash, out var contract))
+            {
+                evalStack.Push(StructContainer.ToStackItem(contract));
+                return true;
+            }
+
+            evalStack.Push(Array.Empty<byte>());
+            return true;
         }
 
         private bool Blockchain_GetAsset(ExecutionEngine engine)
@@ -60,17 +70,70 @@ namespace NeoDebug.Adapter
 
         private bool Blockchain_GetTransactionHeight(ExecutionEngine engine)
         {
-            throw new NotImplementedException();
+            var evalStack = engine.CurrentContext.EvaluationStack;
+            var hash = new UInt256(evalStack.Pop().GetByteArray());
+
+            if (blockchain.TryGetTransaction(hash, out var index, out var _))
+            {
+                evalStack.Push(index);
+            }
+            else
+            {
+                evalStack.Push(-1);
+            }
+
+            return true;
         }
 
         private bool Blockchain_GetTransaction(ExecutionEngine engine)
         {
-            throw new NotImplementedException();
+            var evalStack = engine.CurrentContext.EvaluationStack;
+            var hash = new UInt256(evalStack.Pop().GetByteArray());
+            if (blockchain.TryGetTransaction(hash, out var _, out var tx))
+            {
+                evalStack.Push(StructContainer.ToStackItem(tx));
+                return true;
+            }
+
+            evalStack.Push(Array.Empty<byte>());
+            return true;
         }
 
         private bool Blockchain_GetBlock(ExecutionEngine engine)
         {
-            throw new NotImplementedException();
+            static bool TryGetBlockHash(IBlockchainStorage blockchain, byte[] data, out UInt256 hash)
+            {
+                if (data.Length <= 5)
+                {
+                    var index = (uint)new System.Numerics.BigInteger(data);
+                    return blockchain.TryGetBlockHash(index, out hash);
+                }
+
+                if (data.Length == UInt256.Size)
+                {
+                    hash = new UInt256(data);
+                    return true;
+                }
+
+                hash = default;
+                return false;
+            }
+
+            var evalStack = engine.CurrentContext.EvaluationStack;
+            byte[] data = evalStack.Pop().GetByteArray();
+            if (TryGetBlockHash(blockchain, data, out var hash))
+            {
+                if (blockchain.TryGetBlock(hash, out var block))
+                {
+                    evalStack.Push(StructContainer.ToStackItem(block));
+                }
+                else
+                {
+                    evalStack.Push(Array.Empty<byte>());
+                }
+            }
+
+            return false;
         }
 
         private bool Blockchain_GetHeader(ExecutionEngine engine)
@@ -80,7 +143,8 @@ namespace NeoDebug.Adapter
 
         private bool Blockchain_GetHeight(ExecutionEngine engine)
         {
-            throw new NotImplementedException();
+            engine.CurrentContext.EvaluationStack.Push(blockchain.Height);
+            return true;
         }
     }
 }

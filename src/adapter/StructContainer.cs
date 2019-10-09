@@ -4,6 +4,14 @@
 
 namespace NeoDebug.Adapter
 {
+    static class StructContainer
+    {
+        public static StackItem ToStackItem<T>(in T item) where T : struct
+        {
+            return StackItem.FromInterface(new StructContainer<T>(item));
+        }
+    }
+
     class StructContainer<T> : IScriptContainer where T : struct
     {
         public delegate byte[] GetMessageDelegate(in T item);
