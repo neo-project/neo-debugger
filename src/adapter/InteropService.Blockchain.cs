@@ -90,46 +90,63 @@ namespace NeoDebug.Adapter
             return true;
         }
 
-        private bool Blockchain_GetBlock(ExecutionEngine engine)
+        private bool TryGetHash(byte[] data, out UInt256 hash)
         {
-            var evalStack = engine.CurrentContext.EvaluationStack;
-            byte[] data = evalStack.Pop().GetByteArray();
             if (data.Length <= 5)
             {
                 // treat data as an index
                 var index = (uint)new System.Numerics.BigInteger(data);
-                if (blockchain.TryGetBlockHash(index, out var hash)
-                    && blockchain.TryGetBlock(hash, out var block))
-                {
-                    evalStack.Push(new ModelAdapters.BlockAdapter(block));
-                }
-                else
-                {
-                    evalStack.Push(Array.Empty<byte>());
-                }
+
+                // purposefully ignore TryGetBlockHash's return
+                // Get_Block/Get_Header will push a null value on the stack
+                // if the block hash can't be found.
+                var _ = blockchain.TryGetBlockHash(index, out hash);
                 return true;
             }
-            else if (data.Length == UInt256.Size)
+            else if (data.Length == 32)
             {
-                // treat data as a hash
-                var hash = new UInt256(data);
-                if (blockchain.TryGetBlock(hash, out var block))
-                {
-                    evalStack.Push(new ModelAdapters.BlockAdapter(block));
-                }
-                else
-                {
-                    evalStack.Push(Array.Empty<byte>());
-                }
+                hash = new UInt256(data);
                 return true;
             }
 
+            hash = default;
+            return false;
+        }
+
+        private bool Blockchain_GetBlock(ExecutionEngine engine)
+        {
+            var evalStack = engine.CurrentContext.EvaluationStack;
+            if (TryGetHash(evalStack.Pop().GetByteArray(), out var hash))
+            {
+                if (blockchain.TryGetBlock(hash, out Block block))
+                {
+                    evalStack.Push(new ModelAdapters.BlockAdapter(block));
+                }
+                else
+                {
+                    evalStack.Push(Array.Empty<byte>());
+                }
+                return true;
+            }
             return false;
         }
 
         private bool Blockchain_GetHeader(ExecutionEngine engine)
         {
-            throw new NotImplementedException(nameof(Blockchain_GetHeader));
+            var evalStack = engine.CurrentContext.EvaluationStack;
+            if (TryGetHash(evalStack.Pop().GetByteArray(), out var hash))
+            {
+                if (blockchain.TryGetBlock(hash, out BlockHeader header, out var _))
+                {
+                    evalStack.Push(new ModelAdapters.BlockHeaderAdapter(header));
+                }
+                else
+                {
+                    evalStack.Push(Array.Empty<byte>());
+                }
+                return true;
+            }
+            return false;
         }
 
         private bool Blockchain_GetAsset(ExecutionEngine engine)

@@ -93,16 +93,14 @@ namespace NeoDebug.Adapter
                 }
             }
 
-            // TBD:
-            //  * Header
-            //  * Asset
-
             RegisterAccount(Register);
+            RegisterAsset(Register);
             RegisterBlock(Register);
             RegisterBlockchain(Register);
             RegisterContract(Register);
             RegisterEnumerator(Register);
             RegisterExecutionEngine(Register);
+            RegisterHeader(Register);
             RegisterRuntime(Register);
             RegisterStorage(Register);
             RegisterTransaction(Register);

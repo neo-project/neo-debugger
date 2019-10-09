@@ -22,6 +22,23 @@ namespace NeoDebug.Adapter.ModelAdapters
             return new CoinReferenceAdapter(value);
         }
 
+        public bool GetIndex(ExecutionEngine engine)
+        {
+            engine.CurrentContext.EvaluationStack.Push((int)Value.PrevIndex);
+            return true;
+        }
+
+        public bool GetHash(ExecutionEngine engine)
+        {
+            if (Value.PrevHash.TryToArray(out var array))
+            {
+                engine.CurrentContext.EvaluationStack.Push(array);
+                return true;
+            }
+
+            return false;
+        }
+
         public Variable GetVariable(IVariableContainerSession session)
         {
             return new Variable()
@@ -47,23 +64,6 @@ namespace NeoDebug.Adapter.ModelAdapters
                 Type = "ushort",
                 Value = Value.PrevIndex.ToString()
             };
-        }
-
-        public bool GetIndex(ExecutionEngine engine)
-        {
-            engine.CurrentContext.EvaluationStack.Push((int)Value.PrevIndex);
-            return true;
-        }
-
-        public bool GetHash(ExecutionEngine engine)
-        {
-            if (Value.PrevHash.TryToArray(out var array))
-            {
-                engine.CurrentContext.EvaluationStack.Push(array);
-                return true;
-            }
-
-            return false;
         }
     }
 }

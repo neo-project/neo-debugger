@@ -17,8 +17,8 @@ namespace NeoDebug.Adapter
             register("Neo.Account.GetScriptHash", Account_GetScriptHash, 1);
             register("Neo.Account.GetVotes", Account_GetVotes, 1);
             register("Neo.Account.GetBalance", Account_GetBalance, 1);
-
             register("Neo.Account.IsStandard", Account_IsStandard, 100);
+
             register("AntShares.Account.GetScriptHash", Account_GetScriptHash, 1);
             register("AntShares.Account.GetVotes", Account_GetVotes, 1);
             register("AntShares.Account.GetBalance", Account_GetBalance, 1);
