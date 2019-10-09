@@ -46,11 +46,22 @@ namespace NeoDebug.Adapter
             return false;
         }
 
+        public static bool TryPopAdapter<T>(this RandomAccessStack<StackItem> stack, [NotNullWhen(true)] out T? adapter)
+            where T : ModelAdapters.AdapterBase
+        {
+            if (stack.Pop() is T _adapter)
+            {
+                adapter = _adapter;
+                return true;
+            }
+            adapter = null;
+            return false;
+        }
+
         public static bool TryAdapterOperation<T>(this ExecutionEngine engine, Func<T, bool> func)
             where T : ModelAdapters.AdapterBase
         {
-            var evalStack = engine.CurrentContext.EvaluationStack;
-            if (evalStack.Pop() is T adapter)
+            if (engine.CurrentContext.EvaluationStack.TryPopAdapter<T>(out var adapter))
             {
                 return func(adapter);
             }

@@ -18,6 +18,11 @@ namespace NeoDebug.Adapter.ModelAdapters
             Value = value;
         }
 
+        public static TransactionAdapter Create(in Transaction value)
+        {
+            return new TransactionAdapter(value);
+        }
+
         public bool GetReferences(ExecutionEngine engine, IBlockchainStorage blockchain)
         {
             if (Value.Inputs.Length <= engine.MaxArraySize)

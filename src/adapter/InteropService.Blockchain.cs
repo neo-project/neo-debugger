@@ -39,6 +39,12 @@ namespace NeoDebug.Adapter
             register("AntShares.Blockchain.GetContract", Blockchain_GetContract, 100);
         }
 
+        private bool Blockchain_GetHeight(ExecutionEngine engine)
+        {
+            engine.CurrentContext.EvaluationStack.Push(blockchain.Height);
+            return true;
+        }
+
         private bool Blockchain_GetContract(ExecutionEngine engine)
         {
             var evalStack = engine.CurrentContext.EvaluationStack;
@@ -51,21 +57,6 @@ namespace NeoDebug.Adapter
 
             evalStack.Push(Array.Empty<byte>());
             return true;
-        }
-
-        private bool Blockchain_GetAsset(ExecutionEngine engine)
-        {
-            throw new NotImplementedException();
-        }
-
-        private bool Blockchain_GetValidators(ExecutionEngine engine)
-        {
-            throw new NotImplementedException();
-        }
-
-        private bool Blockchain_GetAccount(ExecutionEngine engine)
-        {
-            throw new NotImplementedException();
         }
 
         private bool Blockchain_GetTransactionHeight(ExecutionEngine engine)
@@ -101,36 +92,36 @@ namespace NeoDebug.Adapter
 
         private bool Blockchain_GetBlock(ExecutionEngine engine)
         {
-            static bool TryGetBlockHash(IBlockchainStorage blockchain, byte[] data, out UInt256 hash)
-            {
-                if (data.Length <= 5)
-                {
-                    var index = (uint)new System.Numerics.BigInteger(data);
-                    return blockchain.TryGetBlockHash(index, out hash);
-                }
-
-                if (data.Length == UInt256.Size)
-                {
-                    hash = new UInt256(data);
-                    return true;
-                }
-
-                hash = default;
-                return false;
-            }
-
             var evalStack = engine.CurrentContext.EvaluationStack;
             byte[] data = evalStack.Pop().GetByteArray();
-            if (TryGetBlockHash(blockchain, data, out var hash))
+            if (data.Length <= 5)
             {
-                if (blockchain.TryGetBlock(hash, out var block))
+                // treat data as an index
+                var index = (uint)new System.Numerics.BigInteger(data);
+                if (blockchain.TryGetBlockHash(index, out var hash)
+                    && blockchain.TryGetBlock(hash, out var block))
                 {
-                    evalStack.Push(StructContainer.ToStackItem(block));
+                    evalStack.Push(new ModelAdapters.BlockAdapter(block));
                 }
                 else
                 {
                     evalStack.Push(Array.Empty<byte>());
                 }
+                return true;
+            }
+            else if (data.Length == UInt256.Size)
+            {
+                // treat data as a hash
+                var hash = new UInt256(data);
+                if (blockchain.TryGetBlock(hash, out var block))
+                {
+                    evalStack.Push(new ModelAdapters.BlockAdapter(block));
+                }
+                else
+                {
+                    evalStack.Push(Array.Empty<byte>());
+                }
+                return true;
             }
 
             return false;
@@ -141,10 +132,19 @@ namespace NeoDebug.Adapter
             throw new NotImplementedException();
         }
 
-        private bool Blockchain_GetHeight(ExecutionEngine engine)
+        private bool Blockchain_GetAsset(ExecutionEngine engine)
         {
-            engine.CurrentContext.EvaluationStack.Push(blockchain.Height);
-            return true;
+            throw new NotImplementedException();
+        }
+
+        private bool Blockchain_GetValidators(ExecutionEngine engine)
+        {
+            throw new NotImplementedException();
+        }
+
+        private bool Blockchain_GetAccount(ExecutionEngine engine)
+        {
+            throw new NotImplementedException();
         }
     }
 }

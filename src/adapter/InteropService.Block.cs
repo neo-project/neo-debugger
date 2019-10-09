@@ -1,5 +1,6 @@
 ﻿using Neo.VM;
 using Neo.VM.Types;
+using NeoDebug.Adapter.ModelAdapters;
 using NeoFx;
 using NeoFx.Models;
 using NeoFx.Storage;
@@ -28,46 +29,17 @@ namespace NeoDebug.Adapter
 
         private bool Block_GetTransactionCount(ExecutionEngine engine)
         {
-            var evalStack = engine.CurrentContext.EvaluationStack;
-            if (evalStack.TryPopContainedStruct<Block>(out var block))
-            {
-                evalStack.Push(block.Transactions.Length);
-                return true;
-            }
-
-            return false;
+            return engine.TryAdapterOperation<BlockAdapter>(adapter => adapter.GetTransactionCount(engine));
         }
 
         private bool Block_GetTransactions(ExecutionEngine engine)
         {
-            var evalStack = engine.CurrentContext.EvaluationStack;
-            if (evalStack.TryPopContainedStruct<Block>(out var block)
-                && block.Transactions.Length <= engine.MaxArraySize)
-            {
-                evalStack.Push(block.Transactions.WrapStackItems());
-                return true;
-            }
-
-            return false;
+            return engine.TryAdapterOperation<BlockAdapter>(adapter => adapter.GetTransactions(engine));
         }
 
         private bool Block_GetTransaction(ExecutionEngine engine)
         {
-            var evalStack = engine.CurrentContext.EvaluationStack;
-            if (evalStack.Pop() is InteropInterface @interface)
-            {
-                var container = @interface.GetInterface<StructContainer<Block>>();
-                var index = (int)evalStack.Pop().GetBigInteger();
-                if (container != null
-                    && index >= 0
-                    && index < container.Item.Transactions.Length)
-                {
-                    var tx = container.Item.Transactions.Span[index];
-                    evalStack.Push(StructContainer.ToStackItem(tx));
-                }
-            }
-
-            return false;
+            return BlockAdapter.GetTransaction(engine);
         }
     }
 }
