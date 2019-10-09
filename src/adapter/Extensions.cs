@@ -29,23 +29,6 @@ namespace NeoDebug.Adapter
             return false;
         }
 
-        public static bool TryPopContainedStruct<T>(this RandomAccessStack<StackItem> stack, out T value)
-            where T : struct
-        {
-            if (stack.Pop() is InteropInterface @interface)
-            {
-                var t = @interface.GetInterface<StructContainer<T>>();
-                if (t != null)
-                {
-                    value = t.Item;
-                    return true;
-                }
-            }
-
-            value = default;
-            return false;
-        }
-
         public static bool TryPopAdapter<T>(this RandomAccessStack<StackItem> stack, [NotNullWhen(true)] out T? adapter)
             where T : ModelAdapters.AdapterBase
         {
@@ -95,18 +78,6 @@ namespace NeoDebug.Adapter
             value = default;
             return false;
         }
-
-        public static StackItem[] WrapStackItems<T>(this ReadOnlyMemory<T> memory)
-            where T : struct
-        {
-            var items = new StackItem[memory.Length];
-            for (int i = 0; i < memory.Length; i++)
-            {
-                items[i] = StackItem.FromInterface(new StructContainer<T>(memory.Span[i]));
-            }
-            return items;
-        }
-
 
         public delegate StackItem WrapStackItem<T>(in T item) where T : struct;
 

@@ -51,7 +51,7 @@ namespace NeoDebug.Adapter
             var hash = new UInt160(evalStack.Pop().GetByteArray());
             if (blockchain.TryGetContract(hash, out var contract))
             {
-                evalStack.Push(StructContainer.ToStackItem(contract));
+                evalStack.Push(new ModelAdapters.DeployedContractAdapter(contract));
                 return true;
             }
 
