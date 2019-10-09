@@ -39,25 +39,23 @@ namespace NeoDebug.Adapter.ModelAdapters
             return false;
         }
 
-        public static bool GetTransaction(ExecutionEngine engine)
+        public bool GetTransaction(ExecutionEngine engine)
         {
             var evalStack = engine.CurrentContext.EvaluationStack;
-            if (evalStack.TryPopAdapter<BlockAdapter>(out var adapter))
+            var index = (int)evalStack.Pop().GetBigInteger();
+            if (index >= 0 && index < Value.Transactions.Length)
             {
-                var index = (int)evalStack.Pop().GetBigInteger();
-                if (index >= 0 && index < adapter.Value.Transactions.Length)
-                {
-                    var item = new TransactionAdapter(adapter.Value.Transactions.Span[index]);
-                    evalStack.Push(item);
-                    return true;
-                }
+                var item = new TransactionAdapter(Value.Transactions.Span[index]);
+                evalStack.Push(item);
+                return true;
             }
             return false;
+
         }
 
         public Variable GetVariable(IVariableContainerSession session)
         {
-            throw new NotImplementedException();
+            return new Variable();
         }
     }
 }

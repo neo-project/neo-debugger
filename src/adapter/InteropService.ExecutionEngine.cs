@@ -35,13 +35,17 @@ namespace NeoDebug.Adapter
 
         private bool ExecutionEngine_GetScriptContainer(ExecutionEngine engine)
         {
-            if (engine.ScriptContainer is ModelAdapters.TransactionAdapter adapter)
+            if (engine.ScriptContainer is ModelAdapters.TransactionAdapter txAdapter)
             {
-                engine.CurrentContext.EvaluationStack.Push(adapter);
+                engine.CurrentContext.EvaluationStack.Push(txAdapter);
                 return true;
             }
 
-            // TODO: add BlockAdapter
+            if (engine.ScriptContainer is ModelAdapters.BlockAdapter blockAdapter)
+            {
+                engine.CurrentContext.EvaluationStack.Push(blockAdapter);
+                return true;
+            }
 
             return false;
         }

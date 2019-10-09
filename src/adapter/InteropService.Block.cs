@@ -10,6 +10,7 @@ using System.Text;
 
 namespace NeoDebug.Adapter
 {
+
     internal partial class InteropService
     {
         public void RegisterBlock(Action<string, Func<ExecutionEngine, bool>, int> register)
@@ -39,7 +40,7 @@ namespace NeoDebug.Adapter
 
         private bool Block_GetTransaction(ExecutionEngine engine)
         {
-            return BlockAdapter.GetTransaction(engine);
+            return engine.TryAdapterOperation<BlockAdapter>(adapter => adapter.GetTransaction(engine));
         }
     }
 }

@@ -43,22 +43,22 @@ namespace NeoDebug.Adapter
 
         private static bool Contract_GetStorageContext(ExecutionEngine engine)
         {
-            throw new NotImplementedException();
+            throw new NotImplementedException(nameof(Contract_GetStorageContext));
         }
 
         private static bool Contract_Destroy(ExecutionEngine engine)
         {
-            throw new NotImplementedException();
+            throw new NotImplementedException(nameof(Contract_Destroy));
         }
 
         private static bool Contract_Migrate(ExecutionEngine engine)
         {
-            throw new NotImplementedException();
+            throw new NotImplementedException(nameof(Contract_Migrate));
         }
 
         private static bool Contract_Create(ExecutionEngine engine)
         {
-            throw new NotImplementedException();
+            throw new NotImplementedException(nameof(Contract_Create));
         }
     }
 }

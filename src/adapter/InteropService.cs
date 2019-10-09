@@ -97,12 +97,11 @@ namespace NeoDebug.Adapter
             //  * Header
             //  * Account
             //  * Asset
-            //  * Enumerator
-            //  * Iterator
 
             RegisterBlock(Register);
             RegisterBlockchain(Register);
             RegisterContract(Register);
+            RegisterEnumerator(Register);
             RegisterExecutionEngine(Register);
             RegisterRuntime(Register);
             RegisterStorage(Register);

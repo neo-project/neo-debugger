@@ -129,22 +129,22 @@ namespace NeoDebug.Adapter
 
         private bool Blockchain_GetHeader(ExecutionEngine engine)
         {
-            throw new NotImplementedException();
+            throw new NotImplementedException(nameof(Blockchain_GetHeader));
         }
 
         private bool Blockchain_GetAsset(ExecutionEngine engine)
         {
-            throw new NotImplementedException();
+            throw new NotImplementedException(nameof(Blockchain_GetAsset));
         }
 
         private bool Blockchain_GetValidators(ExecutionEngine engine)
         {
-            throw new NotImplementedException();
+            throw new NotImplementedException(nameof(Blockchain_GetValidators));
         }
 
         private bool Blockchain_GetAccount(ExecutionEngine engine)
         {
-            throw new NotImplementedException();
+            throw new NotImplementedException(nameof(Blockchain_GetAccount));
         }
     }
 }
