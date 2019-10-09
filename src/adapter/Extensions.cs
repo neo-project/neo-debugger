@@ -46,6 +46,18 @@ namespace NeoDebug.Adapter
             return false;
         }
 
+
+        public static bool TryAdapterOperation<T>(this ExecutionEngine engine, Func<T, ExecutionEngine, bool> func)
+            where T : ModelAdapters.AdapterBase
+        {
+            var evalStack = engine.CurrentContext.EvaluationStack;
+            if (evalStack.Pop() is T adapter)
+            {
+                return func(adapter, engine);
+            }
+            return false;
+        }
+
         public static bool TryToArray(this UInt160 uInt160, [NotNullWhen(true)] out byte[]? value)
         {
             var buffer = new byte[UInt160.Size];

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using Neo.VM;
 using Neo.VM.Types;
+using NeoDebug.Adapter.ModelAdapters;
 using NeoFx.Models;
 
 namespace NeoDebug.Adapter
@@ -114,7 +115,7 @@ namespace NeoDebug.Adapter
                     }
 
                     var output = refTx.Outputs.Span[input.PrevIndex];
-                    references[i] = StackItem.FromInterface(new StructContainer<TransactionOutput>(output));
+                    references[i] = new ModelAdapters.OutputAdatper(output);
                 }
 
                 evalStack.Push(references);
@@ -130,7 +131,12 @@ namespace NeoDebug.Adapter
             if (evalStack.TryPopContainedStruct<Transaction>(out var tx)
                 && tx.Outputs.Length <= engine.MaxArraySize)
             {
-                evalStack.Push(tx.Outputs.WrapStackItems());
+                var items = new StackItem[tx.Outputs.Length];
+                for (int i = 0; i < tx.Inputs.Length; i++)
+                {
+                    items[i] = new ModelAdapters.OutputAdatper(tx.Outputs.Span[i]);
+                }
+                evalStack.Push(items);
                 return true;
             }
 
@@ -143,7 +149,12 @@ namespace NeoDebug.Adapter
             if (evalStack.TryPopContainedStruct<Transaction>(out var tx)
                 && tx.Inputs.Length <= engine.MaxArraySize)
             {
-                evalStack.Push(tx.Inputs.WrapStackItems());
+                var items = new StackItem[tx.Inputs.Length];
+                for (int i = 0; i < tx.Inputs.Length; i++)
+                {
+                    items[i] = new ModelAdapters.InputAdapter(tx.Inputs.Span[i]);
+                }
+                evalStack.Push(items);
                 return true;
             }
 
@@ -193,70 +204,27 @@ namespace NeoDebug.Adapter
 
         private bool Input_GetIndex(ExecutionEngine engine)
         {
-            var evalStack = engine.CurrentContext.EvaluationStack;
-
-            if (evalStack.TryPopContainedStruct<CoinReference>(out var input))
-            {
-                evalStack.Push((int)input.PrevIndex);
-                return true;
-            }
-
-            return false;
+            return engine.TryAdapterOperation<InputAdapter>((adapter, _engine) => adapter.GetIndex(_engine));
         }
 
         private bool Input_GetHash(ExecutionEngine engine)
         {
-            var evalStack = engine.CurrentContext.EvaluationStack;
-
-            if (evalStack.TryPopContainedStruct<CoinReference>(out var output)
-                && output.PrevHash.TryToArray(out var array))
-            {
-                evalStack.Push(array);
-                return true;
-            }
-
-            return false;
+            return engine.TryAdapterOperation<InputAdapter>((adapter, _engine) => adapter.GetHash(_engine));
         }
 
         private bool Output_GetAssetId(ExecutionEngine engine)
         {
-            var evalStack = engine.CurrentContext.EvaluationStack;
-
-            if (evalStack.TryPopContainedStruct<TransactionOutput>(out var output)
-                && output.AssetId.TryToArray(out var array))
-            {
-                evalStack.Push(array);
-                return true;
-            }
-
-            return false;
+            return engine.TryAdapterOperation<OutputAdatper>((adapter, _engine) => adapter.GetAssetId(_engine));
         }
 
         private bool Output_GetValue(ExecutionEngine engine)
         {
-            var evalStack = engine.CurrentContext.EvaluationStack;
-
-            if (evalStack.TryPopContainedStruct<TransactionOutput>(out var output))
-            {
-                evalStack.Push(output.Value);
-                return true;
-            }
-
-            return false;
+            return engine.TryAdapterOperation<OutputAdatper>((adapter, _engine) => adapter.GetValue(_engine));
         }
 
         private bool Output_GetScriptHash(ExecutionEngine engine)
         {
-            var evalStack = engine.CurrentContext.EvaluationStack;
-
-            if (evalStack.TryPopContainedStruct<TransactionOutput>(out var output)
-                && output.ScriptHash.TryToArray(out var array))
-            {
-                evalStack.Push(array);
-                return true;
-            }
-
-            return false;
+            return engine.TryAdapterOperation<OutputAdatper>((adapter, _engine) => adapter.GetScriptHash(_engine));
         }
     }
 }
