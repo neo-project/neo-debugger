@@ -46,14 +46,13 @@ namespace NeoDebug.Adapter
             return false;
         }
 
-
-        public static bool TryAdapterOperation<T>(this ExecutionEngine engine, Func<T, ExecutionEngine, bool> func)
+        public static bool TryAdapterOperation<T>(this ExecutionEngine engine, Func<T, bool> func)
             where T : ModelAdapters.AdapterBase
         {
             var evalStack = engine.CurrentContext.EvaluationStack;
             if (evalStack.Pop() is T adapter)
             {
-                return func(adapter, engine);
+                return func(adapter);
             }
             return false;
         }
@@ -93,6 +92,20 @@ namespace NeoDebug.Adapter
             for (int i = 0; i < memory.Length; i++)
             {
                 items[i] = StackItem.FromInterface(new StructContainer<T>(memory.Span[i]));
+            }
+            return items;
+        }
+
+
+        public delegate StackItem WrapStackItem<T>(in T item) where T : struct;
+
+        public static StackItem[] WrapStackItems<T>(this ReadOnlyMemory<T> memory, WrapStackItem<T> wrapItem)
+            where T : struct
+        {
+            var items = new StackItem[memory.Length];
+            for (int i = 0; i < memory.Length; i++)
+            {
+                items[i] = wrapItem(memory.Span[i]);
             }
             return items;
         }

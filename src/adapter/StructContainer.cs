@@ -12,7 +12,7 @@ namespace NeoDebug.Adapter
         }
     }
 
-    class StructContainer<T> : IScriptContainer where T : struct
+    class StructContainer<T> where T : struct
     {
         public delegate byte[] GetMessageDelegate(in T item);
 
@@ -25,14 +25,5 @@ namespace NeoDebug.Adapter
             this.getMessage = getMessage;
         }
 
-        public byte[] GetMessage()
-        {
-            if (getMessage != null)
-            {
-                return getMessage(Item);
-            }
-
-            throw new System.NotImplementedException();
-        }
     }
 }

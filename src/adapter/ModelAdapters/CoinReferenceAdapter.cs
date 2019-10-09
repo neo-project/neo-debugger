@@ -8,13 +8,18 @@ using System.Text;
 
 namespace NeoDebug.Adapter.ModelAdapters
 {
-    internal class InputAdapter : AdapterBase, IVariableProvider, IVariableContainer
+    internal class CoinReferenceAdapter : AdapterBase, IVariableProvider, IVariableContainer
     {
-        public readonly CoinReference Input;
+        public readonly CoinReference Value;
 
-        public InputAdapter(CoinReference input)
+        public CoinReferenceAdapter(in CoinReference value)
         {
-            Input = input;
+            Value = value;
+        }
+
+        public static CoinReferenceAdapter Create(in CoinReference value)
+        {
+            return new CoinReferenceAdapter(value);
         }
 
         public Variable GetVariable(IVariableContainerSession session)
@@ -34,25 +39,25 @@ namespace NeoDebug.Adapter.ModelAdapters
             {
                 Name = "PrevHash",
                 Type = "UInt256",
-                Value = Input.PrevHash.ToString()
+                Value = Value.PrevHash.ToString()
             };
             yield return new Variable()
             {
                 Name = "PrevIndex",
                 Type = "ushort",
-                Value = Input.PrevIndex.ToString()
+                Value = Value.PrevIndex.ToString()
             };
         }
 
         public bool GetIndex(ExecutionEngine engine)
         {
-            engine.CurrentContext.EvaluationStack.Push((int)Input.PrevIndex);
+            engine.CurrentContext.EvaluationStack.Push((int)Value.PrevIndex);
             return true;
         }
 
         public bool GetHash(ExecutionEngine engine)
         {
-            if (Input.PrevHash.TryToArray(out var array))
+            if (Value.PrevHash.TryToArray(out var array))
             {
                 engine.CurrentContext.EvaluationStack.Push(array);
                 return true;

@@ -8,18 +8,23 @@ using System.Text;
 
 namespace NeoDebug.Adapter.ModelAdapters
 {
-    internal class OutputAdatper : AdapterBase, IVariableProvider, IVariableContainer
+    internal class TransactionOutputAdatper : AdapterBase, IVariableProvider, IVariableContainer
     {
-        public readonly TransactionOutput Output;
+        public readonly TransactionOutput Value;
 
-        public OutputAdatper(TransactionOutput output)
+        public TransactionOutputAdatper(in TransactionOutput value)
         {
-            Output = output;
+            Value = value;
+        }
+
+        public static TransactionOutputAdatper Create(in TransactionOutput value)
+        {
+            return new TransactionOutputAdatper(value);
         }
 
         public bool GetAssetId(ExecutionEngine engine)
         {
-            if (Output.AssetId.TryToArray(out var array))
+            if (Value.AssetId.TryToArray(out var array))
             {
                 engine.CurrentContext.EvaluationStack.Push(array);
                 return true;
@@ -30,13 +35,13 @@ namespace NeoDebug.Adapter.ModelAdapters
 
         public bool GetValue(ExecutionEngine engine)
         {
-            engine.CurrentContext.EvaluationStack.Push(Output.Value);
+            engine.CurrentContext.EvaluationStack.Push(Value.Value);
             return true;
         }
 
         public bool GetScriptHash(ExecutionEngine engine)
         {
-            if (Output.ScriptHash.TryToArray(out var array))
+            if (Value.ScriptHash.TryToArray(out var array))
             {
                 engine.CurrentContext.EvaluationStack.Push(array);
                 return true;
@@ -45,12 +50,10 @@ namespace NeoDebug.Adapter.ModelAdapters
             return false;
         }
 
-
         public Variable GetVariable(IVariableContainerSession session)
         {
             return new Variable()
             {
-                Name = "Output",
                 Type = "TransactionOutput",
                 VariablesReference = session.AddVariableContainer(new AdapterVariableContainer(this)),
                 NamedVariables = 3,
@@ -63,21 +66,21 @@ namespace NeoDebug.Adapter.ModelAdapters
             {
                 Name = "AssetId",
                 Type = "UInt256",
-                Value = Output.AssetId.ToString()
+                Value = Value.AssetId.ToString()
             };
 
             yield return new Variable()
             {
                 Name = "Value",
                 Type = "long",
-                Value = Output.Value.ToString()
+                Value = Value.Value.ToString()
             };
 
             yield return new Variable()
             {
                 Name = "ScriptHash",
                 Type = "UInt160",
-                Value = Output.ScriptHash.ToString()
+                Value = Value.ScriptHash.ToString()
             };
         }
     }
