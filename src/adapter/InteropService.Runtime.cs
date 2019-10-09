@@ -57,7 +57,8 @@ namespace NeoDebug.Adapter
 
         private bool Runtime_Platform(ExecutionEngine engine)
         {
-            throw new NotImplementedException(nameof(Runtime_Platform));
+            engine.CurrentContext.EvaluationStack.Push(Encoding.ASCII.GetBytes("NEO"));
+            return true;
         }
 
         private bool Runtime_Deserialize(ExecutionEngine engine)
