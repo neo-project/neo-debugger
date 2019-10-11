@@ -57,78 +57,30 @@ namespace NeoDebug.Adapter
             return true;
         }
 
-        // TODO: rewrite SerializeStackItem
-        private void SerializeStackItem(StackItem item, System.IO.BinaryWriter writer)
-        {
-            List<StackItem> serialized = new List<StackItem>();
-            Stack<StackItem> unserialized = new Stack<StackItem>();
-            unserialized.Push(item);
-            while (unserialized.Count > 0)
-            {
-                item = unserialized.Pop();
-                switch (item)
-                {
-                    case Neo.VM.Types.ByteArray _:
-                        writer.Write((byte)StackItemType.ByteArray);
-                        writer.WriteVarBytes(item.GetByteArray());
-                        break;
-                    case Neo.VM.Types.Boolean _:
-                        writer.Write((byte)StackItemType.Boolean);
-                        writer.Write(item.GetBoolean());
-                        break;
-                    case Neo.VM.Types.Integer _:
-                        writer.Write((byte)StackItemType.Integer);
-                        writer.WriteVarBytes(item.GetByteArray());
-                        break;
-                    case Neo.VM.Types.InteropInterface _:
-                        throw new NotSupportedException();
-                    case Neo.VM.Types.Array array:
-                        if (serialized.Any(p => ReferenceEquals(p, array)))
-                            throw new NotSupportedException();
-                        serialized.Add(array);
-                        if (array is Neo.VM.Types.Struct)
-                            writer.Write((byte)StackItemType.Struct);
-                        else
-                            writer.Write((byte)StackItemType.Array);
-                        writer.WriteVarInt(array.Count);
-                        for (int i = array.Count - 1; i >= 0; i--)
-                            unserialized.Push(array[i]);
-                        break;
-                    case Neo.VM.Types.Map map:
-                        if (serialized.Any(p => ReferenceEquals(p, map)))
-                            throw new NotSupportedException();
-                        serialized.Add(map);
-                        writer.Write((byte)StackItemType.Map);
-                        writer.WriteVarInt(map.Count);
-                        foreach (var pair in map.Reverse())
-                        {
-                            unserialized.Push(pair.Value);
-                            unserialized.Push(pair.Key);
-                        }
-                        break;
-                }
-            }
-        }
-
         private bool Runtime_Serialize(ExecutionEngine engine)
         {
-            using (var ms = new System.IO.MemoryStream())
-            using (var writer = new System.IO.BinaryWriter(ms))
+            var evalStack = engine.CurrentContext.EvaluationStack;
+            var item = evalStack.Pop();
+            if (SerializationHelpers.TrySerialize(item, engine.MaxItemSize, out var array))
             {
-                try
-                {
-                    SerializeStackItem(engine.CurrentContext.EvaluationStack.Pop(), writer);
-                }
-                catch (NotSupportedException)
-                {
-                    return false;
-                }
-                writer.Flush();
-                if (ms.Length > engine.MaxItemSize)
-                    return false;
-                engine.CurrentContext.EvaluationStack.Push(ms.ToArray());
+                evalStack.Push(array);
+                return true;
             }
-            return true;
+
+            return false;
+        }
+
+        private bool Runtime_Deserialize(ExecutionEngine engine)
+        {
+            var evalStack = engine.CurrentContext.EvaluationStack;
+            var data = evalStack.Pop().GetByteArray();
+            if (SerializationHelpers.TryDeserialize(data, engine, out var item))
+            {
+                evalStack.Push(item);
+                return true;
+            }
+
+            return false;
         }
 
         private bool Runtime_Log(ExecutionEngine engine)
@@ -188,11 +140,6 @@ namespace NeoDebug.Adapter
         {
             engine.CurrentContext.EvaluationStack.Push((int)trigger);
             return true;
-        }
-
-        private bool Runtime_Deserialize(ExecutionEngine engine)
-        {
-            throw new NotImplementedException(nameof(Runtime_Deserialize));
         }
 
         private bool Runtime_GetTime(ExecutionEngine engine)
