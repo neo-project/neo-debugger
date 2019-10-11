@@ -25,7 +25,12 @@ namespace NeoDebug.Adapter
         {
             private readonly IEnumerator<(StackItem key, StackItem value)> enumerator;
 
-            private Iterator(IEnumerable<(StackItem, StackItem)> enumerable)
+            public Iterator(IEnumerator<(StackItem, StackItem)> enumerator)
+            {
+                this.enumerator = enumerator;
+            }
+
+            public Iterator(IEnumerable<(StackItem, StackItem)> enumerable)
             {
                 enumerator = enumerable.GetEnumerator();
             }

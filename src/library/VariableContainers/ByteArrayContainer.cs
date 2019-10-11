@@ -1,6 +1,8 @@
 ﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.VM.Types;
+using System;
 using System.Collections.Generic;
+using System.Text;
 
 namespace NeoDebug.VariableContainers
 {
@@ -8,21 +10,21 @@ namespace NeoDebug.VariableContainers
     {
         internal class ValuesContainer : IVariableContainer
         {
-            private readonly byte[] array;
+            private readonly ReadOnlyMemory<byte> memory;
 
-            public ValuesContainer(byte[] array)
+            public ValuesContainer(ReadOnlyMemory<byte> memory)
             {
-                this.array = array;
+                this.memory = memory;
             }
 
             public IEnumerable<Variable> GetVariables()
             {
-                for (int i = 0; i < array.Length; i++)
+                for (int i = 0; i < memory.Length; i++)
                 {
                     yield return new Variable()
                     {
                         Name = i.ToString(),
-                        Value = "0x" + array[i].ToString("x"),
+                        Value = "0x" + memory.Span[i].ToString("x"),
                         Type = "Byte"
                     };
                 }
@@ -30,27 +32,27 @@ namespace NeoDebug.VariableContainers
         }
 
         private readonly IVariableContainerSession session;
-        private readonly ByteArray array;
+        private readonly ReadOnlyMemory<byte> memory;
 
-        public ByteArrayContainer(IVariableContainerSession session, ByteArray array)
+        public ByteArrayContainer(IVariableContainerSession session, ReadOnlyMemory<byte> memory)
         {
             this.session = session;
-            this.array = array;
-        }
-
-        public static Variable GetVariable(byte[] byteArray, IVariableContainerSession session, string name = null)
-        {
-            return GetVariable(new ByteArray(byteArray), session, name);
+            this.memory = memory;
         }
 
         public static Variable GetVariable(ByteArray byteArray, IVariableContainerSession session, string name = null)
         {
-            var container = new ByteArrayContainer(session, byteArray);
+            return GetVariable(byteArray.GetByteArray(), session, name);
+        }
+
+        public static Variable GetVariable(ReadOnlyMemory<byte> memory, IVariableContainerSession session, string name = null)
+        {
+            var container = new ByteArrayContainer(session, memory);
             var containerID = session.AddVariableContainer(container);
             return new Variable()
             {
                 Name = name,
-                Type = $"ByteArray[{byteArray.GetByteArray().Length}]>",
+                Type = $"ByteArray[{memory.Length}]>",
                 VariablesReference = containerID,
                 NamedVariables = 5
             };
@@ -61,11 +63,11 @@ namespace NeoDebug.VariableContainers
             yield return new Variable()
             {
                 Name = "<as string>",
-                Value = array.GetString(),
+                Value = Encoding.UTF8.GetString(memory.Span),
                 Type = "String"
             };
 
-            var valuesContainer = new ValuesContainer(array.GetByteArray());
+            var valuesContainer = new ValuesContainer(memory);
             var valuesContainerID = session.AddVariableContainer(valuesContainer);
             yield return new Variable()
             {
@@ -74,26 +76,28 @@ namespace NeoDebug.VariableContainers
                 VariablesReference = valuesContainerID,
             };
 
+            var bigInt = new System.Numerics.BigInteger(memory.Span);
+
             yield return new Variable()
             {
                 Name = "<as integer>",
-                Value = array.GetBigInteger().ToString(),
+                Value = bigInt.ToString(),
                 Type = "Integer"
             };
 
             yield return new Variable()
             {
                 Name = "<as hex>",
-                Value = "0x" + array.GetBigInteger().ToString("x"),
+                Value = "0x" + bigInt.ToString("x"),
                 Type = "Integer"
             };
 
-            yield return new Variable()
-            {
-                Name = "<as bool>",
-                Value = array.GetBoolean().ToString(),
-                Type = "Boolean"
-            };
+            //yield return new Variable()
+            //{
+            //    Name = "<as bool>",
+            //    Value = array.GetBoolean().ToString(),
+            //    Type = "Boolean"
+            //};
         }
     }
 }

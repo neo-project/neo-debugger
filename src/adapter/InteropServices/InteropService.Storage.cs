@@ -1,40 +1,25 @@
 ﻿using Neo.VM;
-using NeoDebug.VariableContainers;
+using NeoFx;
+using NeoFx.Models;
+using NeoFx.Storage;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-
-
 
 namespace NeoDebug.Adapter
 {
+
     internal partial class InteropService
     {
-        [Flags]
-        private enum StorageFlags : byte
+        private class StorageContext : ModelAdapters.AdapterBase
         {
-            None = 0,
-            Constant = 0x01
-        }
+            public readonly UInt160 ScriptHash;
+            public readonly bool ReadOnly;
 
-        private class StorageContext
-        {
-            public byte[] ScriptHash { get; }
-            public bool ReadOnly { get; }
-
-            public StorageContext(byte[] scriptHash, bool readOnly)
+            public StorageContext(UInt160 scriptHash, bool readOnly)
             {
                 ScriptHash = scriptHash;
                 ReadOnly = readOnly;
-            }
-
-            public int GetHashCode(ReadOnlySpan<byte> key)
-            {
-                return GetHashCode(ScriptHash, key);
-            }
-
-            public static int GetHashCode(ReadOnlySpan<byte> scriptHash, ReadOnlySpan<byte> key)
-            {
-                return HashCode.Combine(Crypto.GetHashCode(key), Crypto.GetHashCode<byte>(scriptHash));
             }
         }
 
@@ -62,60 +47,46 @@ namespace NeoDebug.Adapter
             register("AntShares.Storage.Delete", Storage_Delete, 100);
         }
 
-        public IVariableContainer GetStorageContainer(IVariableContainerSession session)
-        {
-            return new EmulatedStorageContainer(session, storage);
-        }
-
-        private static bool TryGetStorageContext(RandomAccessStack<StackItem> evalStack, [NotNullWhen(true)] out StorageContext? context)
-        {
-            if (evalStack.Pop() is Neo.VM.Types.InteropInterface interop)
-            {
-                context = interop.GetInterface<StorageContext>();
-                return true;
-            }
-
-            context = default;
-            return false;
-        }
-
         private bool Storage_GetContext(ExecutionEngine engine)
         {
-            var storageContext = new StorageContext(engine.CurrentContext.ScriptHash, false);
-            engine.CurrentContext.EvaluationStack.Push(StackItem.FromInterface(storageContext));
+            var scriptHash = new UInt160(engine.CurrentContext.ScriptHash);
+            var storageContext = new StorageContext(scriptHash, false);
+            engine.CurrentContext.EvaluationStack.Push(storageContext);
             return true;
         }
 
         private bool Storage_GetReadOnlyContext(ExecutionEngine engine)
         {
-            var storageContext = new StorageContext(engine.CurrentContext.ScriptHash, true);
-            engine.CurrentContext.EvaluationStack.Push(StackItem.FromInterface(storageContext));
+            var scriptHash = new UInt160(engine.CurrentContext.ScriptHash);
+            var storageContext = new StorageContext(scriptHash, true);
+            engine.CurrentContext.EvaluationStack.Push(storageContext);
             return true;
         }
 
         private bool StorageContext_AsReadOnly(ExecutionEngine engine)
         {
             var evalStack = engine.CurrentContext.EvaluationStack;
-            if (TryGetStorageContext(evalStack, out var storageContext))
+            if (evalStack.TryPopAdapter<StorageContext>(out var context))
             {
-                var readOnlyStorageContext = new StorageContext(storageContext.ScriptHash, true);
-                evalStack.Push(StackItem.FromInterface(readOnlyStorageContext));
+                evalStack.Push(context.ReadOnly
+                    ? context
+                    : new StorageContext(context.ScriptHash, true));
                 return true;
             }
+
             return false;
         }
 
         private bool Storage_Get(ExecutionEngine engine)
         {
             var evalStack = engine.CurrentContext.EvaluationStack;
-            if (TryGetStorageContext(evalStack, out var storageContext))
+            if (evalStack.TryPopAdapter<StorageContext>(out var context))
             {
-                var key = evalStack.Pop().GetByteArray();
-                var storageHash = storageContext.GetHashCode(key);
+                var storageKey = new StorageKey(context.ScriptHash, evalStack.Pop().GetByteArray());
 
-                if (storage.TryGetValue(storageHash, out var kvp))
+                if (storage.TryGetStorage(storageKey, out var storageItem))
                 {
-                    evalStack.Push(kvp.value);
+                    evalStack.Push(storageItem.Value.ToArray());
                 }
                 else
                 {
@@ -124,81 +95,82 @@ namespace NeoDebug.Adapter
 
                 return true;
             }
-
             return false;
         }
 
-        private bool PutHelper(StorageContext storageContext, byte[] key, byte[] value, bool constant = false)
+        private bool TryPut(StorageContext storageContext, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value, bool constant)
         {
             if (trigger != TriggerType.Application) return false;
             if (key.Length > 1024) return false;
             if (storageContext.ReadOnly) return false;
-            // TODO: CheckStorageContext
+            // TODO: CHeckStorageCOntext
 
-            var storageHash = storageContext.GetHashCode(key);
-            if (storage.TryGetValue(storageHash, out var currentValue)
-                && currentValue.constant)
-            {
-                return false;
-            }
-
-            storage[storageHash] = (key, value, constant);
-            return true;
+            return storage.TryPut(new StorageKey(storageContext.ScriptHash, key), value, constant);
         }
 
         private bool Storage_Put(ExecutionEngine engine)
         {
             var evalStack = engine.CurrentContext.EvaluationStack;
-            if (TryGetStorageContext(evalStack, out var storageContext))
+            if (evalStack.TryPopAdapter<StorageContext>(out var context))
             {
                 var key = evalStack.Pop().GetByteArray();
                 var value = evalStack.Pop().GetByteArray();
-                return PutHelper(storageContext, key, value);
-            }
 
+                return TryPut(context, key, value, false);
+            }
             return false;
         }
 
         private bool Storage_PutEx(ExecutionEngine engine)
         {
             var evalStack = engine.CurrentContext.EvaluationStack;
-            if (TryGetStorageContext(evalStack, out var storageContext))
+            if (evalStack.TryPopAdapter<StorageContext>(out var context))
             {
                 var key = evalStack.Pop().GetByteArray();
                 var value = evalStack.Pop().GetByteArray();
-                var storageFlags = (StorageFlags)(byte)evalStack.Pop().GetBigInteger();
-                return PutHelper(storageContext, key, value, (storageFlags & StorageFlags.Constant) != 0);
-            }
+                var constant = (((byte)evalStack.Pop().GetBigInteger()) & 0x01) != 0; // 0x01 == StorageFlags.Constant
 
+                return TryPut(context, key, value, constant);
+            }
             return false;
         }
 
         private bool Storage_Delete(ExecutionEngine engine)
         {
             var evalStack = engine.CurrentContext.EvaluationStack;
-            if (TryGetStorageContext(evalStack, out var storageContext))
+            if (evalStack.TryPopAdapter<StorageContext>(out var context))
             {
-                if (storageContext.ReadOnly) return false;
-                // check storage context
                 var key = evalStack.Pop().GetByteArray();
-                var storageHash = storageContext.GetHashCode(key);
+                if (trigger != TriggerType.Application) return false;
+                if (key.Length > 1024) return false;
+                if (context.ReadOnly) return false;
 
-                if (storage.TryGetValue(storageHash, out var currentValue)
-                    && currentValue.constant)
-                {
-                    return false;
-                }
-
-                storage.Remove(storageHash);
-                return true;
+                return storage.TryDelete(new StorageKey(context.ScriptHash, key));
             }
-
             return false;
         }
 
         private bool Storage_Find(ExecutionEngine engine)
         {
-            throw new NotImplementedException(nameof(Storage_Find));
+            IEnumerator<(StackItem, StackItem)> EnumerateStorage(UInt160 scriptHash, ReadOnlyMemory<byte> prefix)
+            {
+                foreach (var (key, item) in storage.EnumerateStorage(scriptHash))
+                {
+                    if (prefix.Span.SequenceEqual(key.Span.Slice(0, prefix.Length)))
+                    {
+                        yield return (key.ToArray(), item.Value.ToArray());
+                    }
+                }
+            }
+
+            var evalStack = engine.CurrentContext.EvaluationStack;
+            if (evalStack.TryPopAdapter<StorageContext>(out var context))
+            {
+                var prefix = evalStack.Pop().GetByteArray();
+                var iterator = new Iterator(EnumerateStorage(context.ScriptHash, prefix));
+                evalStack.Push(StackItem.FromInterface(iterator));
+            }
+            return false;
         }
     }
 }

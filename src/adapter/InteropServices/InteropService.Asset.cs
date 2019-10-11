@@ -1,5 +1,6 @@
 ﻿using Neo.VM;
 using NeoDebug.Adapter.ModelAdapters;
+using NeoDebug.VariableContainers;
 using System;
 
 

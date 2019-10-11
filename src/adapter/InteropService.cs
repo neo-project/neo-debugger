@@ -25,12 +25,14 @@ namespace NeoDebug.Adapter
         }
 
         private readonly Dictionary<uint, Func<ExecutionEngine, bool>> methods = new Dictionary<uint, Func<ExecutionEngine, bool>>();
+        private readonly EmulatedStorage storage;
 
+        private readonly UInt160 scriptHash;
         private readonly IBlockchainStorage? blockchain;
         private readonly Action<OutputEvent> sendOutput;
 
-        private readonly Dictionary<int, (byte[] key, byte[] value, bool constant)> storage =
-            new Dictionary<int, (byte[] key, byte[] value, bool constant)>();
+        //private readonly Dictionary<int, (byte[] key, byte[] value, bool constant)> storage =
+        //    new Dictionary<int, (byte[] key, byte[] value, bool constant)>();
 
         private static IEnumerable<(byte[] key, byte[] value, bool constant)>
             GetStorage(Dictionary<string, JToken> config)
@@ -70,11 +72,13 @@ namespace NeoDebug.Adapter
 
             this.sendOutput = sendOutput;
             this.blockchain = blockchain;
+            storage = new EmulatedStorage(blockchain);
+            scriptHash = new UInt160(contract.ScriptHash);
 
             foreach (var item in GetStorage(config))
             {
-                var storageHash = StorageContext.GetHashCode(contract.ScriptHash, item.key);
-                storage[storageHash] = item;
+                var storageKey = new StorageKey(scriptHash, item.key);
+                storage.TryPut(storageKey, item.value, item.constant);
             }
 
             if (config.TryGetValue("runtime", out var token))
@@ -106,6 +110,11 @@ namespace NeoDebug.Adapter
             RegisterRuntime(Register);
             RegisterStorage(Register);
             RegisterTransaction(Register);
+        }
+
+        internal IVariableContainer GetStorageContainer(IVariableContainerSession session)
+        {
+            return new EmulatedStorageContainer(session, scriptHash, storage);
         }
 
         protected void Register(string methodName, Func<ExecutionEngine, bool> handler, int price)

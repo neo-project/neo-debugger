@@ -23,13 +23,11 @@ namespace NeoDebug.Adapter
                 {
                     SerializeStackItem(stackItem, writer);
                 }
-#pragma warning disable CA1031 // Do not catch general exception types
                 catch (NotSupportedException)
                 {
-                    array = null;
+                    array = null!;
                     return false;
                 }
-#pragma warning restore CA1031 // Do not catch general exception types
 
                 writer.Flush();
                 if (ms.Length <= maxItemSize)
@@ -53,18 +51,16 @@ namespace NeoDebug.Adapter
                 item = DeserializeStackItem(reader, engine);
                 return true;
             }
-#pragma warning disable CA1031 // Do not catch general exception types
             catch (FormatException)
             {
-                item = null;
+                item = null!;
                 return false;
             }
             catch (IOException)
             {
-                item = null;
+                item = null!;
                 return false;
             }
-#pragma warning restore CA1031 // Do not catch general exception types
         }
 
         private static ulong ReadVarInt(this BinaryReader reader, ulong max = ulong.MaxValue)
