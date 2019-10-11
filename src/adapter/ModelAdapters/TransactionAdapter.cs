@@ -110,6 +110,17 @@ namespace NeoDebug.Adapter.ModelAdapters
             return false;
         }
 
+        public bool GetScript(ExecutionEngine engine)
+        {
+            if (BinaryFormat.TryReadInvocationData(Item, out var script, out var _))
+            {
+                engine.CurrentContext.EvaluationStack.Push(script.ToArray());
+                return true;
+            }
+
+            return false;
+        }
+
         public bool GetUnspentCoins(ExecutionEngine engine, IBlockchainStorage blockchain)
         {
             if (NeoFx.Utility.TryHash(Item, out var hash)

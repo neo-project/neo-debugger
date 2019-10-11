@@ -98,6 +98,11 @@ namespace NeoDebug.Adapter
             return engine.TryAdapterOperation<TransactionAdapter>(adapter => adapter.GetHash(engine));
         }
 
+        private bool InvocationTransaction_GetScript(ExecutionEngine engine)
+        {
+            return engine.TryAdapterOperation<TransactionAdapter>(adapter => adapter.GetScript(engine));
+        }
+
         private bool Input_GetIndex(ExecutionEngine engine)
         {
             return engine.TryAdapterOperation<CoinReferenceAdapter>(adapter => adapter.GetIndex(engine));
@@ -121,11 +126,6 @@ namespace NeoDebug.Adapter
         private bool Output_GetScriptHash(ExecutionEngine engine)
         {
             return engine.TryAdapterOperation<TransactionOutputAdatper>(adapter => adapter.GetScriptHash(engine));
-        }
-
-        private bool InvocationTransaction_GetScript(ExecutionEngine engine)
-        {
-            throw new NotImplementedException(nameof(InvocationTransaction_GetScript));
         }
     }
 }
