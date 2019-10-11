@@ -24,24 +24,24 @@ namespace NeoDebug.Adapter
             register("AntShares.Account.GetBalance", Account_GetBalance, 1);
         }
 
-        private bool Account_IsStandard(ExecutionEngine arg)
+        private bool Account_GetBalance(ExecutionEngine engine)
+        {
+            return engine.TryAdapterOperation<AccountAdapter>(adapter => adapter.GetBalance(engine));
+        }
+
+        private bool Account_GetVotes(ExecutionEngine engine)
+        {
+            return engine.TryAdapterOperation<AccountAdapter>(adapter => adapter.GetVotes(engine));
+        }
+
+        private bool Account_GetScriptHash(ExecutionEngine engine)
+        {
+            return engine.TryAdapterOperation<AccountAdapter>(adapter => adapter.GetScriptHash(engine));
+        }
+
+        private bool Account_IsStandard(ExecutionEngine engine)
         {
             throw new NotImplementedException(nameof(Account_IsStandard));
-        }
-
-        private bool Account_GetBalance(ExecutionEngine arg)
-        {
-            throw new NotImplementedException(nameof(Account_GetBalance));
-        }
-
-        private bool Account_GetVotes(ExecutionEngine arg)
-        {
-            throw new NotImplementedException(nameof(Account_GetVotes));
-        }
-
-        private bool Account_GetScriptHash(ExecutionEngine arg)
-        {
-            throw new NotImplementedException(nameof(Account_GetScriptHash));
         }
     }
 }

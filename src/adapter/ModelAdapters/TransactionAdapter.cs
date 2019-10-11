@@ -5,6 +5,7 @@ using NeoFx.Models;
 using NeoFx.Storage;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 
 namespace NeoDebug.Adapter.ModelAdapters
@@ -109,14 +110,43 @@ namespace NeoDebug.Adapter.ModelAdapters
             return false;
         }
 
-        public bool GetScript(ExecutionEngine engine)
+        public bool GetUnspentCoins(ExecutionEngine engine, IBlockchainStorage blockchain)
         {
-            throw new NotImplementedException();
-        }
+            if (NeoFx.Utility.TryHash(Item, out var hash)
+                && blockchain.TryGetUnspentCoins(hash, out var coinStates))
+            {
+                Debug.Assert(Item.Outputs.Length == coinStates.Length);
 
-        public bool GetUnspentCoins(ExecutionEngine engine)
-        {
-            throw new NotImplementedException();
+                // In order to avoid memory allocations, we traverse the list of coin states twice.
+                // The first time is to count the number of unspent coins. 
+                int unspentCount = 0;
+                for (int i = 0; i < coinStates.Length; i++)
+                {
+                    if ((coinStates.Span[i] & CoinState.Spent) == 0)
+                    {
+                        unspentCount++;
+                    }
+                }
+
+                // Once we know how many unspent coins there are, we can allocate a stack item array
+                // of the correct length and traverse the list of coin states again to populate it
+                var unspentCoins = new StackItem[unspentCount];
+                var currentOutput = 0;
+                for (int i = 0; i < coinStates.Length; i++)
+                {
+                    Debug.Assert(currentOutput < coinStates.Length);
+
+                    if ((coinStates.Span[i] & CoinState.Spent) == 0)
+                    {
+                        unspentCoins[currentOutput++] = new TransactionOutputAdatper(Item.Outputs.Span[i]);
+                    }
+                }
+
+                engine.CurrentContext.EvaluationStack.Push(unspentCoins);
+                return true;
+            }
+
+            return false;
         }
 
         public Variable GetVariable(IVariableContainerSession session)
@@ -149,7 +179,14 @@ namespace NeoDebug.Adapter.ModelAdapters
 
         byte[] IScriptContainer.GetMessage()
         {
-            throw new NotImplementedException();
+            var buffer = new byte[Item.GetSize()];
+            if (NeoFx.Utility.TryWriteHashData(Item, buffer, out var bytesWritten))
+            {
+                Debug.Assert(bytesWritten == buffer.Length);
+                return buffer;
+            }
+
+            throw new Exception("TryWriteHashData failed");
         }
     }
 }

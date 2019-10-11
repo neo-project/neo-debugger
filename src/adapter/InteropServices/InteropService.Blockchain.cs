@@ -151,7 +151,28 @@ namespace NeoDebug.Adapter
 
         private bool Blockchain_GetAsset(ExecutionEngine engine)
         {
-            throw new NotImplementedException(nameof(Blockchain_GetAsset));
+            var evalStack = engine.CurrentContext.EvaluationStack;
+            var hash = new UInt256(evalStack.Pop().GetByteArray());
+            if (blockchain.TryGetAsset(hash, out Asset asset))
+            {
+                evalStack.Push(new ModelAdapters.AssetAdapter(asset));
+                return true;
+            }
+            return false;
+        }
+
+        private bool Blockchain_GetAccount(ExecutionEngine engine)
+        {
+            var evalStack = engine.CurrentContext.EvaluationStack;
+            var hash = new UInt160(evalStack.Pop().GetByteArray());
+            if (blockchain.TryGetAccount(hash, out var account))
+            {
+                evalStack.Push(new ModelAdapters.AccountAdapter(account));
+                return true;
+            }
+
+            evalStack.Push(new ModelAdapters.AccountAdapter(new Account(hash)));
+            return true;
         }
 
         private bool Blockchain_GetValidators(ExecutionEngine engine)
@@ -159,9 +180,5 @@ namespace NeoDebug.Adapter
             throw new NotImplementedException(nameof(Blockchain_GetValidators));
         }
 
-        private bool Blockchain_GetAccount(ExecutionEngine engine)
-        {
-            throw new NotImplementedException(nameof(Blockchain_GetAccount));
-        }
     }
 }

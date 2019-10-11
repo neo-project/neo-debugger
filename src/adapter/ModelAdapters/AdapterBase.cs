@@ -12,17 +12,17 @@ namespace NeoDebug.Adapter.ModelAdapters
     {
         public override bool Equals(StackItem other)
         {
-            throw new NotImplementedException();
+            throw new InvalidOperationException();
         }
 
         public override bool GetBoolean()
         {
-            throw new NotImplementedException();
+            throw new InvalidOperationException();
         }
 
         public override byte[] GetByteArray()
         {
-            throw new NotImplementedException();
+            throw new InvalidOperationException();
         }
     }
 }

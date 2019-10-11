@@ -41,14 +41,9 @@ namespace NeoDebug.Adapter
             return engine.TryAdapterOperation<DeployedContractAdapter>(adapter => adapter.GetScript(engine));
         }
 
-        private static bool Contract_GetStorageContext(ExecutionEngine engine)
+        private static bool Contract_Create(ExecutionEngine engine)
         {
-            throw new NotImplementedException(nameof(Contract_GetStorageContext));
-        }
-
-        private static bool Contract_Destroy(ExecutionEngine engine)
-        {
-            throw new NotImplementedException(nameof(Contract_Destroy));
+            throw new NotImplementedException(nameof(Contract_Create));
         }
 
         private static bool Contract_Migrate(ExecutionEngine engine)
@@ -56,9 +51,14 @@ namespace NeoDebug.Adapter
             throw new NotImplementedException(nameof(Contract_Migrate));
         }
 
-        private static bool Contract_Create(ExecutionEngine engine)
+        private static bool Contract_Destroy(ExecutionEngine engine)
         {
-            throw new NotImplementedException(nameof(Contract_Create));
+            throw new NotImplementedException(nameof(Contract_Destroy));
+        }
+
+        private static bool Contract_GetStorageContext(ExecutionEngine engine)
+        {
+            throw new NotImplementedException(nameof(Contract_GetStorageContext));
         }
     }
 }

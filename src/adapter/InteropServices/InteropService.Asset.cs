@@ -1,12 +1,6 @@
 ﻿using Neo.VM;
-using Neo.VM.Types;
 using NeoDebug.Adapter.ModelAdapters;
-using NeoFx;
-using NeoFx.Models;
-using NeoFx.Storage;
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace NeoDebug.Adapter
 {
@@ -37,54 +31,54 @@ namespace NeoDebug.Adapter
             register("AntShares.Asset.GetIssuer", Asset_GetIssuer, 1);
         }
 
-        private bool Asset_Create(ExecutionEngine arg)
+        private bool Asset_GetAssetId(ExecutionEngine engine)
+        {
+            return engine.TryAdapterOperation<AssetAdapter>(adapter => adapter.GetAssetId(engine));
+        }
+
+        private bool Asset_GetAssetType(ExecutionEngine engine)
+        {
+            return engine.TryAdapterOperation<AssetAdapter>(adapter => adapter.GetAssetType(engine));
+        }
+
+        private bool Asset_GetAmount(ExecutionEngine engine)
+        {
+            return engine.TryAdapterOperation<AssetAdapter>(adapter => adapter.GetAmount(engine));
+        }
+
+        private bool Asset_GetAvailable(ExecutionEngine engine)
+        {
+            return engine.TryAdapterOperation<AssetAdapter>(adapter => adapter.GetAvailable(engine));
+        }
+
+        private bool Asset_GetPrecision(ExecutionEngine engine)
+        {
+            return engine.TryAdapterOperation<AssetAdapter>(adapter => adapter.GetPrecision(engine));
+        }
+
+        private bool Asset_GetOwner(ExecutionEngine engine)
+        {
+            return engine.TryAdapterOperation<AssetAdapter>(adapter => adapter.GetOwner(engine));
+        }
+
+        private bool Asset_GetAdmin(ExecutionEngine engine)
+        {
+            return engine.TryAdapterOperation<AssetAdapter>(adapter => adapter.GetAdmin(engine));
+        }
+
+        private bool Asset_GetIssuer(ExecutionEngine engine)
+        {
+            return engine.TryAdapterOperation<AssetAdapter>(adapter => adapter.GetIssuer(engine));
+        }
+
+        private bool Asset_Create(ExecutionEngine engine)
         {
             throw new NotImplementedException(nameof(Asset_Create));
         }
 
-        private bool Asset_Renew(ExecutionEngine arg)
+        private bool Asset_Renew(ExecutionEngine engine)
         {
             throw new NotImplementedException(nameof(Asset_Renew));
-        }
-
-        private bool Asset_GetAssetId(ExecutionEngine arg)
-        {
-            throw new NotImplementedException(nameof(Asset_GetAssetId));
-        }
-
-        private bool Asset_GetAssetType(ExecutionEngine arg)
-        {
-            throw new NotImplementedException(nameof(Asset_GetAssetType));
-        }
-
-        private bool Asset_GetAmount(ExecutionEngine arg)
-        {
-            throw new NotImplementedException(nameof(Asset_GetAmount));
-        }
-
-        private bool Asset_GetAvailable(ExecutionEngine arg)
-        {
-            throw new NotImplementedException(nameof(Asset_GetAvailable));
-        }
-
-        private bool Asset_GetPrecision(ExecutionEngine arg)
-        {
-            throw new NotImplementedException(nameof(Asset_GetPrecision));
-        }
-
-        private bool Asset_GetOwner(ExecutionEngine arg)
-        {
-            throw new NotImplementedException(nameof(Asset_GetOwner));
-        }
-
-        private bool Asset_GetAdmin(ExecutionEngine arg)
-        {
-            throw new NotImplementedException(nameof(Asset_GetAdmin));
-        }
-
-        private bool Asset_GetIssuer(ExecutionEngine arg)
-        {
-            throw new NotImplementedException(nameof(Asset_GetIssuer));
         }
     }
 }

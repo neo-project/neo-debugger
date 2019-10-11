@@ -58,11 +58,6 @@ namespace NeoDebug.Adapter
             return engine.TryAdapterOperation<WitnessAdapter>(adapter => adapter.GetVerificationScript(engine));
         }
 
-        private bool InvocationTransaction_GetScript(ExecutionEngine engine)
-        {
-            return engine.TryAdapterOperation<TransactionAdapter>(adapter => adapter.GetScript(engine));
-        }
-
         private bool Transaction_GetWitnesses(ExecutionEngine engine)
         {
             return engine.TryAdapterOperation<TransactionAdapter>(adapter => adapter.GetWitnesses(engine));
@@ -70,7 +65,7 @@ namespace NeoDebug.Adapter
 
         private bool Transaction_GetUnspentCoins(ExecutionEngine engine)
         {
-            return engine.TryAdapterOperation<TransactionAdapter>(adapter => adapter.GetUnspentCoins(engine));
+            return engine.TryAdapterOperation<TransactionAdapter>(adapter => adapter.GetUnspentCoins(engine, blockchain));
         }
 
         private bool Transaction_GetReferences(ExecutionEngine engine)
@@ -126,6 +121,11 @@ namespace NeoDebug.Adapter
         private bool Output_GetScriptHash(ExecutionEngine engine)
         {
             return engine.TryAdapterOperation<TransactionOutputAdatper>(adapter => adapter.GetScriptHash(engine));
+        }
+
+        private bool InvocationTransaction_GetScript(ExecutionEngine engine)
+        {
+            throw new NotImplementedException(nameof(InvocationTransaction_GetScript));
         }
     }
 }
