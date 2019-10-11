@@ -197,9 +197,18 @@ namespace NeoDebug.Adapter
 
         private bool Runtime_GetTime(ExecutionEngine engine)
         {
-            throw new NotImplementedException(nameof(Runtime_GetTime));
+            // TODO: enable setting time and/or SecondsPerBlock from config
+            const int secondsPerBlock = 15;
+
+            if (blockchain != null
+                && blockchain.TryGetCurrentBlockHash(out var hash)
+                && blockchain.TryGetBlock(hash, out var header, out var _))
+            {
+                engine.CurrentContext.EvaluationStack.Push(header.Timestamp.ToUnixTimeSeconds() + secondsPerBlock);
+                return true;
+            }
+
+            return false;
         }
-
-
     }
 }

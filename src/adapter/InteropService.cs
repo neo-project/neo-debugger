@@ -41,7 +41,7 @@ namespace NeoDebug.Adapter
                 {
                     return bigInteger.ToByteArray();
                 }
-                return System.Text.Encoding.UTF8.GetBytes(value);
+                return Encoding.UTF8.GetBytes(value);
             }
 
             if (config.TryGetValue("storage", out var token))
