@@ -2,9 +2,9 @@
 using Neo.VM;
 using NeoDebug.VariableContainers;
 using NeoFx.Models;
-using System;
 using System.Collections.Generic;
-using System.Text;
+
+
 
 namespace NeoDebug.Adapter.ModelAdapters
 {
@@ -15,6 +15,10 @@ namespace NeoDebug.Adapter.ModelAdapters
         public CoinReferenceAdapter(in CoinReference value)
         {
             Item = value;
+        }
+
+        protected CoinReferenceAdapter() : base()
+        {
         }
 
         public static CoinReferenceAdapter Create(in CoinReference value)

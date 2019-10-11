@@ -2,9 +2,8 @@
 using Neo.VM;
 using NeoDebug.VariableContainers;
 using NeoFx.Models;
-using System;
-using System.Collections.Generic;
-using System.Text;
+
+
 
 namespace NeoDebug.Adapter.ModelAdapters
 {

@@ -6,7 +6,8 @@ using NeoFx.Storage;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Text;
+
+
 
 namespace NeoDebug.Adapter.ModelAdapters
 {
@@ -24,9 +25,10 @@ namespace NeoDebug.Adapter.ModelAdapters
             return new TransactionAdapter(value);
         }
 
-        public bool GetReferences(ExecutionEngine engine, IBlockchainStorage blockchain)
+        public bool GetReferences(ExecutionEngine engine, IBlockchainStorage? blockchain)
         {
-            if (Item.Inputs.Length <= engine.MaxArraySize)
+            if (blockchain != null
+                && Item.Inputs.Length <= engine.MaxArraySize)
             {
                 var references = new StackItem[Item.Inputs.Length];
                 for (int i = 0; i < Item.Inputs.Length; i++)
@@ -121,9 +123,10 @@ namespace NeoDebug.Adapter.ModelAdapters
             return false;
         }
 
-        public bool GetUnspentCoins(ExecutionEngine engine, IBlockchainStorage blockchain)
+        public bool GetUnspentCoins(ExecutionEngine engine, IBlockchainStorage? blockchain)
         {
             if (NeoFx.Utility.TryHash(Item, out var hash)
+                && blockchain != null
                 && blockchain.TryGetUnspentCoins(hash, out var coinStates))
             {
                 Debug.Assert(Item.Outputs.Length == coinStates.Length);

@@ -2,13 +2,12 @@
 using Neo.VM;
 using NeoDebug.VariableContainers;
 using NeoFx.Models;
-using System;
-using System.Collections.Generic;
-using System.Text;
+
+
 
 namespace NeoDebug.Adapter.ModelAdapters
 {
-    class BlockAdapter : AdapterBase, IVariableProvider
+    internal class BlockAdapter : AdapterBase, IVariableProvider
     {
         public readonly Block Item;
 

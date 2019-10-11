@@ -6,7 +6,7 @@ using Neo.VM;
 using Neo.VM.Types;
 using NeoFx;
 
-#nullable enable
+
 
 namespace NeoDebug.Adapter
 {

@@ -1,10 +1,11 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <AssemblyName>neodebug-adapter</AssemblyName>
     <Authors>Neo Global Development Seattle</Authors>
     <Description>neo-express is a NEO developer blockchain tool</Description>
     <LangVersion>8</LangVersion>
+    <Nullable>enable</Nullable>
     <OutputType>Exe</OutputType>
     <PackageId>Neo.Debug.Adapter</PackageId>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

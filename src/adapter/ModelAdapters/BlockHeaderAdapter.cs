@@ -3,13 +3,13 @@ using Neo.VM;
 using NeoDebug.VariableContainers;
 using NeoFx.Models;
 using NeoFx.Storage;
-using System;
 using System.Collections.Generic;
-using System.Text;
+
+
 
 namespace NeoDebug.Adapter.ModelAdapters
 {
-    class BlockHeaderAdapter : AdapterBase, IVariableProvider, IVariableContainer
+    internal class BlockHeaderAdapter : AdapterBase, IVariableProvider, IVariableContainer
     {
         public readonly BlockHeader Item;
 
@@ -23,11 +23,12 @@ namespace NeoDebug.Adapter.ModelAdapters
             return new BlockHeaderAdapter(value);
         }
 
-        public bool GetHash(ExecutionEngine engine, IBlockchainStorage blockchain)
+        public bool GetHash(ExecutionEngine engine, IBlockchainStorage? blockchain)
         {
             // TODO: should I be calculating the hash here, or is it OK to simply retrieve the hash
             //       by block index?
-            if (blockchain.TryGetBlockHash(Item.Index, out var hash)
+            if (blockchain != null
+                && blockchain.TryGetBlockHash(Item.Index, out var hash)
                 && hash.TryToArray(out var array))
             {
                 engine.CurrentContext.EvaluationStack.Push(array);

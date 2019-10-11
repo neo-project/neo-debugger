@@ -3,7 +3,7 @@ using NeoDebug.VariableContainers;
 using System;
 using System.Diagnostics.CodeAnalysis;
 
-#nullable enable
+
 
 namespace NeoDebug.Adapter
 {

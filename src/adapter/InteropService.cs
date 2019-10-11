@@ -2,6 +2,7 @@
 using Neo.VM;
 using NeoDebug.Models;
 using NeoDebug.VariableContainers;
+
 using NeoFx;
 using NeoFx.Models;
 using NeoFx.Storage;
@@ -11,7 +12,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-#nullable enable
+
 
 namespace NeoDebug.Adapter
 {

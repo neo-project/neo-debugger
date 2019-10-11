@@ -6,6 +6,8 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
+
+
 namespace NeoDebug.Adapter
 {
     internal partial class InteropService
@@ -41,15 +43,20 @@ namespace NeoDebug.Adapter
 
         private bool Blockchain_GetHeight(ExecutionEngine engine)
         {
-            engine.CurrentContext.EvaluationStack.Push(blockchain.Height);
-            return true;
+            if (blockchain != null)
+            {
+                engine.CurrentContext.EvaluationStack.Push(blockchain.Height);
+                return true;
+            }
+            return false;
         }
 
         private bool Blockchain_GetContract(ExecutionEngine engine)
         {
             var evalStack = engine.CurrentContext.EvaluationStack;
             var hash = new UInt160(evalStack.Pop().GetByteArray());
-            if (blockchain.TryGetContract(hash, out var contract))
+            if (blockchain != null
+                && blockchain.TryGetContract(hash, out var contract))
             {
                 evalStack.Push(new ModelAdapters.DeployedContractAdapter(contract));
                 return true;
@@ -64,7 +71,8 @@ namespace NeoDebug.Adapter
             var evalStack = engine.CurrentContext.EvaluationStack;
             var hash = new UInt256(evalStack.Pop().GetByteArray());
 
-            if (blockchain.TryGetTransaction(hash, out var index, out var _))
+            if (blockchain != null
+                && blockchain.TryGetTransaction(hash, out var index, out var _))
             {
                 evalStack.Push(index);
             }
@@ -80,7 +88,8 @@ namespace NeoDebug.Adapter
         {
             var evalStack = engine.CurrentContext.EvaluationStack;
             var hash = new UInt256(evalStack.Pop().GetByteArray());
-            if (blockchain.TryGetTransaction(hash, out var _, out var tx))
+            if (blockchain != null 
+                && blockchain.TryGetTransaction(hash, out var _, out var tx))
             {
                 evalStack.Push(new ModelAdapters.TransactionAdapter(tx));
                 return true;
@@ -100,7 +109,15 @@ namespace NeoDebug.Adapter
                 // purposefully ignore TryGetBlockHash's return
                 // Get_Block/Get_Header will push a null value on the stack
                 // if the block hash can't be found.
-                var _ = blockchain.TryGetBlockHash(index, out hash);
+                if (blockchain != null)
+                {
+                    var _ = blockchain.TryGetBlockHash(index, out hash);
+                }
+                else
+                {
+                    hash = default;
+                }
+                
                 return true;
             }
             else if (data.Length == 32)
@@ -118,7 +135,8 @@ namespace NeoDebug.Adapter
             var evalStack = engine.CurrentContext.EvaluationStack;
             if (TryGetHash(evalStack.Pop().GetByteArray(), out var hash))
             {
-                if (blockchain.TryGetBlock(hash, out Block block))
+                if (blockchain != null
+                    && blockchain.TryGetBlock(hash, out Block block))
                 {
                     evalStack.Push(new ModelAdapters.BlockAdapter(block));
                 }
@@ -136,7 +154,8 @@ namespace NeoDebug.Adapter
             var evalStack = engine.CurrentContext.EvaluationStack;
             if (TryGetHash(evalStack.Pop().GetByteArray(), out var hash))
             {
-                if (blockchain.TryGetBlock(hash, out BlockHeader header, out var _))
+                if (blockchain != null
+                    && blockchain.TryGetBlock(hash, out BlockHeader header, out var _))
                 {
                     evalStack.Push(new ModelAdapters.BlockHeaderAdapter(header));
                 }
@@ -153,7 +172,8 @@ namespace NeoDebug.Adapter
         {
             var evalStack = engine.CurrentContext.EvaluationStack;
             var hash = new UInt256(evalStack.Pop().GetByteArray());
-            if (blockchain.TryGetAsset(hash, out Asset asset))
+            if (blockchain != null
+                && blockchain.TryGetAsset(hash, out Asset asset))
             {
                 evalStack.Push(new ModelAdapters.AssetAdapter(asset));
                 return true;
@@ -165,7 +185,8 @@ namespace NeoDebug.Adapter
         {
             var evalStack = engine.CurrentContext.EvaluationStack;
             var hash = new UInt160(evalStack.Pop().GetByteArray());
-            if (blockchain.TryGetAccount(hash, out var account))
+            if (blockchain != null
+                && blockchain.TryGetAccount(hash, out var account))
             {
                 evalStack.Push(new ModelAdapters.AccountAdapter(account));
                 return true;
@@ -179,6 +200,5 @@ namespace NeoDebug.Adapter
         {
             throw new NotImplementedException(nameof(Blockchain_GetValidators));
         }
-
     }
 }

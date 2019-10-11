@@ -38,12 +38,14 @@ namespace NeoDebug.Adapter
         // GetHashCode<T> provides a value semantic hash code for a Span of T's
         public static int GetHashCode<T>(ReadOnlySpan<T> span)
         {
+#nullable disable
             int hash = default(T).GetHashCode();
             for (int i = 0; i < span.Length; i++)
             {
                 hash = HashCode.Combine(hash, i, span[i]);
             }
             return hash;
+#nullable restore
         }
 
         public static int GetHashCode<T>(T[] array)

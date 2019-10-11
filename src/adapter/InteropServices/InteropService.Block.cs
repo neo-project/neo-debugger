@@ -1,12 +1,8 @@
 ﻿using Neo.VM;
-using Neo.VM.Types;
 using NeoDebug.Adapter.ModelAdapters;
-using NeoFx;
-using NeoFx.Models;
-using NeoFx.Storage;
 using System;
-using System.Collections.Generic;
-using System.Text;
+
+
 
 namespace NeoDebug.Adapter
 {
