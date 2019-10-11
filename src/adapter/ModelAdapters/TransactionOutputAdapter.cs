@@ -10,11 +10,11 @@ namespace NeoDebug.Adapter.ModelAdapters
 {
     internal class TransactionOutputAdatper : AdapterBase, IVariableProvider, IVariableContainer
     {
-        public readonly TransactionOutput Value;
+        public readonly TransactionOutput Item;
 
         public TransactionOutputAdatper(in TransactionOutput value)
         {
-            Value = value;
+            Item = value;
         }
 
         public static TransactionOutputAdatper Create(in TransactionOutput value)
@@ -24,7 +24,7 @@ namespace NeoDebug.Adapter.ModelAdapters
 
         public bool GetAssetId(ExecutionEngine engine)
         {
-            if (Value.AssetId.TryToArray(out var array))
+            if (Item.AssetId.TryToArray(out var array))
             {
                 engine.CurrentContext.EvaluationStack.Push(array);
                 return true;
@@ -35,13 +35,13 @@ namespace NeoDebug.Adapter.ModelAdapters
 
         public bool GetValue(ExecutionEngine engine)
         {
-            engine.CurrentContext.EvaluationStack.Push(Value.Value);
+            engine.CurrentContext.EvaluationStack.Push(Item.Value.AsRawValue());
             return true;
         }
 
         public bool GetScriptHash(ExecutionEngine engine)
         {
-            if (Value.ScriptHash.TryToArray(out var array))
+            if (Item.ScriptHash.TryToArray(out var array))
             {
                 engine.CurrentContext.EvaluationStack.Push(array);
                 return true;
@@ -66,21 +66,21 @@ namespace NeoDebug.Adapter.ModelAdapters
             {
                 Name = "AssetId",
                 Type = "UInt256",
-                Value = Value.AssetId.ToString()
+                Value = Item.AssetId.ToString()
             };
 
             yield return new Variable()
             {
                 Name = "Value",
                 Type = "long",
-                Value = Value.Value.ToString()
+                Value = Item.Value.ToString()
             };
 
             yield return new Variable()
             {
                 Name = "ScriptHash",
                 Type = "UInt160",
-                Value = Value.ScriptHash.ToString()
+                Value = Item.ScriptHash.ToString()
             };
         }
     }

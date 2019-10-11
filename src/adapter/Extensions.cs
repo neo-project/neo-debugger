@@ -55,7 +55,7 @@ namespace NeoDebug.Adapter
         {
             var buffer = new byte[UInt160.Size];
 
-            if (uInt160.TryWriteBytes(buffer))
+            if (uInt160.TryWrite(buffer))
             {
                 value = buffer;
                 return true;
@@ -69,7 +69,7 @@ namespace NeoDebug.Adapter
         {
             var buffer = new byte[UInt256.Size];
 
-            if (uInt256.TryWriteBytes(buffer))
+            if (uInt256.TryWrite(buffer))
             {
                 value = buffer;
                 return true;

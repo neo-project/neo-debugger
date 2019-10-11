@@ -34,7 +34,7 @@ namespace NeoDebug.Adapter
             return null;
         }
 
-        static (IEnumerable<CoinReference> inputs, IEnumerable<TransactionOutput> outputs) 
+        static (IEnumerable<CoinReference> inputs, IEnumerable<TransactionOutput> outputs)
             GetUtxo(Dictionary<string, JToken> config, IBlockchainStorage? blockchain)
         {
             static UInt160 ParseAddress(string address) =>
@@ -61,7 +61,7 @@ namespace NeoDebug.Adapter
                 var _outputs = (utxo["outputs"] ?? Enumerable.Empty<JToken>())
                     .Select(t => new TransactionOutput(
                         GetAssetId(blockchain, t.Value<string>("asset")),
-                        t.Value<long>("value"),
+                        Fixed8.Create(t.Value<long>("value")),
                         ParseAddress(t.Value<string>("address"))));
 
                 return (_inputs, _outputs);
@@ -102,7 +102,7 @@ namespace NeoDebug.Adapter
 
         void IExecutionEngine.ExecuteNext() => ExecuteNext();
 
-        IVariableContainer IExecutionEngine.GetStorageContainer(IVariableContainerSession session) => 
+        IVariableContainer IExecutionEngine.GetStorageContainer(IVariableContainerSession session) =>
             interopService.GetStorageContainer(session);
     }
 }

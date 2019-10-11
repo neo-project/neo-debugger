@@ -8,7 +8,7 @@ using System.Text;
 
 namespace NeoDebug.Adapter.ModelAdapters
 {
-    class AdapterVariableContainer: IVariableContainer
+    class AdapterVariableContainer : IVariableContainer
     {
         private readonly IVariableContainer adapter;
 

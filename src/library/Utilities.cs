@@ -108,7 +108,7 @@ namespace NeoDebug
 
                     for (int i = 0; i < sequencePoints.Length - 1; i++)
                     {
-                        if (ip > sequencePoints[i].Address && ip <= sequencePoints[i+1].Address)
+                        if (ip > sequencePoints[i].Address && ip <= sequencePoints[i + 1].Address)
                             return sequencePoints[i];
                     }
                 }

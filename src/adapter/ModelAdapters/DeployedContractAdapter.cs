@@ -10,11 +10,11 @@ namespace NeoDebug.Adapter.ModelAdapters
 {
     class DeployedContractAdapter : AdapterBase, IVariableProvider
     {
-        public readonly DeployedContract Value;
+        public readonly DeployedContract Item;
 
         public DeployedContractAdapter(in DeployedContract value)
         {
-            Value = value;
+            Item = value;
         }
 
         public static DeployedContractAdapter Create(in DeployedContract value)
@@ -24,13 +24,13 @@ namespace NeoDebug.Adapter.ModelAdapters
 
         public bool GetScript(ExecutionEngine engine)
         {
-            engine.CurrentContext.EvaluationStack.Push(Value.Script.ToArray());
+            engine.CurrentContext.EvaluationStack.Push(Item.Script.ToArray());
             return true;
         }
 
         public bool IsPayable(ExecutionEngine engine)
         {
-            engine.CurrentContext.EvaluationStack.Push(Value.Payable);
+            engine.CurrentContext.EvaluationStack.Push(Item.Payable);
             return true;
         }
 

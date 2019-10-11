@@ -11,11 +11,11 @@ namespace NeoDebug.Adapter.ModelAdapters
 {
     internal class TransactionAdapter : AdapterBase, IScriptContainer, IVariableProvider, IVariableContainer
     {
-        public readonly Transaction Value;
+        public readonly Transaction Item;
 
         public TransactionAdapter(in Transaction value)
         {
-            Value = value;
+            Item = value;
         }
 
         public static TransactionAdapter Create(in Transaction value)
@@ -25,12 +25,12 @@ namespace NeoDebug.Adapter.ModelAdapters
 
         public bool GetReferences(ExecutionEngine engine, IBlockchainStorage blockchain)
         {
-            if (Value.Inputs.Length <= engine.MaxArraySize)
+            if (Item.Inputs.Length <= engine.MaxArraySize)
             {
-                var references = new StackItem[Value.Inputs.Length];
-                for (int i = 0; i < Value.Inputs.Length; i++)
+                var references = new StackItem[Item.Inputs.Length];
+                for (int i = 0; i < Item.Inputs.Length; i++)
                 {
-                    var input = Value.Inputs.Span[i];
+                    var input = Item.Inputs.Span[i];
                     if (!blockchain.TryGetTransaction(input.PrevHash, out var _, out var refTx)
                         || input.PrevIndex >= refTx.Outputs.Length)
                     {
@@ -49,9 +49,9 @@ namespace NeoDebug.Adapter.ModelAdapters
 
         public bool GetOutputs(ExecutionEngine engine)
         {
-            if (Value.Outputs.Length <= engine.MaxArraySize)
+            if (Item.Outputs.Length <= engine.MaxArraySize)
             {
-                var items = Value.Outputs.WrapStackItems(TransactionOutputAdatper.Create);
+                var items = Item.Outputs.WrapStackItems(TransactionOutputAdatper.Create);
                 engine.CurrentContext.EvaluationStack.Push(items);
                 return true;
             }
@@ -60,9 +60,9 @@ namespace NeoDebug.Adapter.ModelAdapters
 
         public bool GetInputs(ExecutionEngine engine)
         {
-            if (Value.Inputs.Length <= engine.MaxArraySize)
+            if (Item.Inputs.Length <= engine.MaxArraySize)
             {
-                var items = Value.Inputs.WrapStackItems(CoinReferenceAdapter.Create);
+                var items = Item.Inputs.WrapStackItems(CoinReferenceAdapter.Create);
                 engine.CurrentContext.EvaluationStack.Push(items);
                 return true;
             }
@@ -71,9 +71,9 @@ namespace NeoDebug.Adapter.ModelAdapters
 
         public bool GetAttributes(ExecutionEngine engine)
         {
-            if (Value.Attributes.Length <= engine.MaxArraySize)
+            if (Item.Attributes.Length <= engine.MaxArraySize)
             {
-                var items = Value.Attributes.WrapStackItems(TransactionAttributeAdapter.Create);
+                var items = Item.Attributes.WrapStackItems(TransactionAttributeAdapter.Create);
                 engine.CurrentContext.EvaluationStack.Push(items);
                 return true;
             }
@@ -82,9 +82,9 @@ namespace NeoDebug.Adapter.ModelAdapters
 
         public bool GetWitnesses(ExecutionEngine engine)
         {
-            if (Value.Witnesses.Length <= engine.MaxArraySize)
+            if (Item.Witnesses.Length <= engine.MaxArraySize)
             {
-                var items = Value.Witnesses.WrapStackItems(WitnessAdapter.Create);
+                var items = Item.Witnesses.WrapStackItems(WitnessAdapter.Create);
                 engine.CurrentContext.EvaluationStack.Push(items);
                 return true;
             }
@@ -93,13 +93,13 @@ namespace NeoDebug.Adapter.ModelAdapters
 
         public bool GetType(ExecutionEngine engine)
         {
-            engine.CurrentContext.EvaluationStack.Push((int)Value.Type);
+            engine.CurrentContext.EvaluationStack.Push((int)Item.Type);
             return true;
         }
 
         public bool GetHash(ExecutionEngine engine)
         {
-            if (NeoFx.Utility.TryHash(Value, out var hash)
+            if (NeoFx.Utility.TryHash(Item, out var hash)
                 && hash.TryToArray(out var array))
             {
                 engine.CurrentContext.EvaluationStack.Push(array);
@@ -134,10 +134,10 @@ namespace NeoDebug.Adapter.ModelAdapters
             yield return new Variable()
             {
                 Name = "Type",
-                Value = Value.Type.ToString(),
+                Value = Item.Type.ToString(),
             };
 
-            if (NeoFx.Utility.TryHash(Value, out var hash))
+            if (NeoFx.Utility.TryHash(Item, out var hash))
             {
                 yield return new Variable()
                 {

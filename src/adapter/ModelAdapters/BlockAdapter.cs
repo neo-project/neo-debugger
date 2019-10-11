@@ -10,11 +10,11 @@ namespace NeoDebug.Adapter.ModelAdapters
 {
     class BlockAdapter : AdapterBase, IVariableProvider
     {
-        public readonly Block Value;
+        public readonly Block Item;
 
         public BlockAdapter(in Block value)
         {
-            Value = value;
+            Item = value;
         }
 
         public static BlockAdapter Create(in Block value)
@@ -24,15 +24,15 @@ namespace NeoDebug.Adapter.ModelAdapters
 
         public bool GetTransactionCount(ExecutionEngine engine)
         {
-            engine.CurrentContext.EvaluationStack.Push(Value.Transactions.Length);
+            engine.CurrentContext.EvaluationStack.Push(Item.Transactions.Length);
             return true;
         }
 
         public bool GetTransactions(ExecutionEngine engine)
         {
-            if (Value.Transactions.Length <= engine.MaxArraySize)
+            if (Item.Transactions.Length <= engine.MaxArraySize)
             {
-                var items = Value.Transactions.WrapStackItems(TransactionAdapter.Create);
+                var items = Item.Transactions.WrapStackItems(TransactionAdapter.Create);
                 engine.CurrentContext.EvaluationStack.Push(items);
                 return true;
             }
@@ -43,9 +43,9 @@ namespace NeoDebug.Adapter.ModelAdapters
         {
             var evalStack = engine.CurrentContext.EvaluationStack;
             var index = (int)evalStack.Pop().GetBigInteger();
-            if (index >= 0 && index < Value.Transactions.Length)
+            if (index >= 0 && index < Item.Transactions.Length)
             {
-                var item = new TransactionAdapter(Value.Transactions.Span[index]);
+                var item = new TransactionAdapter(Item.Transactions.Span[index]);
                 evalStack.Push(item);
                 return true;
             }

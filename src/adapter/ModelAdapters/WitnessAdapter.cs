@@ -10,11 +10,11 @@ namespace NeoDebug.Adapter.ModelAdapters
 {
     class WitnessAdapter : AdapterBase, IVariableProvider
     {
-        public readonly Witness Value;
+        public readonly Witness Item;
 
         public WitnessAdapter(in Witness value)
         {
-            Value = value;
+            Item = value;
         }
 
         public static WitnessAdapter Create(in Witness value)
@@ -24,7 +24,7 @@ namespace NeoDebug.Adapter.ModelAdapters
 
         public bool GetVerificationScript(ExecutionEngine engine)
         {
-            engine.CurrentContext.EvaluationStack.Push(Value.VerificationScript.ToArray());
+            engine.CurrentContext.EvaluationStack.Push(Item.VerificationScript.ToArray());
             return true;
         }
 

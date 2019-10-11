@@ -11,11 +11,11 @@ namespace NeoDebug.Adapter.ModelAdapters
 {
     class BlockHeaderAdapter : AdapterBase, IVariableProvider, IVariableContainer
     {
-        public readonly BlockHeader Value;
+        public readonly BlockHeader Item;
 
         public BlockHeaderAdapter(in BlockHeader value)
         {
-            Value = value;
+            Item = value;
         }
 
         public static BlockHeaderAdapter Create(in BlockHeader value)
@@ -27,7 +27,7 @@ namespace NeoDebug.Adapter.ModelAdapters
         {
             // TODO: should I be calculating the hash here, or is it OK to simply retrieve the hash
             //       by block index?
-            if (blockchain.TryGetBlockHash(Value.Index, out var hash)
+            if (blockchain.TryGetBlockHash(Item.Index, out var hash)
                 && hash.TryToArray(out var array))
             {
                 engine.CurrentContext.EvaluationStack.Push(array);
@@ -39,13 +39,13 @@ namespace NeoDebug.Adapter.ModelAdapters
 
         public bool GetVersion(ExecutionEngine engine)
         {
-            engine.CurrentContext.EvaluationStack.Push((int)Value.Version);
+            engine.CurrentContext.EvaluationStack.Push((int)Item.Version);
             return true;
         }
 
         public bool GetPrevHash(ExecutionEngine engine)
         {
-            if (Value.PreviousHash.TryToArray(out var array))
+            if (Item.PreviousHash.TryToArray(out var array))
             {
                 engine.CurrentContext.EvaluationStack.Push(array);
                 return true;
@@ -56,7 +56,7 @@ namespace NeoDebug.Adapter.ModelAdapters
 
         public bool GetMerkleRoot(ExecutionEngine engine)
         {
-            if (Value.MerkleRoot.TryToArray(out var array))
+            if (Item.MerkleRoot.TryToArray(out var array))
             {
                 engine.CurrentContext.EvaluationStack.Push(array);
                 return true;
@@ -67,25 +67,25 @@ namespace NeoDebug.Adapter.ModelAdapters
 
         public bool GetTimestamp(ExecutionEngine engine)
         {
-            engine.CurrentContext.EvaluationStack.Push((uint)Value.Timestamp.ToUnixTimeSeconds());
+            engine.CurrentContext.EvaluationStack.Push((uint)Item.Timestamp.ToUnixTimeSeconds());
             return true;
         }
 
         public bool GetIndex(ExecutionEngine engine)
         {
-            engine.CurrentContext.EvaluationStack.Push(Value.Index);
+            engine.CurrentContext.EvaluationStack.Push(Item.Index);
             return true;
         }
 
         public bool GetConsensusData(ExecutionEngine engine)
         {
-            engine.CurrentContext.EvaluationStack.Push(Value.ConsensusData);
+            engine.CurrentContext.EvaluationStack.Push(Item.ConsensusData);
             return true;
         }
 
         public bool GetNextConsensus(ExecutionEngine engine)
         {
-            if (Value.NextConsensus.TryToArray(out var array))
+            if (Item.NextConsensus.TryToArray(out var array))
             {
                 engine.CurrentContext.EvaluationStack.Push(array);
                 return true;
@@ -109,43 +109,43 @@ namespace NeoDebug.Adapter.ModelAdapters
             yield return new Variable()
             {
                 Name = "Version",
-                Value = Value.Version.ToString(),
+                Value = Item.Version.ToString(),
             };
 
             yield return new Variable()
             {
                 Name = "Index",
-                Value = Value.Index.ToString(),
+                Value = Item.Index.ToString(),
             };
 
             yield return new Variable()
             {
                 Name = "PreviousHash",
-                Value = Value.PreviousHash.ToString(),
+                Value = Item.PreviousHash.ToString(),
             };
 
             yield return new Variable()
             {
                 Name = "MerkleRoot",
-                Value = Value.MerkleRoot.ToString(),
+                Value = Item.MerkleRoot.ToString(),
             };
 
             yield return new Variable()
             {
                 Name = "Timestamp",
-                Value = Value.Timestamp.ToString(),
+                Value = Item.Timestamp.ToString(),
             };
 
             yield return new Variable()
             {
                 Name = "NextConsensus",
-                Value = Value.NextConsensus.ToString(),
+                Value = Item.NextConsensus.ToString(),
             };
 
             yield return new Variable()
             {
                 Name = "ConsensusData",
-                Value = Value.ConsensusData.ToString(),
+                Value = Item.ConsensusData.ToString(),
             };
         }
     }

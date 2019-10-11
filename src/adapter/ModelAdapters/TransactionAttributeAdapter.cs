@@ -11,11 +11,11 @@ namespace NeoDebug.Adapter.ModelAdapters
 {
     internal class TransactionAttributeAdapter : AdapterBase, IVariableProvider, IVariableContainer
     {
-        public readonly TransactionAttribute Value;
+        public readonly TransactionAttribute Item;
 
         public TransactionAttributeAdapter(in TransactionAttribute value)
         {
-            Value = value;
+            Item = value;
         }
 
         public static TransactionAttributeAdapter Create(in TransactionAttribute value)
@@ -25,13 +25,13 @@ namespace NeoDebug.Adapter.ModelAdapters
 
         public bool GetData(ExecutionEngine engine)
         {
-            engine.CurrentContext.EvaluationStack.Push(Value.Data.ToArray());
+            engine.CurrentContext.EvaluationStack.Push(Item.Data.ToArray());
             return true;
         }
 
         public bool GetUsage(ExecutionEngine engine)
         {
-            engine.CurrentContext.EvaluationStack.Push((int)Value.Usage);
+            engine.CurrentContext.EvaluationStack.Push((int)Item.Usage);
             return true;
         }
 
@@ -51,7 +51,7 @@ namespace NeoDebug.Adapter.ModelAdapters
             {
                 Name = "Usage",
                 Type = "UsageType",
-                Value = Value.Usage.ToString()
+                Value = Item.Usage.ToString()
             };
 
             yield return new Variable()

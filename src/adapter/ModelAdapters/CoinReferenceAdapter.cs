@@ -10,11 +10,11 @@ namespace NeoDebug.Adapter.ModelAdapters
 {
     internal class CoinReferenceAdapter : AdapterBase, IVariableProvider, IVariableContainer
     {
-        public readonly CoinReference Value;
+        public readonly CoinReference Item;
 
         public CoinReferenceAdapter(in CoinReference value)
         {
-            Value = value;
+            Item = value;
         }
 
         public static CoinReferenceAdapter Create(in CoinReference value)
@@ -24,13 +24,13 @@ namespace NeoDebug.Adapter.ModelAdapters
 
         public bool GetIndex(ExecutionEngine engine)
         {
-            engine.CurrentContext.EvaluationStack.Push((int)Value.PrevIndex);
+            engine.CurrentContext.EvaluationStack.Push((int)Item.PrevIndex);
             return true;
         }
 
         public bool GetHash(ExecutionEngine engine)
         {
-            if (Value.PrevHash.TryToArray(out var array))
+            if (Item.PrevHash.TryToArray(out var array))
             {
                 engine.CurrentContext.EvaluationStack.Push(array);
                 return true;
@@ -56,13 +56,13 @@ namespace NeoDebug.Adapter.ModelAdapters
             {
                 Name = "PrevHash",
                 Type = "UInt256",
-                Value = Value.PrevHash.ToString()
+                Value = Item.PrevHash.ToString()
             };
             yield return new Variable()
             {
                 Name = "PrevIndex",
                 Type = "ushort",
-                Value = Value.PrevIndex.ToString()
+                Value = Item.PrevIndex.ToString()
             };
         }
     }
