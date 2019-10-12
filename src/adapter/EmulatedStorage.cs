@@ -44,7 +44,7 @@ namespace NeoDebug.Adapter
         {
             foreach (var kvp in storage)
             {
-                if (kvp.Key.Equals(scriptHash) && !kvp.Value.deleted)
+                if (kvp.Key.ScriptHash.Equals(scriptHash) && !kvp.Value.deleted)
                 {
                     yield return (kvp.Key.Key, kvp.Value.item);
                 }
