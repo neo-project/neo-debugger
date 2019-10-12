@@ -4,6 +4,7 @@
     <AssemblyName>neodebug</AssemblyName>
     <Authors>Neo Global Development Seattle</Authors>
     <LangVersion>8</LangVersion>
+    <Nullable>enable</Nullable>
     <PackageId>Neo.Debug</PackageId>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/neo-project/neo-debugger</PackageProjectUrl>

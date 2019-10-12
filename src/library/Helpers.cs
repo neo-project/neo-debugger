@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Numerics;
-using System.Text;
 
 namespace NeoDebug
 {
@@ -43,11 +42,11 @@ namespace NeoDebug
                 }
             }
 
-            value = default;
+            value = string.Empty;
             return false;
         }
 
-        internal static Method GetMethod(this Contract contract, ExecutionContext context)
+        internal static Method? GetMethod(this Contract contract, ExecutionContext context)
         {
             if (contract.ScriptHash.AsSpan().SequenceEqual(context.ScriptHash))
             {
@@ -69,7 +68,7 @@ namespace NeoDebug
             return false;
         }
 
-        internal static SequencePoint GetCurrentSequencePoint(this Method method, ExecutionContext context)
+        internal static SequencePoint? GetCurrentSequencePoint(this Method method, ExecutionContext context)
         {
             if (method != null)
             {
@@ -98,14 +97,15 @@ namespace NeoDebug
             return null;
         }
 
-        internal static Variable GetVariable(this StackItem item, IVariableContainerSession session, Parameter parameter = null)
+        internal static Variable GetVariable(this StackItem item, IVariableContainerSession session, Parameter? parameter = null)
         {
             if (parameter?.Type == "ByteArray")
             {
                 return ByteArrayContainer.GetVariable(item.GetByteArray(), session, parameter?.Name);
             }
 
-            if (item.TryGetValue(parameter?.Type, out var value))
+            if (parameter != null 
+                && item.TryGetValue(parameter.Type, out var value))
             {
                 return new Variable()
                 {

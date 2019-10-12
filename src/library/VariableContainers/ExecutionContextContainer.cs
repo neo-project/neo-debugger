@@ -1,10 +1,8 @@
 ﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.VM;
 using NeoDebug.Models;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace NeoDebug.VariableContainers
 {
@@ -12,14 +10,14 @@ namespace NeoDebug.VariableContainers
     {
         private readonly IVariableContainerSession session;
         private readonly ExecutionContext context;
-        private readonly Method method;
+        private readonly Method? method;
 
         public ExecutionContextContainer(IVariableContainerSession session, ExecutionContext context, Contract contract)
             : this(session, context, contract.GetMethod(context))
         {
         }
 
-        public ExecutionContextContainer(IVariableContainerSession session, ExecutionContext context, Method method)
+        public ExecutionContextContainer(IVariableContainerSession session, ExecutionContext context, Method? method)
         {
             this.session = session;
             this.context = context;
@@ -34,7 +32,7 @@ namespace NeoDebug.VariableContainers
 
                 for (int i = 0; i < variables.Count; i++)
                 {
-                    var parameter = method.Locals.ElementAtOrDefault(i);
+                    var parameter = method?.Locals.ElementAtOrDefault(i);
                     var variable = variables[i].GetVariable(session, parameter);
                     variable.Name = string.IsNullOrEmpty(variable.Name)
                         ? $"<variable {i}>"

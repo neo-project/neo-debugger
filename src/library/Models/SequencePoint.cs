@@ -11,7 +11,7 @@ namespace NeoDebug.Models
         public int Address { get; set; }
 
         [JsonProperty("document")]
-        public string Document { get; set; }
+        public string Document { get; set; } = string.Empty;
 
         [JsonProperty("start-line")]
         public int StartLine { get; set; }

@@ -40,12 +40,12 @@ namespace NeoDebug.VariableContainers
             this.memory = memory;
         }
 
-        public static Variable GetVariable(ByteArray byteArray, IVariableContainerSession session, string name = null)
+        public static Variable GetVariable(ByteArray byteArray, IVariableContainerSession session, string? name = null)
         {
             return GetVariable(byteArray.GetByteArray(), session, name);
         }
 
-        public static Variable GetVariable(ReadOnlyMemory<byte> memory, IVariableContainerSession session, string name = null)
+        public static Variable GetVariable(ReadOnlyMemory<byte> memory, IVariableContainerSession session, string? name = null)
         {
             var container = new ByteArrayContainer(session, memory);
             var containerID = session.AddVariableContainer(container);

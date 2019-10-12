@@ -10,13 +10,13 @@ namespace NeoDebug.Models
     public class Method
     {
         [JsonProperty("namespace")]
-        public string Namespace { get; set; }
+        public string Namespace { get; set; } = string.Empty;
 
         [JsonProperty("name")]
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         [JsonProperty("display-name")]
-        public string DisplayName { get; set; }
+        public string DisplayName { get; set; } = string.Empty;
 
         [JsonProperty("start-address")]
         public int StartAddress { get; set; }
@@ -25,20 +25,19 @@ namespace NeoDebug.Models
         public int EndAddress { get; set; }
 
         [JsonProperty("parameters")]
-        public List<Parameter> Parameters { get; set; }
+        public List<Parameter> Parameters { get; set; } = new List<Parameter>();
 
         [JsonProperty("return-type")]
-        public string ReturnType { get; set; }
+        public string ReturnType { get; set; } = string.Empty;
 
         [JsonProperty("variables")]
-        public List<Parameter> Variables { get; set; }
+        public List<Parameter> Variables { get; set; } = new List<Parameter>();
 
         [JsonProperty("sequence-points")]
-        public List<SequencePoint> SequencePoints { get; set; }
+        public List<SequencePoint> SequencePoints { get; set; } = new List<SequencePoint>();
 
         [JsonIgnore]
         public IEnumerable<Parameter> Locals => 
-            (Parameters ?? Enumerable.Empty<Parameter>())
-                .Concat(Variables ?? Enumerable.Empty<Parameter>());
+            Parameters.Concat(Variables);
     }
 }

@@ -16,17 +16,17 @@ namespace NeoDebug
         private readonly Action<LogCategory, string> logger;
         private readonly Func<Contract, LaunchArguments, Action<OutputEvent>, IExecutionEngine> createEngineFunc;
         private readonly Func<byte[], byte[]> scriptHashFunc;
-        private DebugSession session;
+        private DebugSession? session;
 
         public DebugAdapter(Stream @in, Stream @out, Func<Contract, LaunchArguments, Action<OutputEvent>, IExecutionEngine> createEngineFunc,
-                            Func<byte[], byte[]> scriptHashFunc, Action<LogCategory, string> logger = null)
+                            Func<byte[], byte[]> scriptHashFunc, Action<LogCategory, string>? logger = null)
         {
             this.createEngineFunc = createEngineFunc;
             this.scriptHashFunc = scriptHashFunc;
             this.logger = logger ?? ((_, __) => { });
 
             InitializeProtocolClient(@in, @out);
-            Protocol.LogMessage += (sender, args) => logger(args.Category, args.Message);
+            Protocol.LogMessage += (sender, args) => this.logger(args.Category, args.Message);
         }
 
         public void Run()
@@ -77,63 +77,47 @@ namespace NeoDebug
             switch (arg.Type)
             {
                 case JTokenType.Integer:
-                    return new ContractArgument
-                    {
-                        Type = ContractParameterType.Integer,
-                        Value = new BigInteger(arg.Value<int>()),
-                    };
+                    return new ContractArgument(ContractParameterType.Integer, new BigInteger(arg.Value<int>()));
                 case JTokenType.String:
                     var value = arg.Value<string>();
                     if (value.TryParseBigInteger(out var bigInteger))
                     {
-                        return new ContractArgument
-                        {
-                            Type = ContractParameterType.Integer,
-                            Value = bigInteger,
-                        };
+                        return new ContractArgument(ContractParameterType.Integer, bigInteger);
                     }
                     else
                     {
-                        return new ContractArgument
-                        {
-                            Type = ContractParameterType.String,
-                            Value = value,
-                        };
+                        return new ContractArgument(ContractParameterType.String, value);
                     }
                 default:
                     throw new NotImplementedException($"DebugAdapter.ConvertArgument {arg.Type}");
             }
         }
 
-        private static object ConvertArgument(ContractParameterType paramType, JToken arg)
+        private static object ConvertArgument(ContractParameterType paramType, JToken? arg)
         {
             switch (paramType)
             {
                 case ContractParameterType.Boolean:
                     return arg?.Type == JTokenType.Boolean
                         ? arg.Value<bool>()
-                        : bool.Parse(arg.ToString());
+                        : bool.Parse(arg!.ToString());
                 case ContractParameterType.Integer:
                     return arg?.Type == JTokenType.Integer
                         ? new BigInteger(arg.Value<int>())
-                        : BigInteger.Parse(arg.ToString());
+                        : BigInteger.Parse(arg!.ToString());
                 case ContractParameterType.String:
                     return arg?.ToString() ?? "";
                 case ContractParameterType.Array:
-                    return arg?.Select(ConvertArgument).ToArray() ?? new object[0];
+                    return arg?.Select(ConvertArgument).ToArray() ?? Array.Empty<object>();
                 default:
                     throw new NotImplementedException($"DebugAdapter.ConvertArgument {paramType} {arg}");
             }
         }
 
-        private static ContractArgument ConvertArgument(JToken arg, Parameter param)
+        private static ContractArgument ConvertArgument(Parameter param, JToken? arg)
         {
             var type = ParseTypeName(param.Type);
-            return new ContractArgument()
-            {
-                Type = type,
-                Value = ConvertArgument(type, arg)
-            };
+            return new ContractArgument(type, ConvertArgument(type, arg));
         }
 
         protected override LaunchResponse HandleLaunchRequest(LaunchArguments arguments)
@@ -154,8 +138,8 @@ namespace NeoDebug
                 for (int i = 0; i < method.Parameters.Count; i++)
                 {
                     var param = method.Parameters[i];
-                    var arg = args.ElementAtOrDefault(i);
-                    yield return ConvertArgument(arg, param);
+                    JToken? arg = args.ElementAtOrDefault(i);
+                    yield return ConvertArgument(param, arg);
                 }
             }
 
@@ -184,36 +168,48 @@ namespace NeoDebug
 
         protected override ThreadsResponse HandleThreadsRequest(ThreadsArguments arguments)
         {
+            if (session == null) throw new InvalidOperationException();
+
             var threads = session.GetThreads().ToList();
             return new ThreadsResponse(threads);
         }
 
         protected override StackTraceResponse HandleStackTraceRequest(StackTraceArguments arguments)
         {
+            if (session == null) throw new InvalidOperationException();
+
             var frames = session.GetStackFrames(arguments).ToList();
             return new StackTraceResponse(frames);
         }
 
         protected override ScopesResponse HandleScopesRequest(ScopesArguments arguments)
         {
+            if (session == null) throw new InvalidOperationException();
+
             var scopes = session.GetScopes(arguments).ToList();
             return new ScopesResponse(scopes);
         }
 
         protected override VariablesResponse HandleVariablesRequest(VariablesArguments arguments)
         {
+            if (session == null) throw new InvalidOperationException();
+
             var variables = session.GetVariables(arguments).ToList();
             return new VariablesResponse(variables);
         }
 
         protected override EvaluateResponse HandleEvaluateRequest(EvaluateArguments arguments)
         {
+            if (session == null) throw new InvalidOperationException();
+
             return session.Evaluate(arguments);
         }
 
         private void FireStoppedEvent(StoppedEvent.ReasonValue reasonValue)
         {
-            string GetResult(StackItem item, string type)
+            if (session == null) throw new InvalidOperationException();
+
+            static string GetResult(StackItem item, string type)
             {
                 if (type == "ByteArray" || type == string.Empty)
                 {
@@ -255,6 +251,8 @@ as hex:     0x{item.GetBigInteger().ToString("x")}";
 
         protected override ContinueResponse HandleContinueRequest(ContinueArguments arguments)
         {
+            if (session == null) throw new InvalidOperationException();
+
             session.Continue();
             FireStoppedEvent(StoppedEvent.ReasonValue.Step);
 
@@ -263,6 +261,8 @@ as hex:     0x{item.GetBigInteger().ToString("x")}";
 
         protected override StepInResponse HandleStepInRequest(StepInArguments arguments)
         {
+            if (session == null) throw new InvalidOperationException();
+
             session.StepIn();
             FireStoppedEvent(StoppedEvent.ReasonValue.Step);
 
@@ -271,6 +271,8 @@ as hex:     0x{item.GetBigInteger().ToString("x")}";
 
         protected override StepOutResponse HandleStepOutRequest(StepOutArguments arguments)
         {
+            if (session == null) throw new InvalidOperationException();
+
             session.StepOut();
             FireStoppedEvent(StoppedEvent.ReasonValue.Step);
 
@@ -280,6 +282,8 @@ as hex:     0x{item.GetBigInteger().ToString("x")}";
         // Next == StepOver in VSCode UI
         protected override NextResponse HandleNextRequest(NextArguments arguments)
         {
+            if (session == null) throw new InvalidOperationException();
+
             session.StepOver();
             FireStoppedEvent(StoppedEvent.ReasonValue.Step);
 
@@ -288,6 +292,8 @@ as hex:     0x{item.GetBigInteger().ToString("x")}";
 
         protected override SetBreakpointsResponse HandleSetBreakpointsRequest(SetBreakpointsArguments arguments)
         {
+            if (session == null) throw new InvalidOperationException();
+
             var breakpoints = session.SetBreakpoints(arguments.Source, arguments.Breakpoints).ToList();
             return new SetBreakpointsResponse(breakpoints);
         }

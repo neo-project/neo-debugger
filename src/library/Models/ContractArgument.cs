@@ -5,10 +5,16 @@ using System.Numerics;
 
 namespace NeoDebug.Models
 {
-    public class ContractArgument
+    public readonly struct ContractArgument
     {
-        public ContractParameterType Type;
-        public object Value;
+        public readonly ContractParameterType Type;
+        public readonly object Value;
+
+        public ContractArgument(ContractParameterType type, object value)
+        {
+            Type = type;
+            Value = value;
+        }
 
         public void EmitPush(ScriptBuilder builder)
         {

@@ -184,7 +184,7 @@ namespace NeoDebug
                         ModuleId = context.ScriptHash,
                     };
 
-                    var sequencePoint = method.GetCurrentSequencePoint(context);
+                    var sequencePoint = method?.GetCurrentSequencePoint(context);
 
                     if (sequencePoint != null)
                     {
@@ -257,7 +257,7 @@ namespace NeoDebug
 
                         for (int variableIndex = 0; variableIndex < variables.Count; variableIndex++)
                         {
-                            var local = method.Locals.ElementAtOrDefault(variableIndex);
+                            var local = method?.Locals.ElementAtOrDefault(variableIndex);
                             if (local?.Name == args.Expression)
                             {
                                 var variable = variables[variableIndex].GetVariable(this, local);

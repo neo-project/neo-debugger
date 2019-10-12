@@ -11,13 +11,13 @@ namespace NeoDebug.Models
     public class DebugInfo
     {
         [JsonProperty("entrypoint")]
-        public string Entrypoint { get; set; }
+        public string Entrypoint { get; set; } = string.Empty;
 
         [JsonProperty("methods")]
-        public List<Method> Methods { get; set; }
+        public List<Method> Methods { get; set; } = new List<Method>();
 
         [JsonProperty("sequence-points")]
-        public List<SequencePoint> SequencePoints { get; set; }
+        public List<SequencePoint> SequencePoints { get; set; } = new List<SequencePoint>();
 
         public static DebugInfo FromJson(string json) =>
             JsonConvert.DeserializeObject<DebugInfo>(json, JsonSerializerSettings);
