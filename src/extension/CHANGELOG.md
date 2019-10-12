@@ -17,6 +17,12 @@ may not exactly match a publicly released version.
 
 - Refactored NeoDebug Adapter to seperate common debug functionally from isolated debug
   adapter implementation.
+- Added support for UTXO configuration parameters
+- Added support for many more NEO services, with block chain data provided by
+  NEO-Express checkpoint
+- Added debug variable support for domain model stack items like Block and Transaction
+- Major restructuring as part of additional NEO service support
+- Updated debug adapter to netcore 3.0 and C# 8 (with nullable types enabled)
 
 ## [0.5] - 2019-09-06
 
