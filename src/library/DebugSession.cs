@@ -89,7 +89,7 @@ namespace NeoDebug
             {
                 var context = engine.CurrentContext;
 
-                if (Utilities.Compare(Contract.ScriptHash, context.ScriptHash))
+                if (Contract.ScriptHash.AsSpan().SequenceEqual(context.ScriptHash))
                 {
                     var ip = context.InstructionPointer;
                     foreach (var kvp in breakPoints)

@@ -11,7 +11,7 @@ using System.Text;
 
 namespace NeoDebug
 {
-    public static class Utilities
+    public static class Helpers
     {
         public static bool TryParseBigInteger(this string value, out BigInteger bigInteger)
         {
@@ -47,28 +47,9 @@ namespace NeoDebug
             return false;
         }
 
-        internal static bool Compare(byte[] a1, byte[] a2)
-        {
-            // Note, ScriptHash.AsSpan().SequenceEqual would be preferanble to Utilities.Compare, 
-            //       but Span isn't available in netstandard2.0
-
-            if (a1.Length != a2.Length)
-                return false;
-
-            for (int i = 0; i < a1.Length; i++)
-            {
-                if (a1[i] != a2[i])
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
         internal static Method GetMethod(this Contract contract, ExecutionContext context)
         {
-            if (Compare(contract.ScriptHash, context.ScriptHash))
+            if (contract.ScriptHash.AsSpan().SequenceEqual(context.ScriptHash))
             {
                 var ip = context.InstructionPointer;
                 return contract.DebugInfo.Methods
@@ -80,7 +61,7 @@ namespace NeoDebug
 
         internal static bool CheckSequencePoint(this Contract contract, ExecutionContext context)
         {
-            if (Compare(contract.ScriptHash, context.ScriptHash))
+            if (contract.ScriptHash.AsSpan().SequenceEqual(context.ScriptHash))
             {
                 return (contract.GetMethod(context)?.SequencePoints ?? new List<SequencePoint>())
                     .Any(sp => sp.Address == context.InstructionPointer);

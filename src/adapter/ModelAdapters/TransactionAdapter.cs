@@ -102,7 +102,7 @@ namespace NeoDebug.Adapter.ModelAdapters
 
         public bool GetHash(ExecutionEngine engine)
         {
-            if (NeoFx.Utility.TryHash(Item, out var hash)
+            if (NeoFx.Helpers.TryHash(Item, out var hash)
                 && hash.TryToArray(out var array))
             {
                 engine.CurrentContext.EvaluationStack.Push(array);
@@ -125,7 +125,7 @@ namespace NeoDebug.Adapter.ModelAdapters
 
         public bool GetUnspentCoins(ExecutionEngine engine, IBlockchainStorage? blockchain)
         {
-            if (NeoFx.Utility.TryHash(Item, out var hash)
+            if (NeoFx.Helpers.TryHash(Item, out var hash)
                 && blockchain != null
                 && blockchain.TryGetUnspentCoins(hash, out var coinStates))
             {
@@ -181,7 +181,7 @@ namespace NeoDebug.Adapter.ModelAdapters
                 Value = Item.Type.ToString(),
             };
 
-            if (NeoFx.Utility.TryHash(Item, out var hash))
+            if (NeoFx.Helpers.TryHash(Item, out var hash))
             {
                 yield return new Variable()
                 {
@@ -194,7 +194,7 @@ namespace NeoDebug.Adapter.ModelAdapters
         byte[] IScriptContainer.GetMessage()
         {
             var buffer = new byte[Item.GetSize()];
-            if (NeoFx.Utility.TryWriteHashData(Item, buffer, out var bytesWritten))
+            if (NeoFx.Helpers.TryWriteHashData(Item, buffer, out var bytesWritten))
             {
                 Debug.Assert(bytesWritten == buffer.Length);
                 return buffer;

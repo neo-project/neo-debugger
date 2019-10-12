@@ -15,7 +15,7 @@ namespace NeoDebug.Adapter
         public static byte[] Hash256(byte[] message)
         {
             var hashBuffer = new byte[32];
-            if (NeoFx.Utility.TryHash256(message, hashBuffer))
+            if (NeoFx.Helpers.TryHash256(message, hashBuffer))
             {
                 return hashBuffer;
             }
@@ -26,7 +26,7 @@ namespace NeoDebug.Adapter
         public static byte[] Hash160(byte[] message)
         {
             var hashBuffer = new byte[20];
-            if (NeoFx.Utility.TryHash160(message, hashBuffer))
+            if (NeoFx.Helpers.TryHash160(message, hashBuffer))
             {
                 return hashBuffer;
             }
