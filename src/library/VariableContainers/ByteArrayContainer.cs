@@ -92,12 +92,12 @@ namespace NeoDebug.VariableContainers
                 Type = "Integer"
             };
 
-            //yield return new Variable()
-            //{
-            //    Name = "<as bool>",
-            //    Value = array.GetBoolean().ToString(),
-            //    Type = "Boolean"
-            //};
+            yield return new Variable()
+            {
+                Name = "<as bool>",
+                Value = (bigInt != System.Numerics.BigInteger.Zero).ToString(),
+                Type = "Boolean"
+            };
         }
     }
 }
