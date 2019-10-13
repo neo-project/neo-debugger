@@ -1,56 +1,31 @@
 ﻿using Neo.VM;
+using NeoFx;
 using System;
-using System.Diagnostics;
-using System.Security.Cryptography;
 
 namespace NeoDebug.Adapter
 {
     class Crypto : ICrypto
     {
-        public static readonly Lazy<SHA256> SHA256 = new Lazy<SHA256>(() => System.Security.Cryptography.SHA256.Create());
-
-        // TODO: replace SHA1 with RIPEMD-160 implementaiton
-        private static readonly Lazy<SHA1> SHA1 = new Lazy<SHA1>(() => System.Security.Cryptography.SHA1.Create());
-
         public static byte[] Hash256(byte[] message)
         {
-            var hashBuffer = new byte[32];
-            if (NeoFx.Helpers.TryHash256(message, hashBuffer))
+            var hashBuffer = new byte[HashHelpers.Hash256Size];
+            if (HashHelpers.TryHash256(message, hashBuffer))
             {
                 return hashBuffer;
             }
 
-            throw new Exception();
+            throw new ArgumentException(nameof(message));
         }
 
         public static byte[] Hash160(byte[] message)
         {
-            var hashBuffer = new byte[20];
-            if (NeoFx.Helpers.TryHash160(message, hashBuffer))
+            var hashBuffer = new byte[HashHelpers.Hash160Size];
+            if (HashHelpers.TryHash160(message, hashBuffer))
             {
                 return hashBuffer;
             }
 
-            throw new Exception();
-        }
-
-        // Note, byte arrays have reference semantics for GetHashCode
-        // GetHashCode<T> provides a value semantic hash code for a Span of T's
-        public static int GetHashCode<T>(ReadOnlySpan<T> span)
-        {
-#nullable disable
-            int hash = default(T).GetHashCode();
-            for (int i = 0; i < span.Length; i++)
-            {
-                hash = HashCode.Combine(hash, i, span[i]);
-            }
-            return hash;
-#nullable restore
-        }
-
-        public static int GetHashCode<T>(T[] array)
-        {
-            return GetHashCode<T>(array.AsSpan());
+            throw new ArgumentException(nameof(message));
         }
 
         byte[] ICrypto.Hash160(byte[] message)

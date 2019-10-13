@@ -1,4 +1,5 @@
 ﻿using NeoDebug.Models;
+using System;
 using System.Collections.Generic;
 
 namespace NeoDebug.Adapter
@@ -12,14 +13,28 @@ namespace NeoDebug.Adapter
             Add(contract.ScriptHash, contract.Script);
         }
 
+        // Inspired by https://stackoverflow.com/a/7244522
+        private static int GetHashCode(Span<byte> span)
+        {
+            unchecked
+            {
+                int hash = 17;
+                for (int i = 0; i < span.Length; i++)
+                {
+                    hash = (hash * 23) + span[i];
+                }
+                return hash;
+            }
+        }
+
         public void Add(byte[] key, byte[] script)
         {
-            scripts[Crypto.GetHashCode(key)] = script;
+            scripts[GetHashCode(key)] = script;
         }
 
         public byte[] GetScript(byte[] key)
         {
-            return scripts[Crypto.GetHashCode(key)];
+            return scripts[GetHashCode(key)];
         }
     }
 }

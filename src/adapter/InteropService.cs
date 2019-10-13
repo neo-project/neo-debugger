@@ -119,16 +119,29 @@ namespace NeoDebug.Adapter
 
         protected void Register(string methodName, Func<ExecutionEngine, bool> handler, int price)
         {
-            methods.Add(InteropMethodHash(methodName), handler);
+            if (HashHelpers.TryInteropMethodHash(methodName, out var value))
+            {
+                methods.Add(value, handler);
+            }
+
+            throw new ArgumentException(nameof(methodName));
         }
 
         bool IInteropService.Invoke(byte[] method, ExecutionEngine engine)
         {
-            uint hash = method.Length == 4
-               ? BitConverter.ToUInt32(method, 0)
-               : InteropMethodHash(method);
+            static bool TryInteropMethodHash(Span<byte> method, out uint value)
+            {
+                if (method.Length == 4)
+                {
+                    value = BitConverter.ToUInt32(method);
+                    return true; 
+                }
 
-            if (methods.TryGetValue(hash, out var func))
+                return HashHelpers.TryInteropMethodHash(method, out value);
+            }
+
+            if (TryInteropMethodHash(method, out var hash)
+                && methods.TryGetValue(hash, out var func))
             {
                 try
                 {
@@ -145,17 +158,6 @@ namespace NeoDebug.Adapter
             }
 
             return false;
-        }
-
-        private static uint InteropMethodHash(byte[] asciiMethodName)
-        {
-            var hash = Crypto.SHA256.Value.ComputeHash(asciiMethodName);
-            return BitConverter.ToUInt32(hash, 0);
-        }
-
-        private static uint InteropMethodHash(string methodName)
-        {
-            return InteropMethodHash(Encoding.ASCII.GetBytes(methodName));
         }
     }
 }
