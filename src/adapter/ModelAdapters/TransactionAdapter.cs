@@ -5,6 +5,7 @@ using NeoFx;
 using NeoFx.Models;
 using NeoFx.Storage;
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 
@@ -95,7 +96,7 @@ namespace NeoDebug.Adapter.ModelAdapters
 
         public bool GetType(ExecutionEngine engine)
         {
-            engine.CurrentContext.EvaluationStack.Push((int)Item.Type);
+            engine.CurrentContext.EvaluationStack.Push((int)Item.GetTransactionType());
             return true;
         }
 
@@ -113,9 +114,9 @@ namespace NeoDebug.Adapter.ModelAdapters
 
         public bool GetScript(ExecutionEngine engine)
         {
-            if (BinaryFormat.TryReadInvocationData(Item, out var script, out var _))
+            if (Item is InvocationTransaction tx)
             {
-                engine.CurrentContext.EvaluationStack.Push(script.ToArray());
+                engine.CurrentContext.EvaluationStack.Push(tx.Script.ToArray());
                 return true;
             }
 
@@ -177,7 +178,7 @@ namespace NeoDebug.Adapter.ModelAdapters
             yield return new Variable()
             {
                 Name = "Type",
-                Value = Item.Type.ToString(),
+                Value = Item.GetTransactionType().ToString(),
             };
 
             if (HashHelpers.TryHash(Item, out var hash))
@@ -192,14 +193,12 @@ namespace NeoDebug.Adapter.ModelAdapters
 
         byte[] IScriptContainer.GetMessage()
         {
-            var buffer = new byte[Item.GetSize()];
-            if (HashHelpers.TryWriteHashData(Item, buffer, out var bytesWritten))
-            {
-                Debug.Assert(bytesWritten == buffer.Length);
-                return buffer;
-            }
-
-            throw new Exception("TryWriteHashData failed");
+            // This is inefficient as it makes an extra copy. 
+            // However, this method is never called by the debugger
+            // so it's not worth it to fix at this time
+            var buffer = new ArrayBufferWriter<byte>(Item.GetSize());
+            HashHelpers.WriteHashData(Item, buffer);
+            return buffer.WrittenMemory.ToArray();
         }
     }
 }

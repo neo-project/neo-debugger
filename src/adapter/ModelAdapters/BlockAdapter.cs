@@ -32,6 +32,7 @@ namespace NeoDebug.Adapter.ModelAdapters
             if (Item.Transactions.Length <= engine.MaxArraySize)
             {
                 var items = Item.Transactions.WrapStackItems(TransactionAdapter.Create);
+
                 engine.CurrentContext.EvaluationStack.Push(items);
                 return true;
             }

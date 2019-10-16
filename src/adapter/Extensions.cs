@@ -79,10 +79,9 @@ namespace NeoDebug.Adapter
             return false;
         }
 
-        public delegate StackItem WrapStackItem<T>(in T item) where T : struct;
+        public delegate StackItem WrapStackItem<T>(in T item);
 
         public static StackItem[] WrapStackItems<T>(this ReadOnlyMemory<T> memory, WrapStackItem<T> wrapItem)
-            where T : struct
         {
             var items = new StackItem[memory.Length];
             for (int i = 0; i < memory.Length; i++)

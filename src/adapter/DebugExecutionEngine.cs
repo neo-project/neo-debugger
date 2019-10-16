@@ -75,12 +75,8 @@ namespace NeoDebug.Adapter
             var blockchain = GetBlockchain(arguments.ConfigurationProperties);
             var (inputs, outputs) = GetUtxo(arguments.ConfigurationProperties, blockchain);
 
-            var tx = new Transaction(
-                TransactionType.Invocation,
-                1,
-                Transaction.InvocationTxData(contract.Script, 0),
-                inputs: inputs.ToArray(),
-                outputs: outputs.ToArray());
+            var tx = new InvocationTransaction(contract.Script, Fixed8.Zero, 1, default, 
+                inputs.ToArray(), outputs.ToArray(), default);
             var container = new ModelAdapters.TransactionAdapter(tx);
 
             var table = new ScriptTable();
