@@ -5,6 +5,10 @@
 	"displayName": "NEO Smart Contract Debugger",
 	"description": "Debugger Extension for NEO Smart Contracts",
 	"icon": "neo-logo-256.png",
+	"galleryBanner": {
+        "color": "#000000",
+        "theme": "dark"
+    },
 	"author": "NEO Global Development Seattle",
 	"engines": {
 		"vscode": "^1.37.0"
