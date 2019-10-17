@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Numerics;
+using System.Security.Cryptography;
 
 namespace NeoDebug
 {
@@ -18,6 +19,27 @@ namespace NeoDebug
                 && BigInteger.TryParse(value.AsSpan().Slice(2), NumberStyles.HexNumber, null, out bigInteger))
             {
                 return true;
+            }
+
+            Lazy<SHA256> sha256 = new Lazy<SHA256>(() => SHA256.Create());
+
+            // All NEO addresses start with an 'A' and are 34 characters long
+            if (value.StartsWith("@A", StringComparison.Ordinal))
+            {
+                Span<byte> tempBuffer = stackalloc byte[32];
+                Span<byte> checksum = stackalloc byte[32];
+                var decoded = SimpleBase.Base58.Bitcoin.Decode(value.AsSpan().Slice(1));
+
+                if (decoded.Length == 25 // address version byte + 20 bytes address + 4 byte checksum
+                    && decoded[0] == 23  // Address version 23 used by mainnet, testnet and NEO Express
+                    && sha256.Value.TryComputeHash(decoded.Slice(0, 21), tempBuffer, out var written1)
+                    && sha256.Value.TryComputeHash(tempBuffer, checksum, out var written2)
+                    && written1 == 32 && written2 == 32
+                    && decoded.Slice(21).SequenceEqual(checksum.Slice(0, 4)))
+                {
+                    bigInteger = new BigInteger(decoded.Slice(1, 20));
+                    return true;
+                }
             }
 
             bigInteger = default;
