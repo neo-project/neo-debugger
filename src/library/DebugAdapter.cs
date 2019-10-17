@@ -274,13 +274,12 @@ as hex:     0x{item.GetBigInteger().ToString("x")}";
 
                 session.ClearVariableContainers();
 
-                if ((session.EngineState & VMState.FAULT) == 0)
+                if ((session.EngineState & VMState.FAULT) != 0)
                 {
                     throw new Exception("Engine State Faulted");
                 }
                 if ((session.EngineState & VMState.HALT) != 0)
                 {
-
                     foreach (var item in session.GetResults())
                     {
                         Protocol.SendEvent(new OutputEvent(GetResult(item, session.Contract.EntryPoint.ReturnType)));
