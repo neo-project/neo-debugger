@@ -119,12 +119,12 @@ namespace NeoDebug.Adapter
 
         protected void Register(string methodName, Func<ExecutionEngine, bool> handler, int price)
         {
-            if (HashHelpers.TryInteropMethodHash(methodName, out var value))
+            if (!HashHelpers.TryInteropMethodHash(methodName, out var value))
             {
-                methods.Add(value, handler);
+                throw new ArgumentException(nameof(methodName));
             }
 
-            throw new ArgumentException(nameof(methodName));
+            methods.Add(value, handler);
         }
 
         bool IInteropService.Invoke(byte[] method, ExecutionEngine engine)
