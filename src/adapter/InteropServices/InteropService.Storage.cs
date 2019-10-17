@@ -1,4 +1,6 @@
-﻿using Neo.VM;
+﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using Neo.VM;
+using NeoDebug.VariableContainers;
 using NeoFx;
 using NeoFx.Models;
 using NeoFx.Storage;
@@ -11,7 +13,7 @@ namespace NeoDebug.Adapter
 
     internal partial class InteropService
     {
-        private class StorageContext : ModelAdapters.AdapterBase
+        private class StorageContext : ModelAdapters.AdapterBase, IVariableProvider
         {
             public readonly UInt160 ScriptHash;
             public readonly bool ReadOnly;
@@ -20,6 +22,15 @@ namespace NeoDebug.Adapter
             {
                 ScriptHash = scriptHash;
                 ReadOnly = readOnly;
+            }
+
+            public Variable GetVariable(IVariableContainerSession session)
+            {
+                return new Variable()
+                {
+                    Type = "StorageContext",
+                    Value = ScriptHash.ToString(),
+                };
             }
         }
 
