@@ -6,7 +6,7 @@
 	"description": "Debugger Extension for NEO Smart Contracts",
 	"icon": "neo-logo-256.png",
 	"galleryBanner": {
-        "color": "#000000",
+        "color": "#242424",
         "theme": "dark"
     },
 	"author": "NEO Global Development Seattle",
