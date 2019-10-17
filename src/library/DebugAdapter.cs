@@ -143,17 +143,24 @@ namespace NeoDebug
                 }
             }
 
-            var programFileName = (string)arguments.ConfigurationProperties["program"];
-            var contract = Contract.Load(programFileName, scriptHashFunc);
-            var contractArgs = GetArguments(contract.EntryPoint);
-            var engine = createEngineFunc(contract, arguments, outputEvent => Protocol.SendEvent(outputEvent));
+            try
+            {
+                var programFileName = (string)arguments.ConfigurationProperties["program"];
+                var contract = Contract.Load(programFileName, scriptHashFunc);
+                var contractArgs = GetArguments(contract.EntryPoint);
+                var engine = createEngineFunc(contract, arguments, outputEvent => Protocol.SendEvent(outputEvent));
 
-            session = new DebugSession(engine, contract, contractArgs.ToArray());
+                session = new DebugSession(engine, contract, contractArgs.ToArray());
 
-            session.StepIn();
-            Protocol.SendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Entry) { ThreadId = 1 });
+                session.StepIn();
+                Protocol.SendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Entry) { ThreadId = 1 });
 
-            return new LaunchResponse();
+                return new LaunchResponse();
+            }
+            catch (Exception ex)
+            {
+                throw new ProtocolException(ex.Message, ex);
+            }
         }
 
         protected override DisconnectResponse HandleDisconnectRequest(DisconnectArguments arguments)
@@ -170,132 +177,209 @@ namespace NeoDebug
         {
             if (session == null) throw new InvalidOperationException();
 
-            var threads = session.GetThreads().ToList();
-            return new ThreadsResponse(threads);
+            try
+            {
+                var threads = session.GetThreads().ToList();
+                return new ThreadsResponse(threads);
+            }
+            catch (Exception ex)
+            {
+                throw new ProtocolException(ex.Message, ex);
+            }
         }
 
-        protected override StackTraceResponse HandleStackTraceRequest(StackTraceArguments arguments)
+protected override StackTraceResponse HandleStackTraceRequest(StackTraceArguments arguments)
         {
-            if (session == null) throw new InvalidOperationException();
+            try
+            {
+                if (session == null) throw new InvalidOperationException();
 
-            var frames = session.GetStackFrames(arguments).ToList();
-            return new StackTraceResponse(frames);
+                var frames = session.GetStackFrames(arguments).ToList();
+                return new StackTraceResponse(frames);
+            }
+            catch (Exception ex)
+            {
+                throw new ProtocolException(ex.Message, ex);
+            }
         }
 
         protected override ScopesResponse HandleScopesRequest(ScopesArguments arguments)
         {
-            if (session == null) throw new InvalidOperationException();
+            try
+            {
+                if (session == null) throw new InvalidOperationException();
 
-            var scopes = session.GetScopes(arguments).ToList();
-            return new ScopesResponse(scopes);
+                var scopes = session.GetScopes(arguments).ToList();
+                return new ScopesResponse(scopes);
+            }
+            catch (Exception ex)
+            {
+                throw new ProtocolException(ex.Message, ex);
+            }
         }
 
         protected override VariablesResponse HandleVariablesRequest(VariablesArguments arguments)
         {
-            if (session == null) throw new InvalidOperationException();
+            try
+            {
+                if (session == null) throw new InvalidOperationException();
 
-            var variables = session.GetVariables(arguments).ToList();
-            return new VariablesResponse(variables);
+                var variables = session.GetVariables(arguments).ToList();
+                return new VariablesResponse(variables);
+            }
+            catch (Exception ex)
+            {
+                throw new ProtocolException(ex.Message, ex);
+            }
         }
 
         protected override EvaluateResponse HandleEvaluateRequest(EvaluateArguments arguments)
         {
-            if (session == null) throw new InvalidOperationException();
+            try
+            {
+                if (session == null) throw new InvalidOperationException();
 
-            return session.Evaluate(arguments);
+                return session.Evaluate(arguments);
+            }
+            catch (Exception ex)
+            {
+                throw new ProtocolException(ex.Message, ex);
+            }
         }
 
         private void FireStoppedEvent(StoppedEvent.ReasonValue reasonValue)
         {
-            if (session == null) throw new InvalidOperationException();
-
-            static string GetResult(StackItem item, string type)
+            try
             {
-                if (type == "ByteArray" || type == string.Empty)
+                if (session == null) throw new InvalidOperationException();
+
+                static string GetResult(StackItem item, string type)
                 {
-                    return $@"byte[{item.GetByteArray().Length}]
+                    if (type == "ByteArray" || type == string.Empty)
+                    {
+                        return $@"byte[{item.GetByteArray().Length}]
 as string:  ""{item.GetString()}""
 as boolean: {item.GetBoolean()}
 as integer: {item.GetBigInteger()}
 as hex:     0x{item.GetBigInteger().ToString("x")}";
+                    }
+
+                    if (item.TryGetValue(type, out var value))
+                    {
+                        return value;
+                    }
+
+                    throw new Exception($"couldn't convert {type}");
                 }
 
-                if (item.TryGetValue(type, out var value))
+                session.ClearVariableContainers();
+
+                if ((session.EngineState & VMState.FAULT) == 0)
                 {
-                    return value;
+                    throw new Exception("Engine State Faulted");
                 }
-
-                throw new Exception($"couldn't convert {type}");
-            }
-
-            session.ClearVariableContainers();
-
-            if ((session.EngineState & VMState.FAULT) == 0)
-            {
-                // there's been a fault;
-            }
-            if ((session.EngineState & VMState.HALT) != 0)
-            {
-
-                foreach (var item in session.GetResults())
+                if ((session.EngineState & VMState.HALT) != 0)
                 {
-                    Protocol.SendEvent(new OutputEvent(GetResult(item, session.Contract.EntryPoint.ReturnType)));
+
+                    foreach (var item in session.GetResults())
+                    {
+                        Protocol.SendEvent(new OutputEvent(GetResult(item, session.Contract.EntryPoint.ReturnType)));
+                    }
+                    Protocol.SendEvent(new TerminatedEvent());
                 }
-                Protocol.SendEvent(new TerminatedEvent());
+                else
+                {
+                    Protocol.SendEvent(new StoppedEvent(reasonValue) { ThreadId = 1 });
+                }
             }
-            else
+            catch (Exception ex)
             {
-                Protocol.SendEvent(new StoppedEvent(reasonValue) { ThreadId = 1 });
+                throw new ProtocolException(ex.Message, ex);
             }
         }
 
         protected override ContinueResponse HandleContinueRequest(ContinueArguments arguments)
         {
-            if (session == null) throw new InvalidOperationException();
+            try
+            {
+                if (session == null) throw new InvalidOperationException();
 
-            session.Continue();
-            FireStoppedEvent(StoppedEvent.ReasonValue.Step);
+                session.Continue();
+                FireStoppedEvent(StoppedEvent.ReasonValue.Step);
 
-            return new ContinueResponse();
+                return new ContinueResponse();
+            }
+            catch (Exception ex)
+            {
+                throw new ProtocolException(ex.Message, ex);
+            }
         }
 
         protected override StepInResponse HandleStepInRequest(StepInArguments arguments)
         {
-            if (session == null) throw new InvalidOperationException();
+            try
+            {
+                if (session == null) throw new InvalidOperationException();
 
-            session.StepIn();
-            FireStoppedEvent(StoppedEvent.ReasonValue.Step);
+                session.StepIn();
+                FireStoppedEvent(StoppedEvent.ReasonValue.Step);
 
-            return new StepInResponse();
+                return new StepInResponse();
+            }
+            catch (Exception ex)
+            {
+                throw new ProtocolException(ex.Message, ex);
+            }
         }
 
         protected override StepOutResponse HandleStepOutRequest(StepOutArguments arguments)
         {
-            if (session == null) throw new InvalidOperationException();
+            try
+            {
+                if (session == null) throw new InvalidOperationException();
 
-            session.StepOut();
-            FireStoppedEvent(StoppedEvent.ReasonValue.Step);
+                session.StepOut();
+                FireStoppedEvent(StoppedEvent.ReasonValue.Step);
 
-            return new StepOutResponse();
+                return new StepOutResponse();
+            }
+            catch (Exception ex)
+            {
+                throw new ProtocolException(ex.Message, ex);
+            }
         }
 
         // Next == StepOver in VSCode UI
         protected override NextResponse HandleNextRequest(NextArguments arguments)
         {
-            if (session == null) throw new InvalidOperationException();
+            try
+            {
+                if (session == null) throw new InvalidOperationException();
 
-            session.StepOver();
-            FireStoppedEvent(StoppedEvent.ReasonValue.Step);
+                session.StepOver();
+                FireStoppedEvent(StoppedEvent.ReasonValue.Step);
 
-            return new NextResponse();
+                return new NextResponse();
+            }
+            catch (Exception ex)
+            {
+                throw new ProtocolException(ex.Message, ex);
+            }
         }
 
         protected override SetBreakpointsResponse HandleSetBreakpointsRequest(SetBreakpointsArguments arguments)
         {
-            if (session == null) throw new InvalidOperationException();
+            try
+            {
+                if (session == null) throw new InvalidOperationException();
 
-            var breakpoints = session.SetBreakpoints(arguments.Source, arguments.Breakpoints).ToList();
-            return new SetBreakpointsResponse(breakpoints);
+                var breakpoints = session.SetBreakpoints(arguments.Source, arguments.Breakpoints).ToList();
+                return new SetBreakpointsResponse(breakpoints);
+            }
+            catch (Exception ex)
+            {
+                throw new ProtocolException(ex.Message, ex);
+            }
         }
     }
 }
