@@ -175,10 +175,10 @@ namespace NeoDebug
 
         protected override ThreadsResponse HandleThreadsRequest(ThreadsArguments arguments)
         {
-            if (session == null) throw new InvalidOperationException();
-
             try
             {
+                if (session == null) throw new InvalidOperationException();
+
                 var threads = session.GetThreads().ToList();
                 return new ThreadsResponse(threads);
             }
@@ -188,7 +188,7 @@ namespace NeoDebug
             }
         }
 
-protected override StackTraceResponse HandleStackTraceRequest(StackTraceArguments arguments)
+        protected override StackTraceResponse HandleStackTraceRequest(StackTraceArguments arguments)
         {
             try
             {
@@ -235,6 +235,8 @@ protected override StackTraceResponse HandleStackTraceRequest(StackTraceArgument
 
         protected override EvaluateResponse HandleEvaluateRequest(EvaluateArguments arguments)
         {
+            return new EvaluateResponse();
+
             try
             {
                 if (session == null) throw new InvalidOperationException();

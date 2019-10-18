@@ -51,10 +51,11 @@ namespace NeoDebug.Adapter.ModelAdapters
             return false;
         }
 
-        public Variable GetVariable(IVariableContainerSession session)
+        public Variable GetVariable(IVariableContainerSession session, string name)
         {
             return new Variable()
             {
+                Name = name,
                 Type = "TransactionOutput",
                 VariablesReference = session.AddVariableContainer(new AdapterVariableContainer(this)),
                 NamedVariables = 3,

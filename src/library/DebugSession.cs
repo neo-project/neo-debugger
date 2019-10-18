@@ -4,6 +4,7 @@ using NeoDebug.Models;
 using NeoDebug.VariableContainers;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 
@@ -212,8 +213,12 @@ namespace NeoDebug
         public int AddVariableContainer(IVariableContainer container)
         {
             var id = container.GetHashCode();
-            variableContainers.Add(id, container);
-            return id;
+            if (variableContainers.TryAdd(id, container))
+            {
+                return id;
+            }
+
+            throw new Exception();
         }
 
         public IEnumerable<Scope> GetScopes(ScopesArguments args)
@@ -225,9 +230,11 @@ namespace NeoDebug
                     new ExecutionContextContainer(this, context, Contract));
                 yield return new Scope("Locals", contextID, false);
 
-                var storageID = AddVariableContainer(engine.GetStorageContainer(this));
-                yield return new Scope("Storage", storageID, false);
+                //var storageID = AddVariableContainer(engine.GetStorageContainer(this));
+                //yield return new Scope("Storage", storageID, false);
             }
+
+            //return Enumerable.Empty<Scope>();
         }
 
         public IEnumerable<Variable> GetVariables(VariablesArguments args)
@@ -260,10 +267,10 @@ namespace NeoDebug
                             var local = method?.Locals.ElementAtOrDefault(variableIndex);
                             if (local?.Name == args.Expression)
                             {
-                                var variable = variables[variableIndex].GetVariable(this, local);
+                                var variable = variables[variableIndex].GetVariable2(this, local.Name);
                                 return new EvaluateResponse()
                                 {
-                                    Result = variable.Value,
+                                    Result = variable.VariablesReference.ToString(), //variable.Value,
                                     VariablesReference = variable.VariablesReference,
                                     Type = variable.Type
                                 };

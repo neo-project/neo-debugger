@@ -119,11 +119,50 @@ namespace NeoDebug
             return null;
         }
 
+        internal static Variable GetVariable2(this StackItem item, IVariableContainerSession session, string name)
+        {
+            switch (item)
+            {
+                case IVariableProvider provider:
+                    return provider.GetVariable(session, name);
+                case Neo.VM.Types.Boolean _:
+                    return new Variable()
+                    {
+                        Name = name,
+                        Value = item.GetBoolean().ToString(),
+                        Type = "Boolean"
+                    };
+                case Neo.VM.Types.Integer _:
+                    return new Variable()
+                    {
+                        Name = name,
+                        Value = item.GetBigInteger().ToString(),
+                        Type = "Integer"
+                    };
+                case Neo.VM.Types.ByteArray byteArray:
+                    return ByteArrayContainer.Create(session, byteArray, name);
+                case Neo.VM.Types.InteropInterface _:
+                    return new Variable()
+                    {
+                        Name = name,
+                        Type = "InteropInterface"
+                    };
+                case Neo.VM.Types.Map map:
+                    return NeoMapContainer.Create(session, map, name);
+                case Neo.VM.Types.Array array:
+                    // Note, NeoArrayContainer.Create will sniff if array is actually
+                    // a struct and adjust accordingly
+                    return NeoArrayContainer.Create(session, array, name);
+                default:
+                    throw new NotImplementedException($"GetStackItemValue {item.GetType().FullName}");
+            }
+        }
+
         internal static Variable GetVariable(this StackItem item, IVariableContainerSession session, Parameter? parameter = null)
         {
             if (parameter?.Type == "ByteArray")
             {
-                return ByteArrayContainer.GetVariable(item.GetByteArray(), session, parameter?.Name);
+                return ByteArrayContainer.Create(session, item.GetByteArray(), parameter?.Name);
             }
 
             if (parameter != null 
@@ -133,14 +172,15 @@ namespace NeoDebug
                 {
                     Name = parameter.Name,
                     Value = value,
-                    Type = parameter.Type
+                    Type = parameter.Type,
+                    EvaluateName = parameter.Name,
                 };
             }
 
             switch (item)
             {
                 case IVariableProvider provider:
-                    return provider.GetVariable(session);
+                    return provider.GetVariable(session, "");
                 case Neo.VM.Types.Boolean _:
                     return new Variable()
                     {
@@ -169,7 +209,7 @@ namespace NeoDebug
                         Value = item.GetType().Name
                     };
                 case Neo.VM.Types.ByteArray byteArray:
-                    return ByteArrayContainer.GetVariable(byteArray, session, parameter?.Name);
+                    return ByteArrayContainer.Create(session, byteArray, parameter?.Name);
                 case Neo.VM.Types.Array array:
                     {
                         var container = new NeoArrayContainer(session, array);

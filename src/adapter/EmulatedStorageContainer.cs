@@ -27,8 +27,8 @@ namespace NeoDebug.Adapter
             public IEnumerable<Variable> GetVariables()
             {
                 // TODO remove .ToArray() calls
-                yield return ByteArrayContainer.GetVariable(key.ToArray(), session, "key");
-                yield return ByteArrayContainer.GetVariable(value.ToArray(), session, "value");
+                yield return ByteArrayContainer.Create(session, key.ToArray(), "key");
+                yield return ByteArrayContainer.Create(session, value.ToArray(), "value");
                 yield return new Variable()
                 {
                     Name = "constant",

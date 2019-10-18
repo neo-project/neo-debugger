@@ -7,6 +7,6 @@ namespace NeoDebug.VariableContainers
 {
     public interface IVariableProvider
     {
-        Variable GetVariable(IVariableContainerSession session);
+        Variable GetVariable(IVariableContainerSession session, string name);
     }
 }
