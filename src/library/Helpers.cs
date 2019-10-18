@@ -127,7 +127,6 @@ namespace NeoDebug
                     return new Variable()
                     {
                         Name = name,
-                        EvaluateName = name,
                         Value = item.GetBoolean().ToString(),
                         Type = "#Boolean",
                     };
@@ -135,7 +134,6 @@ namespace NeoDebug
                     return new Variable()
                     {
                         Name = name,
-                        EvaluateName = name,
                         Value = item.GetBigInteger().ToString(),
                         Type = "#Integer",
                     };
@@ -143,7 +141,6 @@ namespace NeoDebug
                     return new Variable()
                     {
                         Name = name,
-                        EvaluateName = name,
                         Value = item.GetString(),
                         Type = "#String",
                     };
@@ -151,7 +148,6 @@ namespace NeoDebug
                     return new Variable()
                     {
                         Name = name,
-                        EvaluateName = name,
                         Value = "0x" + item.GetBigInteger().ToString("x"),
                         Type = "#ByteArray"
                     };
@@ -165,14 +161,12 @@ namespace NeoDebug
                 Neo.VM.Types.Boolean _ => new Variable()
                 {
                     Name = name,
-                    EvaluateName = name,
                     Value = item.GetBoolean().ToString(),
                     Type = "Boolean"
                 },
                 Neo.VM.Types.Integer _ => new Variable()
                 {
                     Name = name,
-                    EvaluateName = name,
                     Value = item.GetBigInteger().ToString(),
                     Type = "Integer"
                 },

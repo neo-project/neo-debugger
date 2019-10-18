@@ -7,23 +7,24 @@ namespace NeoDebug.VariableContainers
     {
         private readonly IVariableContainerSession session;
         private readonly Neo.VM.Types.Array array;
+        private readonly string? name;
 
-        public NeoArrayContainer(IVariableContainerSession session, Neo.VM.Types.Array array)
+        private NeoArrayContainer(IVariableContainerSession session, Neo.VM.Types.Array array, string name)
         {
             this.session = session;
             this.array = array;
+            this.name = name;
         }
 
         public static Variable Create(IVariableContainerSession session, Neo.VM.Types.Array array, string name)
         {
-            var container = new NeoArrayContainer(session, array);
+            var container = new NeoArrayContainer(session, array, name);
             var containerID = session.AddVariableContainer(container);
             var typeName = array is Neo.VM.Types.Struct
                 ? "Struct" : "Array";
             return new Variable()
             {
                 Name = name,
-                EvaluateName = name,
                 Type = $"{typeName}[{array.Count}]",
                 VariablesReference = containerID,
                 IndexedVariables = array.Count,
@@ -34,7 +35,10 @@ namespace NeoDebug.VariableContainers
         {
             for (int i = 0; i < array.Count; i++)
             {
-                yield return array[i].GetVariable(session, i.ToString());
+                var variable = array[i].GetVariable(session, i.ToString());
+                variable.EvaluateName = $"{name}[{i}]";
+                variable.Value = variable.Type;
+                yield return variable;
             }
         }
     }

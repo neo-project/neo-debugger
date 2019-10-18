@@ -37,8 +37,7 @@ namespace NeoDebug.VariableContainers
             return new Variable()
             {
                 Name = name,
-                EvaluateName = name,
-                Type = $"{hash}ByteArray[{memory.Length}]>",
+                Type = $"{hash}ByteArray[{memory.Length}]",
                 VariablesReference = containerID,
                 IndexedVariables = memory.Length,
             };
