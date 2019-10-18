@@ -17,15 +17,17 @@ namespace NeoDebug
         private readonly Dictionary<int, IVariableContainer> variableContainers = new Dictionary<int, IVariableContainer>();
 
         public Contract Contract { get; }
+        public Method Method { get; }
 
         public VMState EngineState => engine.State;
 
         public IEnumerable<StackItem> GetResults() => engine.ResultStack;
 
-        public DebugSession(IExecutionEngine engine, Contract contract, ContractArgument[] arguments)
+        public DebugSession(IExecutionEngine engine, Contract contract, Method method, ContractArgument[] arguments)
         {
             this.engine = engine;
             Contract = contract;
+            Method = method;
 
             using (var builder = contract.BuildInvokeScript(arguments))
             {
