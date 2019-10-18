@@ -147,6 +147,14 @@ namespace NeoDebug
                         Value = item.GetString(),
                         Type = "#String",
                     };
+                case "HexString":
+                    return new Variable()
+                    {
+                        Name = name,
+                        EvaluateName = name,
+                        Value = "0x" + item.GetBigInteger().ToString("x"),
+                        Type = "#ByteArray"
+                    };
                 case "ByteArray":
                     return ByteArrayContainer.Create(session, item.GetByteArray(), name, true);
             }

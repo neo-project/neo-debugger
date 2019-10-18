@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using System.Text.RegularExpressions;
 
 namespace NeoDebug
 {
@@ -309,43 +310,119 @@ namespace NeoDebug
             }
         }
 
+        static readonly Regex indexRegex = new Regex(@"\[(\d+)\]$");
+
+        public (string? typeHint, int? index, string name) ParseEvalExpression(string expression)
+        {
+            var castOperations = new Dictionary<string, string>()
+            {
+                { "(int)", "Integer" },
+                { "(bool)", "Boolean" },
+                { "(string)", "String" },
+                { "(hex)", "HexString" },
+                { "(byte[])", "ByteArray" },
+            };
+
+            (string? typeHint, string text) ParsePrefix(string input)
+            {
+                foreach (var kvp in castOperations)
+                {
+                    if (input.StartsWith(kvp.Key))
+                    {
+                        return (kvp.Value, input.Substring(kvp.Key.Length));
+                    }
+                }
+
+                return (null, input);
+            }
+
+            (int? index, string text) ParseSuffix(string input)
+            {
+                var match = indexRegex.Match(input);
+                if (match.Success)
+                {
+                    var matchValue = match.Groups[0].Value;
+                    var indexValue = match.Groups[1].Value;
+                    if (int.TryParse(indexValue, out var index))
+                    {
+                        return (index, input.Substring(0, input.Length - matchValue.Length));
+                    }
+                }
+                return (null, input);
+            }
+
+            var prefix = ParsePrefix(expression);
+            var suffix = ParseSuffix(prefix.text);
+
+            return (prefix.typeHint, suffix.index, suffix.text.Trim());
+        }
+
+        static readonly EvaluateResponse failedEvaluation = new EvaluateResponse()
+        {
+            PresentationHint = new VariablePresentationHint()
+            {
+                Attributes = VariablePresentationHint.AttributesValue.FailedEvaluation
+            }
+        };
+
         public EvaluateResponse Evaluate(EvaluateArguments args)
         {
-            if ((engine.State & HALT_OR_FAULT) == 0)
-            {
-                for (var stackIndex = 0; stackIndex < engine.InvocationStack.Count; stackIndex++)
-                {
-                    var context = engine.InvocationStack.Peek(stackIndex);
-                    if (context.AltStack.Count > 0)
-                    {
-                        var method = Contract.GetMethod(context);
-                        var variables = (Neo.VM.Types.Array)context.AltStack.Peek(0);
+            if ((engine.State & HALT_OR_FAULT) != 0)
+                return failedEvaluation;
 
-                        for (int variableIndex = 0; variableIndex < variables.Count; variableIndex++)
-                        {
-                            var local = method?.Locals.ElementAtOrDefault(variableIndex);
-                            if (local?.Name == args.Expression)
+            var (typeHint, index, variableName) = ParseEvalExpression(args.Expression);
+
+            Variable? GetVariable(StackItem item, Parameter local)
+            {
+                if (index.HasValue)
+                {
+                    if (item is Neo.VM.Types.Array neoArray
+                        && index.Value < neoArray.Count)
+                    {
+                        return neoArray[index.Value].GetVariable(this, local.Name + $"[{index.Value}]", typeHint);
+                    }
+                }
+                else
+                {
+                    return item.GetVariable(this, local.Name, typeHint ?? local.Type);
+                }
+
+                return null;
+            }
+
+            for (var stackIndex = 0; stackIndex < engine.InvocationStack.Count; stackIndex++)
+            {
+                var context = engine.InvocationStack.Peek(stackIndex);
+                if (context.AltStack.Count <= 0)
+                    continue;
+
+                var method = Contract.GetMethod(context);
+                if (method == null)
+                    continue;
+
+                var locals = method.Locals.ToArray();
+                var variables = (Neo.VM.Types.Array)context.AltStack.Peek(0);
+
+                for (int varIndex = 0; varIndex < Math.Min(variables.Count, locals.Length); varIndex++)
+                {
+                    var local = locals[varIndex];
+                    if (local.Name == variableName)
+                    {
+                        var variable = GetVariable(variables[varIndex], local);
+                        if (variable != null)
+                        { 
+                            return new EvaluateResponse()
                             {
-                                var variable = variables[variableIndex].GetVariable(this, local.Name, local.Type);
-                                return new EvaluateResponse()
-                                {
-                                    Result = variable.Value,
-                                    VariablesReference = variable.VariablesReference,
-                                    Type = variable.Type
-                                };
-                            }
+                                Result = variable.Value,
+                                VariablesReference = variable.VariablesReference,
+                                Type = variable.Type
+                            };
                         }
                     }
                 }
             }
 
-            return new EvaluateResponse()
-            {
-                PresentationHint = new VariablePresentationHint()
-                {
-                    Attributes = VariablePresentationHint.AttributesValue.FailedEvaluation
-                }
-            };
+            return failedEvaluation;
         }
     }
 }
