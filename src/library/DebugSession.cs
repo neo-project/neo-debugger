@@ -4,9 +4,9 @@ using NeoDebug.Models;
 using NeoDebug.VariableContainers;
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 
 namespace NeoDebug
 {
@@ -20,8 +20,6 @@ namespace NeoDebug
         public Method Method { get; }
 
         public VMState EngineState => engine.State;
-
-        public IEnumerable<StackItem> GetResults() => engine.ResultStack;
 
         public DebugSession(IExecutionEngine engine, Contract contract, Method method, ContractArgument[] arguments)
         {
@@ -232,11 +230,9 @@ namespace NeoDebug
                     new ExecutionContextContainer(this, context, Contract));
                 yield return new Scope("Locals", contextID, false);
 
-                //var storageID = AddVariableContainer(engine.GetStorageContainer(this));
-                //yield return new Scope("Storage", storageID, false);
+                var storageID = AddVariableContainer(engine.GetStorageContainer(this));
+                yield return new Scope("Storage", storageID, false);
             }
-
-            //return Enumerable.Empty<Scope>();
         }
 
         public IEnumerable<Variable> GetVariables(VariablesArguments args)
@@ -250,6 +246,67 @@ namespace NeoDebug
             }
 
             return Enumerable.Empty<Variable>();
+        }
+
+        private string GetResult(NeoArrayContainer container)
+        {
+            var array = new Newtonsoft.Json.Linq.JArray();
+            foreach (var x in container.GetVariables())
+            {
+                array.Add(GetResult(x));
+            }
+            return array.ToString(Newtonsoft.Json.Formatting.Indented);
+        }
+
+        private string GetResult(ByteArrayContainer container)
+        {
+            return "0x" + container.AsBigInteger().ToString("x");
+        }
+
+        private string GetResult(Variable variable)
+        {
+            if (variable.VariablesReference == 0)
+            {
+                return variable.Value;
+            }
+
+            if (variableContainers.TryGetValue(variable.VariablesReference, out var container))
+            {
+                switch (container)
+                {
+                    case NeoArrayContainer arrayContainer:
+                        return GetResult(arrayContainer);
+                    case ByteArrayContainer byteArrayContainer:
+                        return GetResult(byteArrayContainer);
+                    default:
+                        return $"{container.GetType().Name} unsupported container";
+                }
+            }
+
+            return string.Empty;
+        }
+
+        private string GetResult(StackItem item, string? typeHint = null)
+        {
+            if (typeHint == "ByteArray")
+            {
+                return "0x" + new BigInteger(item.GetByteArray()).ToString("x");
+            }
+
+            return GetResult(item.GetVariable(this, string.Empty, typeHint));
+        }
+
+        public IEnumerable<string> GetResults()
+        {
+            var head = engine.ResultStack.FirstOrDefault();
+            if (head != null)
+            {
+                yield return GetResult(head, Method.ReturnType);
+            }
+            foreach (var item in engine.ResultStack.Skip(1))
+            {
+                yield return GetResult(item);
+            }
         }
 
         public EvaluateResponse Evaluate(EvaluateArguments args)

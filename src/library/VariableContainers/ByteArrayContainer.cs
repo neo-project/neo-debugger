@@ -2,6 +2,7 @@
 using Neo.VM.Types;
 using System;
 using System.Collections.Generic;
+using System.Numerics;
 using System.Text;
 
 namespace NeoDebug.VariableContainers
@@ -20,6 +21,11 @@ namespace NeoDebug.VariableContainers
         public static Variable Create(IVariableContainerSession session, ByteArray byteArray, string? name, bool hashed = false)
         {
             return Create(session, byteArray.GetByteArray(), name);
+        }
+
+        public BigInteger AsBigInteger()
+        {
+            return new BigInteger(memory.Span);
         }
 
         public static Variable Create(IVariableContainerSession session, ReadOnlyMemory<byte> memory, string? name, bool hashed = false)

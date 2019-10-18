@@ -287,24 +287,6 @@ namespace NeoDebug
             }
         }
 
-        private string GetResult2(StackItem item, string? typeHint = null)
-        {
-            if (session == null) throw new InvalidOperationException();
-
-            if (typeHint == "ByteArray")
-            {
-                return "0x" + new BigInteger(item.GetByteArray()).ToString("x");
-            }
-
-            var variable = item.GetVariable(session, string.Empty, typeHint);
-            if (variable.VariablesReference == 0)
-            {
-                return variable.Value;
-            }
-
-            return "<it's complicated>";
-        }
-
         private void FireStoppedEvent(StoppedEvent.ReasonValue reasonValue)
         {
             try
@@ -319,16 +301,8 @@ namespace NeoDebug
                 }
                 if ((session.EngineState & VMState.HALT) != 0)
                 {
-                    var results = session.GetResults();
-                    var head = results.FirstOrDefault();
-                    if (head != null)
+                    foreach (var result in session.GetResults())
                     {
-                        var result = GetResult2(head, session.Method.ReturnType);
-                        Protocol.SendEvent(new OutputEvent(result));
-                    }
-                    foreach (var item in results.Skip(1))
-                    {
-                        var result = GetResult2(item);
                         Protocol.SendEvent(new OutputEvent(result));
                     }
                     Protocol.SendEvent(new TerminatedEvent());
