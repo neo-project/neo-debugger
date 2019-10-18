@@ -44,6 +44,7 @@ namespace NeoDebug.VariableContainers
             return new Variable()
             {
                 Name = name,
+                EvaluateName = name,
                 Type = $"Map[{map.Count}]",
                 VariablesReference = containerID,
                 IndexedVariables = map.Count,

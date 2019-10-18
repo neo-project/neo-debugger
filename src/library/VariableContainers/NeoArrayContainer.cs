@@ -23,6 +23,7 @@ namespace NeoDebug.VariableContainers
             return new Variable()
             {
                 Name = name,
+                EvaluateName = name,
                 Type = $"{typeName}[{array.Count}]",
                 VariablesReference = containerID,
                 IndexedVariables = array.Count,

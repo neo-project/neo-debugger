@@ -127,6 +127,7 @@ namespace NeoDebug
                     return new Variable()
                     {
                         Name = name,
+                        EvaluateName = name,
                         Value = item.GetBoolean().ToString(),
                         Type = "#Boolean",
                     };
@@ -134,15 +135,17 @@ namespace NeoDebug
                     return new Variable()
                     {
                         Name = name,
+                        EvaluateName = name,
                         Value = item.GetBigInteger().ToString(),
-                        Type = "#Integer"
+                        Type = "#Integer",
                     };
                 case "String":
                     return new Variable()
                     {
                         Name = name,
+                        EvaluateName = name,
                         Value = item.GetString(),
-                        Type = "#String"
+                        Type = "#String",
                     };
                 case "ByteArray":
                     return ByteArrayContainer.Create(session, item.GetByteArray(), name, true);
@@ -154,12 +157,14 @@ namespace NeoDebug
                 Neo.VM.Types.Boolean _ => new Variable()
                 {
                     Name = name,
+                    EvaluateName = name,
                     Value = item.GetBoolean().ToString(),
                     Type = "Boolean"
                 },
                 Neo.VM.Types.Integer _ => new Variable()
                 {
                     Name = name,
+                    EvaluateName = name,
                     Value = item.GetBigInteger().ToString(),
                     Type = "Integer"
                 },
