@@ -119,112 +119,62 @@ namespace NeoDebug
             return null;
         }
 
-        internal static Variable GetVariable2(this StackItem item, IVariableContainerSession session, string name)
+        internal static Variable GetVariable(this StackItem item, IVariableContainerSession session, string name, string? typeHint = null)
         {
-            switch (item)
+            switch (typeHint)
             {
-                case IVariableProvider provider:
-                    return provider.GetVariable(session, name);
-                case Neo.VM.Types.Boolean _:
+                case "Boolean":
                     return new Variable()
                     {
                         Name = name,
                         Value = item.GetBoolean().ToString(),
-                        Type = "Boolean"
+                        Type = "#Boolean",
                     };
-                case Neo.VM.Types.Integer _:
+                case "Integer":
                     return new Variable()
                     {
                         Name = name,
                         Value = item.GetBigInteger().ToString(),
-                        Type = "Integer"
+                        Type = "#Integer"
                     };
-                case Neo.VM.Types.ByteArray byteArray:
-                    return ByteArrayContainer.Create(session, byteArray, name);
-                case Neo.VM.Types.InteropInterface _:
+                case "String":
                     return new Variable()
                     {
                         Name = name,
-                        Type = "InteropInterface"
+                        Value = item.GetString(),
+                        Type = "#String"
                     };
-                case Neo.VM.Types.Map map:
-                    return NeoMapContainer.Create(session, map, name);
-                case Neo.VM.Types.Array array:
-                    // Note, NeoArrayContainer.Create will sniff if array is actually
-                    // a struct and adjust accordingly
-                    return NeoArrayContainer.Create(session, array, name);
-                default:
-                    throw new NotImplementedException($"GetStackItemValue {item.GetType().FullName}");
-            }
-        }
-
-        internal static Variable GetVariable(this StackItem item, IVariableContainerSession session, Parameter? parameter = null)
-        {
-            if (parameter?.Type == "ByteArray")
-            {
-                return ByteArrayContainer.Create(session, item.GetByteArray(), parameter?.Name);
+                case "ByteArray":
+                    return ByteArrayContainer.Create(session, item.GetByteArray(), name, true);
             }
 
-            if (parameter != null 
-                && item.TryGetValue(parameter.Type, out var value))
+            return item switch
             {
-                return new Variable()
+                IVariableProvider provider => provider.GetVariable(session, name),
+                Neo.VM.Types.Boolean _ => new Variable()
                 {
-                    Name = parameter.Name,
-                    Value = value,
-                    Type = parameter.Type,
-                    EvaluateName = parameter.Name,
-                };
-            }
-
-            switch (item)
-            {
-                case IVariableProvider provider:
-                    return provider.GetVariable(session, "");
-                case Neo.VM.Types.Boolean _:
-                    return new Variable()
-                    {
-                        Name = parameter?.Name,
-                        Value = item.GetBoolean().ToString(),
-                        Type = "Boolean"
-                    };
-                case Neo.VM.Types.Integer _:
-                    return new Variable()
-                    {
-                        Name = parameter?.Name,
-                        Value = item.GetBigInteger().ToString(),
-                        Type = "Integer"
-                    };
-                case Neo.VM.Types.InteropInterface _:
-                    return new Variable()
-                    {
-                        Name = parameter?.Name,
-                        Value = "<interop interface>"
-                    };
-                case Neo.VM.Types.Struct _: // struct before array
-                case Neo.VM.Types.Map _:
-                    return new Variable()
-                    {
-                        Name = parameter?.Name,
-                        Value = item.GetType().Name
-                    };
-                case Neo.VM.Types.ByteArray byteArray:
-                    return ByteArrayContainer.Create(session, byteArray, parameter?.Name);
-                case Neo.VM.Types.Array array:
-                    {
-                        var container = new NeoArrayContainer(session, array);
-                        var containerID = session.AddVariableContainer(container);
-                        return new Variable()
-                        {
-                            Name = parameter?.Name,
-                            Type = $"Array[{array.Count}]",
-                            VariablesReference = containerID,
-                            IndexedVariables = array.Count,
-                        };
-                    }
-                default:
-                    throw new NotImplementedException($"GetStackItemValue {item.GetType().FullName}");
-            }
+                    Name = name,
+                    Value = item.GetBoolean().ToString(),
+                    Type = "Boolean"
+                },
+                Neo.VM.Types.Integer _ => new Variable()
+                {
+                    Name = name,
+                    Value = item.GetBigInteger().ToString(),
+                    Type = "Integer"
+                },
+                Neo.VM.Types.ByteArray byteArray => ByteArrayContainer.Create(session, byteArray, name),
+                Neo.VM.Types.InteropInterface _ => new Variable()
+                {
+                    Name = name,
+                    Type = "InteropInterface"
+                },
+                Neo.VM.Types.Map map => NeoMapContainer.Create(session, map, name),
+                // NeoArrayContainer.Create will detect Struct (which inherits from Array)
+                // and distinguish accordingly
+                Neo.VM.Types.Array array => NeoArrayContainer.Create(session, array, name),
+                _ => throw new NotImplementedException($"GetStackItemValue {item.GetType().FullName}"),
+            };
         }
     }
 }

@@ -17,19 +17,21 @@ namespace NeoDebug.VariableContainers
             this.memory = memory;
         }
 
-        public static Variable Create(IVariableContainerSession session, ByteArray byteArray, string? name)
+        public static Variable Create(IVariableContainerSession session, ByteArray byteArray, string? name, bool hashed = false)
         {
             return Create(session, byteArray.GetByteArray(), name);
         }
 
-        public static Variable Create(IVariableContainerSession session, ReadOnlyMemory<byte> memory, string? name)
+        public static Variable Create(IVariableContainerSession session, ReadOnlyMemory<byte> memory, string? name, bool hashed = false)
         {
             var container = new ByteArrayContainer(session, memory);
             var containerID = session.AddVariableContainer(container);
+            var hash = hashed ? "#" : string.Empty;
+
             return new Variable()
             {
                 Name = name,
-                Type = $"ByteArray[{memory.Length}]>",
+                Type = $"{hash}ByteArray[{memory.Length}]>",
                 VariablesReference = containerID,
                 IndexedVariables = memory.Length,
             };

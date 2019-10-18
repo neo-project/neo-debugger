@@ -267,10 +267,10 @@ namespace NeoDebug
                             var local = method?.Locals.ElementAtOrDefault(variableIndex);
                             if (local?.Name == args.Expression)
                             {
-                                var variable = variables[variableIndex].GetVariable2(this, local.Name);
+                                var variable = variables[variableIndex].GetVariable(this, local.Name, local.Type);
                                 return new EvaluateResponse()
                                 {
-                                    Result = variable.VariablesReference.ToString(), //variable.Value,
+                                    Result = variable.Value,
                                     VariablesReference = variable.VariablesReference,
                                     Type = variable.Type
                                 };

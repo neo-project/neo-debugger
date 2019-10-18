@@ -22,8 +22,8 @@ namespace NeoDebug.VariableContainers
 
             public IEnumerable<Variable> GetVariables()
             {
-                yield return key.GetVariable2(session, "key");
-                yield return value.GetVariable2(session, "value");
+                yield return key.GetVariable(session, "key");
+                yield return value.GetVariable(session, "value");
             }
         }
 

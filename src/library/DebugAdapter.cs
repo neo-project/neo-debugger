@@ -235,8 +235,6 @@ namespace NeoDebug
 
         protected override EvaluateResponse HandleEvaluateRequest(EvaluateArguments arguments)
         {
-            return new EvaluateResponse();
-
             try
             {
                 if (session == null) throw new InvalidOperationException();

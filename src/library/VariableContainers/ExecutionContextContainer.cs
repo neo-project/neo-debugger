@@ -33,8 +33,9 @@ namespace NeoDebug.VariableContainers
                 for (int i = 0; i < variables.Count; i++)
                 {
                     var parameter = method?.Locals.ElementAtOrDefault(i);
-                    var variable = variables[i].GetVariable2(session,
-                        parameter?.Name ?? $"<variable {i}>");
+                    var variable = variables[i].GetVariable(session,
+                        parameter?.Name ?? "<variable {i}>",
+                        parameter?.Type);
                     yield return variable;
                 }
             }

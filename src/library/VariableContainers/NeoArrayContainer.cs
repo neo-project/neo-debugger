@@ -33,7 +33,7 @@ namespace NeoDebug.VariableContainers
         {
             for (int i = 0; i < array.Count; i++)
             {
-                yield return array[i].GetVariable2(session, i.ToString());
+                yield return array[i].GetVariable(session, i.ToString();
             }
         }
     }
