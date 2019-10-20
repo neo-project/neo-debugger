@@ -38,6 +38,7 @@ namespace NeoDebug.VariableContainers
             {
                 Name = name,
                 Type = $"{hash}ByteArray[{memory.Length}]",
+                //Value = "0x" + container.AsBigInteger().ToString("x"),
                 VariablesReference = containerID,
                 IndexedVariables = memory.Length,
             };

@@ -16,6 +16,8 @@ namespace NeoDebug
         private readonly IExecutionEngine engine;
         private readonly Dictionary<int, HashSet<int>> breakPoints = new Dictionary<int, HashSet<int>>();
         private readonly Dictionary<int, IVariableContainer> variableContainers = new Dictionary<int, IVariableContainer>();
+        int storageVariableReference;
+
 
         public Contract Contract { get; }
         public Method Method { get; }
@@ -209,6 +211,7 @@ namespace NeoDebug
         public void ClearVariableContainers()
         {
             variableContainers.Clear();
+            storageVariableReference = default;
         }
 
         public int AddVariableContainer(IVariableContainer container)
@@ -231,8 +234,8 @@ namespace NeoDebug
                     new ExecutionContextContainer(this, context, Contract));
                 yield return new Scope("Locals", contextID, false);
 
-                var storageID = AddVariableContainer(engine.GetStorageContainer(this));
-                yield return new Scope("Storage", storageID, false);
+                storageVariableReference = AddVariableContainer(engine.GetStorageContainer(this));
+                yield return new Scope("Storage", storageVariableReference, false);
             }
         }
 
@@ -310,67 +313,23 @@ namespace NeoDebug
             }
         }
 
-        static readonly Regex indexRegex = new Regex(@"\[(\d+)\]$");
-
-        public (string? typeHint, int? index, string name) ParseEvalExpression(string expression)
-        {
-            var castOperations = new Dictionary<string, string>()
-            {
-                { "(int)", "Integer" },
-                { "(bool)", "Boolean" },
-                { "(string)", "String" },
-                { "(hex)", "HexString" },
-                { "(byte[])", "ByteArray" },
-            };
-
-            (string? typeHint, string text) ParsePrefix(string input)
-            {
-                foreach (var kvp in castOperations)
-                {
-                    if (input.StartsWith(kvp.Key))
-                    {
-                        return (kvp.Value, input.Substring(kvp.Key.Length));
-                    }
-                }
-
-                return (null, input);
-            }
-
-            (int? index, string text) ParseSuffix(string input)
-            {
-                var match = indexRegex.Match(input);
-                if (match.Success)
-                {
-                    var matchValue = match.Groups[0].Value;
-                    var indexValue = match.Groups[1].Value;
-                    if (int.TryParse(indexValue, out var index))
-                    {
-                        return (index, input.Substring(0, input.Length - matchValue.Length));
-                    }
-                }
-                return (null, input);
-            }
-
-            var prefix = ParsePrefix(expression);
-            var suffix = ParseSuffix(prefix.text);
-
-            return (prefix.typeHint, suffix.index, suffix.text.Trim());
-        }
-
-        static readonly EvaluateResponse failedEvaluation = new EvaluateResponse()
-        {
-            PresentationHint = new VariablePresentationHint()
-            {
-                Attributes = VariablePresentationHint.AttributesValue.FailedEvaluation
-            }
-        };
-
         public EvaluateResponse Evaluate(EvaluateArguments args)
         {
             if ((engine.State & HALT_OR_FAULT) != 0)
-                return failedEvaluation;
+                return DebugAdapter.FailedEvaluation;
 
-            var (typeHint, index, variableName) = ParseEvalExpression(args.Expression);
+            var (typeHint, index, variableName) = DebugAdapter.ParseEvalExpression(args.Expression);
+
+            if (variableName.StartsWith("$storage"))
+            {
+                //if (variableContainers.TryGetValue(storageVariableReference, out var container)
+                //    && container is IEvaluationContainer evalContainer)
+                //{
+                //    return evalContainer.Evaluate(args);
+                //}
+
+                return DebugAdapter.FailedEvaluation;
+            }
 
             Variable? GetVariable(StackItem item, Parameter local)
             {
@@ -422,7 +381,7 @@ namespace NeoDebug
                 }
             }
 
-            return failedEvaluation;
+            return DebugAdapter.FailedEvaluation;
         }
     }
 }
