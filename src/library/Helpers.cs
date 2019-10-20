@@ -13,6 +13,7 @@ namespace NeoDebug
 {
     public static class Helpers
     {
+        //https://stackoverflow.com/a/1646913
         public static int GetSequenceHashCode(this ReadOnlySpan<byte> span)
         {
             unchecked
@@ -20,7 +21,7 @@ namespace NeoDebug
                 int hash = 17;
                 for (int i = 0; i < span.Length; i++)
                 {
-                    hash = hash * 23 + span[i];
+                    hash = hash * 31 + span[i];
                 }
                 return hash;
             }
