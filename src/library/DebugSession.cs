@@ -16,8 +16,6 @@ namespace NeoDebug
         private readonly IExecutionEngine engine;
         private readonly Dictionary<int, HashSet<int>> breakPoints = new Dictionary<int, HashSet<int>>();
         private readonly Dictionary<int, IVariableContainer> variableContainers = new Dictionary<int, IVariableContainer>();
-        int storageVariableReference;
-
 
         public Contract Contract { get; }
         public Method Method { get; }
@@ -211,7 +209,6 @@ namespace NeoDebug
         public void ClearVariableContainers()
         {
             variableContainers.Clear();
-            storageVariableReference = default;
         }
 
         public int AddVariableContainer(IVariableContainer container)
@@ -234,8 +231,8 @@ namespace NeoDebug
                     new ExecutionContextContainer(this, context, Contract));
                 yield return new Scope("Locals", contextID, false);
 
-                storageVariableReference = AddVariableContainer(engine.GetStorageContainer(this));
-                yield return new Scope("Storage", storageVariableReference, false);
+                var storageID = AddVariableContainer(engine.GetStorageContainer(this));
+                yield return new Scope("Storage", storageID, false);
             }
         }
 
@@ -322,12 +319,6 @@ namespace NeoDebug
 
             if (variableName.StartsWith("$storage"))
             {
-                //if (variableContainers.TryGetValue(storageVariableReference, out var container)
-                //    && container is IEvaluationContainer evalContainer)
-                //{
-                //    return evalContainer.Evaluate(args);
-                //}
-
                 return DebugAdapter.FailedEvaluation;
             }
 

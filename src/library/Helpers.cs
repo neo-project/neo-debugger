@@ -13,6 +13,19 @@ namespace NeoDebug
 {
     public static class Helpers
     {
+        public static int GetSequenceHashCode(this ReadOnlySpan<byte> span)
+        {
+            unchecked
+            {
+                int hash = 17;
+                for (int i = 0; i < span.Length; i++)
+                {
+                    hash = hash * 23 + span[i];
+                }
+                return hash;
+            }
+        }
+
         public static bool TryParseBigInteger(this string value, out BigInteger bigInteger)
         {
             if (value.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
