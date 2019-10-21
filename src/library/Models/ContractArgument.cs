@@ -23,6 +23,7 @@ namespace NeoDebug.Models
                 case ContractParameterType.Boolean:
                     builder.EmitPush((bool)Value);
                     break;
+                case ContractParameterType.ByteArray:
                 case ContractParameterType.Integer:
                     builder.EmitPush((BigInteger)Value);
                     break;
@@ -31,8 +32,8 @@ namespace NeoDebug.Models
                     break;
                 case ContractParameterType.Array:
                     {
-                        var array = (object[])Value;
-                        foreach (var arg in array.Cast<ContractArgument>().Reverse())
+                        var array = (ContractArgument[])Value;
+                        foreach (var arg in array.Reverse())
                         {
                             arg.EmitPush(builder);
                         }

@@ -6,6 +6,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Numerics;
+using System.Text.RegularExpressions;
 
 namespace NeoDebug
 {
@@ -16,15 +18,15 @@ namespace NeoDebug
         private readonly Dictionary<int, IVariableContainer> variableContainers = new Dictionary<int, IVariableContainer>();
 
         public Contract Contract { get; }
+        public Method Method { get; }
 
         public VMState EngineState => engine.State;
 
-        public IEnumerable<StackItem> GetResults() => engine.ResultStack;
-
-        public DebugSession(IExecutionEngine engine, Contract contract, ContractArgument[] arguments)
+        public DebugSession(IExecutionEngine engine, Contract contract, Method method, ContractArgument[] arguments)
         {
             this.engine = engine;
             Contract = contract;
+            Method = method;
 
             using (var builder = contract.BuildInvokeScript(arguments))
             {
@@ -212,8 +214,12 @@ namespace NeoDebug
         public int AddVariableContainer(IVariableContainer container)
         {
             var id = container.GetHashCode();
-            variableContainers.Add(id, container);
-            return id;
+            if (variableContainers.TryAdd(id, container))
+            {
+                return id;
+            }
+
+            throw new Exception();
         }
 
         public IEnumerable<Scope> GetScopes(ScopesArguments args)
@@ -243,43 +249,130 @@ namespace NeoDebug
             return Enumerable.Empty<Variable>();
         }
 
+        private string GetResult(NeoArrayContainer container)
+        {
+            var array = new Newtonsoft.Json.Linq.JArray();
+            foreach (var x in container.GetVariables())
+            {
+                array.Add(GetResult(x));
+            }
+            return array.ToString(Newtonsoft.Json.Formatting.Indented);
+        }
+
+        private string GetResult(ByteArrayContainer container)
+        {
+            return "0x" + container.AsBigInteger().ToString("x");
+        }
+
+        private string GetResult(Variable variable)
+        {
+            if (variable.VariablesReference == 0)
+            {
+                return variable.Value;
+            }
+
+            if (variableContainers.TryGetValue(variable.VariablesReference, out var container))
+            {
+                switch (container)
+                {
+                    case NeoArrayContainer arrayContainer:
+                        return GetResult(arrayContainer);
+                    case ByteArrayContainer byteArrayContainer:
+                        return GetResult(byteArrayContainer);
+                    default:
+                        return $"{container.GetType().Name} unsupported container";
+                }
+            }
+
+            return string.Empty;
+        }
+
+        private string GetResult(StackItem item, string? typeHint = null)
+        {
+            if (typeHint == "ByteArray")
+            {
+                return "0x" + new BigInteger(item.GetByteArray()).ToString("x");
+            }
+
+            return GetResult(item.GetVariable(this, string.Empty, typeHint));
+        }
+
+        public IEnumerable<string> GetResults()
+        {
+            var head = engine.ResultStack.FirstOrDefault();
+            if (head != null)
+            {
+                yield return GetResult(head, Method.ReturnType);
+            }
+            foreach (var item in engine.ResultStack.Skip(1))
+            {
+                yield return GetResult(item);
+            }
+        }
+
         public EvaluateResponse Evaluate(EvaluateArguments args)
         {
-            if ((engine.State & HALT_OR_FAULT) == 0)
-            {
-                for (var stackIndex = 0; stackIndex < engine.InvocationStack.Count; stackIndex++)
-                {
-                    var context = engine.InvocationStack.Peek(stackIndex);
-                    if (context.AltStack.Count > 0)
-                    {
-                        var method = Contract.GetMethod(context);
-                        var variables = (Neo.VM.Types.Array)context.AltStack.Peek(0);
+            if ((engine.State & HALT_OR_FAULT) != 0)
+                return DebugAdapter.FailedEvaluation;
 
-                        for (int variableIndex = 0; variableIndex < variables.Count; variableIndex++)
-                        {
-                            var local = method?.Locals.ElementAtOrDefault(variableIndex);
-                            if (local?.Name == args.Expression)
+            var (typeHint, index, variableName) = DebugAdapter.ParseEvalExpression(args.Expression);
+
+            if (variableName.StartsWith("$storage"))
+            {
+                return engine.EvaluateStorageExpression(this, args);
+            }
+
+            Variable? GetVariable(StackItem item, Parameter local)
+            {
+                if (index.HasValue)
+                {
+                    if (item is Neo.VM.Types.Array neoArray
+                        && index.Value < neoArray.Count)
+                    {
+                        return neoArray[index.Value].GetVariable(this, local.Name + $"[{index.Value}]", typeHint);
+                    }
+                }
+                else
+                {
+                    return item.GetVariable(this, local.Name, typeHint ?? local.Type);
+                }
+
+                return null;
+            }
+
+            for (var stackIndex = 0; stackIndex < engine.InvocationStack.Count; stackIndex++)
+            {
+                var context = engine.InvocationStack.Peek(stackIndex);
+                if (context.AltStack.Count <= 0)
+                    continue;
+
+                var method = Contract.GetMethod(context);
+                if (method == null)
+                    continue;
+
+                var locals = method.Locals.ToArray();
+                var variables = (Neo.VM.Types.Array)context.AltStack.Peek(0);
+
+                for (int varIndex = 0; varIndex < Math.Min(variables.Count, locals.Length); varIndex++)
+                {
+                    var local = locals[varIndex];
+                    if (local.Name == variableName)
+                    {
+                        var variable = GetVariable(variables[varIndex], local);
+                        if (variable != null)
+                        { 
+                            return new EvaluateResponse()
                             {
-                                var variable = variables[variableIndex].GetVariable(this, local);
-                                return new EvaluateResponse()
-                                {
-                                    Result = variable.Value,
-                                    VariablesReference = variable.VariablesReference,
-                                    Type = variable.Type
-                                };
-                            }
+                                Result = variable.Value,
+                                VariablesReference = variable.VariablesReference,
+                                Type = variable.Type
+                            };
                         }
                     }
                 }
             }
 
-            return new EvaluateResponse()
-            {
-                PresentationHint = new VariablePresentationHint()
-                {
-                    Attributes = VariablePresentationHint.AttributesValue.FailedEvaluation
-                }
-            };
+            return DebugAdapter.FailedEvaluation;
         }
     }
 }

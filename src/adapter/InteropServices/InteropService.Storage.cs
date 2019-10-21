@@ -10,7 +10,6 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace NeoDebug.Adapter
 {
-
     internal partial class InteropService
     {
         private class StorageContext : ModelAdapters.AdapterBase, IVariableProvider
@@ -24,10 +23,11 @@ namespace NeoDebug.Adapter
                 ReadOnly = readOnly;
             }
 
-            public Variable GetVariable(IVariableContainerSession session)
+            public Variable GetVariable(IVariableContainerSession session, string name)
             {
                 return new Variable()
                 {
+                    Name = name,
                     Type = "StorageContext",
                     Value = ScriptHash.ToString(),
                 };

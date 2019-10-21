@@ -5,9 +5,11 @@ using NeoDebug.Models;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using System.Text.RegularExpressions;
 
 namespace NeoDebug
 {
@@ -17,7 +19,7 @@ namespace NeoDebug
         private readonly Func<Contract, LaunchArguments, Action<OutputEvent>, IExecutionEngine> createEngineFunc;
         private readonly Func<byte[], byte[]> scriptHashFunc;
         private DebugSession? session;
-
+        
         public DebugAdapter(Stream @in, Stream @out, Func<Contract, LaunchArguments, Action<OutputEvent>, IExecutionEngine> createEngineFunc,
                             Func<byte[], byte[]> scriptHashFunc, Action<LogCategory, string>? logger = null)
         {
@@ -57,22 +59,18 @@ namespace NeoDebug
 
         private static ContractParameterType ParseTypeName(string typeName)
         {
-            switch (typeName)
+            return typeName switch
             {
-                case "Integer":
-                    return ContractParameterType.Integer;
-                case "String":
-                    return ContractParameterType.String;
-                case "Array":
-                    return ContractParameterType.Array;
-                case "Boolean":
-                    return ContractParameterType.Boolean;
-                default:
-                    throw new NotImplementedException();
-            }
+                "Integer" => ContractParameterType.Integer,
+                "String" => ContractParameterType.String,
+                "Array" => ContractParameterType.Array,
+                "Boolean" => ContractParameterType.Boolean,
+                "ByteArray" => ContractParameterType.ByteArray,
+                _ => throw new NotImplementedException(),
+            };
         }
 
-        private static object ConvertArgument(JToken arg)
+        private static ContractArgument ConvertArgument(JToken arg)
         {
             switch (arg.Type)
             {
@@ -93,53 +91,86 @@ namespace NeoDebug
             }
         }
 
-        private static object ConvertArgument(ContractParameterType paramType, JToken? arg)
+        private static object ConvertArgumentToObject(ContractParameterType paramType, JToken? arg)
         {
+            if (arg == null)
+            {
+                return paramType switch
+                {
+                    ContractParameterType.Boolean => false,
+                    ContractParameterType.String => string.Empty,
+                    ContractParameterType.Array => Array.Empty<ContractArgument>(),
+                    _ => BigInteger.Zero,
+                };
+            }
+
             switch (paramType)
             {
                 case ContractParameterType.Boolean:
-                    return arg?.Type == JTokenType.Boolean
-                        ? arg.Value<bool>()
-                        : bool.Parse(arg!.ToString());
+                    return arg.Value<bool>();
                 case ContractParameterType.Integer:
-                    return arg?.Type == JTokenType.Integer
+                    return arg.Type == JTokenType.Integer
                         ? new BigInteger(arg.Value<int>())
-                        : BigInteger.Parse(arg!.ToString());
+                        : BigInteger.Parse(arg.ToString());
                 case ContractParameterType.String:
-                    return arg?.ToString() ?? "";
+                    return arg.ToString();
                 case ContractParameterType.Array:
-                    return arg?.Select(ConvertArgument).ToArray() ?? Array.Empty<object>();
-                default:
-                    throw new NotImplementedException($"DebugAdapter.ConvertArgument {paramType} {arg}");
+                    return arg.Select(ConvertArgument).ToArray();
+                case ContractParameterType.ByteArray:
+                    {
+                        var value = arg.ToString();
+                        if (value.TryParseBigInteger(out var bigInteger))
+                        {
+                            return bigInteger;
+                        }
+                    }
+                    break;
             }
+            throw new NotImplementedException($"DebugAdapter.ConvertArgument {paramType} {arg}");
         }
 
         private static ContractArgument ConvertArgument(Parameter param, JToken? arg)
         {
             var type = ParseTypeName(param.Type);
-            return new ContractArgument(type, ConvertArgument(type, arg));
+            return new ContractArgument(type, ConvertArgumentToObject(type, arg));
         }
 
         protected override LaunchResponse HandleLaunchRequest(LaunchArguments arguments)
         {
+            Method? GetMethod(Contract _contract)
+            {
+                if (arguments.ConfigurationProperties.TryGetValue("method", out var methodToken))
+                {
+                    var methodName = methodToken.Value<string>();
+                    return _contract.DebugInfo.Methods.SingleOrDefault(m => m.DisplayName == methodName);
+                }
+
+                return null;
+            }
+
+            JArray GetArgsConfig()
+            {
+                if (arguments.ConfigurationProperties.TryGetValue("args", out var args))
+                {
+                    if (args is JArray jArray)
+                    {
+                        return jArray;
+                    }
+
+                    return new JArray(args);
+                }
+
+                return new JArray();
+            }
+
             IEnumerable<ContractArgument> GetArguments(Method method)
             {
-                if (!arguments.ConfigurationProperties.TryGetValue("args", out var args))
-                {
-                    // initialize args to empty JArray
-                    args = new JArray();
-                }
-
-                if (args.Type != JTokenType.Array)
-                {
-                    args = new JArray(args);
-                }
-
+                var args = GetArgsConfig();
                 for (int i = 0; i < method.Parameters.Count; i++)
                 {
-                    var param = method.Parameters[i];
-                    JToken? arg = args.ElementAtOrDefault(i);
-                    yield return ConvertArgument(param, arg);
+                    yield return ConvertArgument(
+                        method.Parameters[i], 
+                        i < args.Count ? args[i] : null);
                 }
             }
 
@@ -147,10 +178,20 @@ namespace NeoDebug
             {
                 var programFileName = (string)arguments.ConfigurationProperties["program"];
                 var contract = Contract.Load(programFileName, scriptHashFunc);
-                var contractArgs = GetArguments(contract.EntryPoint);
-                var engine = createEngineFunc(contract, arguments, outputEvent => Protocol.SendEvent(outputEvent));
+                var method = GetMethod(contract) ?? contract.EntryPoint;
+                var contractArgs = GetArguments(method).ToArray();
 
-                session = new DebugSession(engine, contract, contractArgs.ToArray());
+                if (method.Name != contract.EntryPoint.Name)
+                {
+                    contractArgs = new ContractArgument[]
+                    {
+                        new ContractArgument(ContractParameterType.String, method.DisplayName),
+                        new ContractArgument(ContractParameterType.Array, contractArgs)
+                    };
+                }
+
+                var engine = createEngineFunc(contract, arguments, outputEvent => Protocol.SendEvent(outputEvent));
+                session = new DebugSession(engine, contract, method, contractArgs);
 
                 session.StepIn();
                 Protocol.SendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Entry) { ThreadId = 1 });
@@ -175,10 +216,10 @@ namespace NeoDebug
 
         protected override ThreadsResponse HandleThreadsRequest(ThreadsArguments arguments)
         {
-            if (session == null) throw new InvalidOperationException();
-
             try
             {
+                if (session == null) throw new InvalidOperationException();
+
                 var threads = session.GetThreads().ToList();
                 return new ThreadsResponse(threads);
             }
@@ -188,7 +229,7 @@ namespace NeoDebug
             }
         }
 
-protected override StackTraceResponse HandleStackTraceRequest(StackTraceArguments arguments)
+        protected override StackTraceResponse HandleStackTraceRequest(StackTraceArguments arguments)
         {
             try
             {
@@ -233,6 +274,61 @@ protected override StackTraceResponse HandleStackTraceRequest(StackTraceArgument
             }
         }
 
+        static readonly Regex indexRegex = new Regex(@"\[(\d+)\]$");
+
+        public static (string? typeHint, int? index, string name) ParseEvalExpression(string expression)
+        {
+            var castOperations = new Dictionary<string, string>()
+            {
+                { "(int)", "Integer" },
+                { "(bool)", "Boolean" },
+                { "(string)", "String" },
+                { "(hex)", "HexString" },
+                { "(byte[])", "ByteArray" },
+            };
+
+            (string? typeHint, string text) ParsePrefix(string input)
+            {
+                foreach (var kvp in castOperations)
+                {
+                    if (input.StartsWith(kvp.Key))
+                    {
+                        return (kvp.Value, input.Substring(kvp.Key.Length));
+                    }
+                }
+
+                return (null, input);
+            }
+
+            (int? index, string text) ParseSuffix(string input)
+            {
+                var match = indexRegex.Match(input);
+                if (match.Success)
+                {
+                    var matchValue = match.Groups[0].Value;
+                    var indexValue = match.Groups[1].Value;
+                    if (int.TryParse(indexValue, out var index))
+                    {
+                        return (index, input.Substring(0, input.Length - matchValue.Length));
+                    }
+                }
+                return (null, input);
+            }
+
+            var prefix = ParsePrefix(expression);
+            var suffix = ParseSuffix(prefix.text);
+
+            return (prefix.typeHint, suffix.index, suffix.text.Trim());
+        }
+
+        public static readonly EvaluateResponse FailedEvaluation = new EvaluateResponse()
+        {
+            PresentationHint = new VariablePresentationHint()
+            {
+                Attributes = VariablePresentationHint.AttributesValue.FailedEvaluation
+            }
+        };
+
         protected override EvaluateResponse HandleEvaluateRequest(EvaluateArguments arguments)
         {
             try
@@ -241,9 +337,9 @@ protected override StackTraceResponse HandleStackTraceRequest(StackTraceArgument
 
                 return session.Evaluate(arguments);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                throw new ProtocolException(ex.Message, ex);
+                return FailedEvaluation;
             }
         }
 
@@ -253,25 +349,6 @@ protected override StackTraceResponse HandleStackTraceRequest(StackTraceArgument
             {
                 if (session == null) throw new InvalidOperationException();
 
-                static string GetResult(StackItem item, string type)
-                {
-                    if (type == "ByteArray" || type == string.Empty)
-                    {
-                        return $@"byte[{item.GetByteArray().Length}]
-as string:  ""{item.GetString()}""
-as boolean: {item.GetBoolean()}
-as integer: {item.GetBigInteger()}
-as hex:     0x{item.GetBigInteger().ToString("x")}";
-                    }
-
-                    if (item.TryGetValue(type, out var value))
-                    {
-                        return value;
-                    }
-
-                    throw new Exception($"couldn't convert {type}");
-                }
-
                 session.ClearVariableContainers();
 
                 if ((session.EngineState & VMState.FAULT) != 0)
@@ -280,9 +357,9 @@ as hex:     0x{item.GetBigInteger().ToString("x")}";
                 }
                 if ((session.EngineState & VMState.HALT) != 0)
                 {
-                    foreach (var item in session.GetResults())
+                    foreach (var result in session.GetResults())
                     {
-                        Protocol.SendEvent(new OutputEvent(GetResult(item, session.Contract.EntryPoint.ReturnType)));
+                        Protocol.SendEvent(new OutputEvent(result));
                     }
                     Protocol.SendEvent(new TerminatedEvent());
                 }

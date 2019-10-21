@@ -2,35 +2,13 @@
 using Neo.VM.Types;
 using System;
 using System.Collections.Generic;
+using System.Numerics;
 using System.Text;
 
 namespace NeoDebug.VariableContainers
 {
     public class ByteArrayContainer : IVariableContainer
     {
-        internal class ValuesContainer : IVariableContainer
-        {
-            private readonly ReadOnlyMemory<byte> memory;
-
-            public ValuesContainer(ReadOnlyMemory<byte> memory)
-            {
-                this.memory = memory;
-            }
-
-            public IEnumerable<Variable> GetVariables()
-            {
-                for (int i = 0; i < memory.Length; i++)
-                {
-                    yield return new Variable()
-                    {
-                        Name = i.ToString(),
-                        Value = "0x" + memory.Span[i].ToString("x"),
-                        Type = "Byte"
-                    };
-                }
-            }
-        }
-
         private readonly IVariableContainerSession session;
         private readonly ReadOnlyMemory<byte> memory;
 
@@ -40,64 +18,43 @@ namespace NeoDebug.VariableContainers
             this.memory = memory;
         }
 
-        public static Variable GetVariable(ByteArray byteArray, IVariableContainerSession session, string? name = null)
+        public static Variable Create(IVariableContainerSession session, ByteArray byteArray, string? name, bool hashed = false)
         {
-            return GetVariable(byteArray.GetByteArray(), session, name);
+            return Create(session, byteArray.GetByteArray(), name);
         }
 
-        public static Variable GetVariable(ReadOnlyMemory<byte> memory, IVariableContainerSession session, string? name = null)
+        public BigInteger AsBigInteger()
+        {
+            return new BigInteger(memory.Span);
+        }
+
+        public static Variable Create(IVariableContainerSession session, ReadOnlyMemory<byte> memory, string? name, bool hashed = false)
         {
             var container = new ByteArrayContainer(session, memory);
             var containerID = session.AddVariableContainer(container);
+            var hash = hashed ? "#" : string.Empty;
+
             return new Variable()
             {
                 Name = name,
-                Type = $"ByteArray[{memory.Length}]>",
+                Type = $"{hash}ByteArray[{memory.Length}]",
+                //Value = "0x" + container.AsBigInteger().ToString("x"),
                 VariablesReference = containerID,
-                NamedVariables = 5
+                IndexedVariables = memory.Length,
             };
         }
 
         public IEnumerable<Variable> GetVariables()
         {
-            yield return new Variable()
+            for (int i = 0; i < memory.Length; i++)
             {
-                Name = "<as string>",
-                Value = Encoding.UTF8.GetString(memory.Span),
-                Type = "String"
-            };
-
-            var valuesContainer = new ValuesContainer(memory);
-            var valuesContainerID = session.AddVariableContainer(valuesContainer);
-            yield return new Variable()
-            {
-                Name = "<as byte array>",
-                Type = "Byte[]",
-                VariablesReference = valuesContainerID,
-            };
-
-            var bigInt = new System.Numerics.BigInteger(memory.Span);
-
-            yield return new Variable()
-            {
-                Name = "<as integer>",
-                Value = bigInt.ToString(),
-                Type = "Integer"
-            };
-
-            yield return new Variable()
-            {
-                Name = "<as hex>",
-                Value = "0x" + bigInt.ToString("x"),
-                Type = "Integer"
-            };
-
-            yield return new Variable()
-            {
-                Name = "<as bool>",
-                Value = (bigInt != System.Numerics.BigInteger.Zero).ToString(),
-                Type = "Boolean"
-            };
+                yield return new Variable()
+                {
+                    Name = i.ToString(),
+                    Value = "0x" + memory.Span[i].ToString("x"),
+                    Type = "Byte"
+                };
+            }
         }
     }
 }

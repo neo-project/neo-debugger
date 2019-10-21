@@ -1,4 +1,5 @@
-﻿using Neo.VM;
+﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using Neo.VM;
 using NeoDebug.Models;
 using NeoDebug.VariableContainers;
 using System;
@@ -18,5 +19,6 @@ namespace NeoDebug
         RandomAccessStack<ExecutionContext> InvocationStack { get; }
 
         IVariableContainer GetStorageContainer(IVariableContainerSession session);
+        EvaluateResponse EvaluateStorageExpression(IVariableContainerSession session, EvaluateArguments args);
     }
 }

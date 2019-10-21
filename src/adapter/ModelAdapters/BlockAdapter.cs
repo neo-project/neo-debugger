@@ -53,9 +53,13 @@ namespace NeoDebug.Adapter.ModelAdapters
 
         }
 
-        public Variable GetVariable(IVariableContainerSession session)
+        public Variable GetVariable(IVariableContainerSession session, string name)
         {
-            return new Variable();
+            return new Variable()
+            {
+                Name = name,
+                Type = "Block"
+            };
         }
     }
 }

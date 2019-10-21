@@ -13,6 +13,23 @@ namespace NeoDebug
 {
     public static class Helpers
     {
+        //https://stackoverflow.com/a/1646913
+        public static int GetSequenceHashCode(this ReadOnlySpan<byte> span)
+        {
+            unchecked
+            {
+                int hash = 17;
+                for (int i = 0; i < span.Length; i++)
+                {
+                    hash = hash * 31 + span[i];
+                }
+                return hash;
+            }
+        }
+
+        public static string ToHexString(this BigInteger bigInteger)
+            => "0x" + bigInteger.ToString("x");
+
         public static bool TryParseBigInteger(this string value, out BigInteger bigInteger)
         {
             if (value.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
@@ -119,72 +136,69 @@ namespace NeoDebug
             return null;
         }
 
-        internal static Variable GetVariable(this StackItem item, IVariableContainerSession session, Parameter? parameter = null)
+        internal static Variable GetVariable(this StackItem item, IVariableContainerSession session, string name, string? typeHint = null)
         {
-            if (parameter?.Type == "ByteArray")
+            switch (typeHint)
             {
-                return ByteArrayContainer.GetVariable(item.GetByteArray(), session, parameter?.Name);
-            }
-
-            if (parameter != null 
-                && item.TryGetValue(parameter.Type, out var value))
-            {
-                return new Variable()
-                {
-                    Name = parameter.Name,
-                    Value = value,
-                    Type = parameter.Type
-                };
-            }
-
-            switch (item)
-            {
-                case IVariableProvider provider:
-                    return provider.GetVariable(session);
-                case Neo.VM.Types.Boolean _:
+                case "Boolean":
                     return new Variable()
                     {
-                        Name = parameter?.Name,
+                        Name = name,
                         Value = item.GetBoolean().ToString(),
-                        Type = "Boolean"
+                        Type = "#Boolean",
                     };
-                case Neo.VM.Types.Integer _:
+                case "Integer":
                     return new Variable()
                     {
-                        Name = parameter?.Name,
+                        Name = name,
                         Value = item.GetBigInteger().ToString(),
-                        Type = "Integer"
+                        Type = "#Integer",
                     };
-                case Neo.VM.Types.InteropInterface _:
+                case "String":
                     return new Variable()
                     {
-                        Name = parameter?.Name,
-                        Value = "<interop interface>"
+                        Name = name,
+                        Value = item.GetString(),
+                        Type = "#String",
                     };
-                case Neo.VM.Types.Struct _: // struct before array
-                case Neo.VM.Types.Map _:
+                case "HexString":
                     return new Variable()
                     {
-                        Name = parameter?.Name,
-                        Value = item.GetType().Name
+                        Name = name,
+                        Value = item.GetBigInteger().ToHexString(),
+                        Type = "#ByteArray"
                     };
-                case Neo.VM.Types.ByteArray byteArray:
-                    return ByteArrayContainer.GetVariable(byteArray, session, parameter?.Name);
-                case Neo.VM.Types.Array array:
-                    {
-                        var container = new NeoArrayContainer(session, array);
-                        var containerID = session.AddVariableContainer(container);
-                        return new Variable()
-                        {
-                            Name = parameter?.Name,
-                            Type = $"Array[{array.Count}]",
-                            VariablesReference = containerID,
-                            IndexedVariables = array.Count,
-                        };
-                    }
-                default:
-                    throw new NotImplementedException($"GetStackItemValue {item.GetType().FullName}");
+                case "ByteArray":
+                    return ByteArrayContainer.Create(session, item.GetByteArray(), name, true);
             }
+
+            return item switch
+            {
+                IVariableProvider provider => provider.GetVariable(session, name),
+                Neo.VM.Types.Boolean _ => new Variable()
+                {
+                    Name = name,
+                    Value = item.GetBoolean().ToString(),
+                    Type = "Boolean"
+                },
+                Neo.VM.Types.Integer _ => new Variable()
+                {
+                    Name = name,
+                    Value = item.GetBigInteger().ToString(),
+                    Type = "Integer"
+                },
+                Neo.VM.Types.ByteArray byteArray => ByteArrayContainer.Create(session, byteArray, name),
+                Neo.VM.Types.InteropInterface _ => new Variable()
+                {
+                    Name = name,
+                    Type = "InteropInterface"
+                },
+                Neo.VM.Types.Map map => NeoMapContainer.Create(session, map, name),
+                // NeoArrayContainer.Create will detect Struct (which inherits from Array)
+                // and distinguish accordingly
+                Neo.VM.Types.Array array => NeoArrayContainer.Create(session, array, name),
+                _ => throw new NotImplementedException($"GetStackItemValue {item.GetType().FullName}"),
+            };
         }
     }
 }
