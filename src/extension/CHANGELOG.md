@@ -15,13 +15,18 @@ may not exactly match a publicly released version.
 
 ## [0.6] - Unreleased
 
+### Added
+
+- Blockchain data provided by NEO-Express checkpoint
+- VSCode Watch window support for NEO contract variables and storage items
+- Basic type casting support for watch window expressions 
+- Debug variable support for domain model stack items like Block and Transaction
+- UTXO configuration parameters
+
+### Changed
+
 - Refactored NeoDebug Adapter to seperate common debug functionally from isolated debug
   adapter implementation.
-- Added support for UTXO configuration parameters
-- Added support for many more NEO services, with block chain data provided by
-  NEO-Express checkpoint
-- Added debug variable support for domain model stack items like Block and Transaction
-- Major restructuring as part of additional NEO service support
 - Updated debug adapter to netcore 3.0 and C# 8 (with nullable types enabled)
 
 ## [0.5] - 2019-09-06
