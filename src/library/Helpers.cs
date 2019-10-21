@@ -27,6 +27,9 @@ namespace NeoDebug
             }
         }
 
+        public static string ToHexString(this BigInteger bigInteger)
+            => "0x" + bigInteger.ToString("x");
+
         public static bool TryParseBigInteger(this string value, out BigInteger bigInteger)
         {
             if (value.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
@@ -162,7 +165,7 @@ namespace NeoDebug
                     return new Variable()
                     {
                         Name = name,
-                        Value = "0x" + item.GetBigInteger().ToString("x"),
+                        Value = item.GetBigInteger().ToHexString(),
                         Type = "#ByteArray"
                     };
                 case "ByteArray":

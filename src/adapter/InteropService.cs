@@ -1,5 +1,6 @@
 ﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.VM;
+using NeoDebug;
 using NeoDebug.Models;
 using NeoDebug.VariableContainers;
 
@@ -9,10 +10,11 @@ using NeoFx.Storage;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Numerics;
 using System.Text;
-
-
+using System.Text.RegularExpressions;
 
 namespace NeoDebug.Adapter
 {
@@ -115,6 +117,87 @@ namespace NeoDebug.Adapter
         internal IVariableContainer GetStorageContainer(IVariableContainerSession session)
         {
             return new EmulatedStorageContainer(session, scriptHash, storage);
+        }
+
+        static readonly Regex storageRegex = new Regex(@"^\$storage\[([0-9a-fA-F]{8})\]\.(key|value)$");
+
+
+        private EvaluateResponse EvaluateStorageExpression(IVariableContainerSession session, ReadOnlyMemory<byte> memory, string? typeHint)
+        {
+            switch (typeHint)
+            {
+                case "Boolean":
+                    return new EvaluateResponse()
+                    {
+                        Result = (new BigInteger(memory.Span) != BigInteger.Zero).ToString(),
+                        Type = "#Boolean",
+                    };
+                case "Integer":
+                    return new EvaluateResponse()
+                    {
+                        Result = new BigInteger(memory.Span).ToString(),
+                        Type = "#Integer",
+                    };
+                case "String":
+                    return new EvaluateResponse()
+                    {
+                        Result = Encoding.UTF8.GetString(memory.Span),
+                        Type = "#String",
+                    };
+                default:
+                case "HexString":
+                    return new EvaluateResponse()
+                    {
+                        Result = new BigInteger(memory.Span).ToHexString(),
+                        Type = "#ByteArray"
+                    };
+                case "ByteArray":
+                    {
+                        var variable = ByteArrayContainer.Create(session, memory, string.Empty, true);
+                        return new EvaluateResponse()
+                        {
+                            Result = variable.Value,
+                            VariablesReference = variable.VariablesReference,
+                            Type = variable.Type,
+                        };
+                    }
+            }
+        }
+
+        public EvaluateResponse EvaluateStorageExpression(IVariableContainerSession session, EvaluateArguments args)
+        {
+            bool TryFindStorage(int keyHash, out (ReadOnlyMemory<byte> key, StorageItem item) value)
+            {
+                foreach (var (key, item) in storage.EnumerateStorage(scriptHash))
+                {
+                    if (key.Span.GetSequenceHashCode() == keyHash)
+                    {
+                        value = (key, item);
+                        return true;
+                    }
+                }
+
+                value = default;
+                return false;
+            }
+
+            var (typeHint, index, name) = DebugAdapter.ParseEvalExpression(args.Expression);
+            var match = storageRegex.Match(name);
+
+            if (!index.HasValue && match.Success
+                && int.TryParse(match.Groups[1].Value, NumberStyles.HexNumber, null, out var keyHash)
+                && TryFindStorage(keyHash, out var _storage))
+            {
+                switch (match.Groups[2].Value)
+                {
+                    case "key":
+                        return EvaluateStorageExpression(session, _storage.key, typeHint);
+                    case "value":
+                        return EvaluateStorageExpression(session, _storage.item.Value, typeHint);
+                }
+            }
+
+            return DebugAdapter.FailedEvaluation;
         }
 
         protected void Register(string methodName, Func<ExecutionEngine, bool> handler, int price)

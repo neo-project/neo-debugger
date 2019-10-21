@@ -81,7 +81,6 @@ namespace NeoDebug.Adapter
             }
         }
 
-        // static readonly Regex storageRegex = new Regex(@"^\$storage\[(\d+)\]\.(key|value)$");
 
         // private bool TryGetStorageKey(string keyString, out StorageKey storageKey)
         // {

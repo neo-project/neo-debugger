@@ -96,7 +96,10 @@ namespace NeoDebug.Adapter
 
         void IExecutionEngine.ExecuteNext() => ExecuteNext();
 
-        IVariableContainer IExecutionEngine.GetStorageContainer(IVariableContainerSession session) =>
-            interopService.GetStorageContainer(session);
+        IVariableContainer IExecutionEngine.GetStorageContainer(IVariableContainerSession session)
+            => interopService.GetStorageContainer(session);
+
+        public EvaluateResponse EvaluateStorageExpression(IVariableContainerSession session, EvaluateArguments args)
+            => interopService.EvaluateStorageExpression(session, args);
     }
 }

@@ -319,7 +319,7 @@ namespace NeoDebug
 
             if (variableName.StartsWith("$storage"))
             {
-                return DebugAdapter.FailedEvaluation;
+                return engine.EvaluateStorageExpression(this, args);
             }
 
             Variable? GetVariable(StackItem item, Parameter local)
