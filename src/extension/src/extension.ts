@@ -90,7 +90,7 @@ async function processRuntimeDependencies(): Promise<void> {
 	} else {
 		if (debugAdapterPackageExists) {
 			let response = await execChildProcess(
-				`dotnet tool install neodebug-adapter --version ${extension.packageJSON.version} --tool-path ./adapter --add-source .`,
+				`dotnet tool install neo.debug.adapter --version ${extension.packageJSON.version} --tool-path ./adapter --add-source .`,
 				extension.extensionPath);
 			await deleteFile(getDebugAdapterPackagePath(extension));
 		} else {
