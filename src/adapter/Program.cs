@@ -1,15 +1,7 @@
 ﻿using McMaster.Extensions.CommandLineUtils;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
-using NeoDebug.Models;
-using NeoFx;
-using NeoFx.Models;
-using NeoFx.Storage;
-using Newtonsoft.Json.Linq;
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 
 namespace NeoDebug.Adapter
 {
@@ -30,7 +22,7 @@ namespace NeoDebug.Adapter
         {
             var neoDebugLogPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "NEO-Debug",
+                "NEO-Debugger",
                 "logs");
 
             if (!Directory.Exists(neoDebugLogPath))
@@ -38,7 +30,7 @@ namespace NeoDebug.Adapter
                 Directory.CreateDirectory(neoDebugLogPath);
             }
 
-            logFile = Path.Combine(neoDebugLogPath, $"neo-debug-{DateTime.Now:yyMMdd-hhmmss}.log");
+            logFile = Path.Combine(neoDebugLogPath, $"{DateTime.Now:yyMMdd-hhmmss}.log");
         }
 
         private void OnExecute(CommandLineApplication app, IConsole console)

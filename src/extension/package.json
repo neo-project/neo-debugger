@@ -6,9 +6,9 @@
 	"description": "Debugger Extension for NEO Smart Contracts",
 	"icon": "neo-logo-256.png",
 	"galleryBanner": {
-        "color": "#242424",
-        "theme": "dark"
-    },
+		"color": "#242424",
+		"theme": "dark"
+	},
 	"author": "NEO Global Development Seattle",
 	"engines": {
 		"vscode": "^1.37.0"
@@ -40,7 +40,7 @@
 				"neo-debugger.log": {
 					"type": "boolean",
 					"default": false,
-					"description": "Enable debug adapter logging to %LOCALAPPDATA%/neo-debugger/logs"
+					"description": "Enable debug adapter logging to %LOCALAPPDATA%/NEO-Debugger/logs"
 				},
 				"neo-debugger.debug": {
 					"type": "boolean",
