@@ -1,9 +1,7 @@
 ﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.VM;
-using NeoDebug;
 using NeoDebug.Models;
 using NeoDebug.VariableContainers;
-
 using NeoFx;
 using NeoFx.Models;
 using NeoFx.Storage;
@@ -181,7 +179,7 @@ namespace NeoDebug.Adapter
                 return false;
             }
 
-            var (typeHint, index, name) = DebugAdapter.ParseEvalExpression(args.Expression);
+            var (typeHint, index, name) = Helpers.ParseEvalExpression(args.Expression);
             var match = storageRegex.Match(name);
 
             if (!index.HasValue && match.Success

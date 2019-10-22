@@ -8,6 +8,7 @@ using System.Globalization;
 using System.Linq;
 using System.Numerics;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 
 namespace NeoDebug
 {
@@ -134,6 +135,53 @@ namespace NeoDebug
             }
 
             return null;
+        }
+
+        private static readonly Regex indexRegex = new Regex(@"\[(\d+)\]$");
+
+        public static (string? typeHint, int? index, string name) ParseEvalExpression(string expression)
+        {
+            var castOperations = new Dictionary<string, string>()
+            {
+                { "(int)", "Integer" },
+                { "(bool)", "Boolean" },
+                { "(string)", "String" },
+                { "(hex)", "HexString" },
+                { "(byte[])", "ByteArray" },
+            };
+
+            (string? typeHint, string text) ParsePrefix(string input)
+            {
+                foreach (var kvp in castOperations)
+                {
+                    if (input.StartsWith(kvp.Key))
+                    {
+                        return (kvp.Value, input.Substring(kvp.Key.Length));
+                    }
+                }
+
+                return (null, input);
+            }
+
+            (int? index, string text) ParseSuffix(string input)
+            {
+                var match = indexRegex.Match(input);
+                if (match.Success)
+                {
+                    var matchValue = match.Groups[0].Value;
+                    var indexValue = match.Groups[1].Value;
+                    if (int.TryParse(indexValue, out var index))
+                    {
+                        return (index, input.Substring(0, input.Length - matchValue.Length));
+                    }
+                }
+                return (null, input);
+            }
+
+            var prefix = ParsePrefix(expression);
+            var suffix = ParseSuffix(prefix.text);
+
+            return (prefix.typeHint, suffix.index, suffix.text.Trim());
         }
 
         internal static Variable GetVariable(this StackItem item, IVariableContainerSession session, string name, string? typeHint = null)

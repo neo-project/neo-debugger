@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
-using System.Text.RegularExpressions;
 
 namespace NeoDebug
 {
@@ -315,7 +314,7 @@ namespace NeoDebug
             if ((engine.State & HALT_OR_FAULT) != 0)
                 return DebugAdapter.FailedEvaluation;
 
-            var (typeHint, index, variableName) = DebugAdapter.ParseEvalExpression(args.Expression);
+            var (typeHint, index, variableName) = Helpers.ParseEvalExpression(args.Expression);
 
             if (variableName.StartsWith("$storage"))
             {
