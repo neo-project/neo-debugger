@@ -31,6 +31,9 @@ namespace NeoDebug
         public static string ToHexString(this BigInteger bigInteger)
             => "0x" + bigInteger.ToString("x");
 
+        public static string ToHexString(this ReadOnlySpan<byte> span)
+            => ToHexString(new BigInteger(span));
+
         public static bool TryParseBigInteger(this string value, out BigInteger bigInteger)
         {
             if (value.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
@@ -41,8 +44,7 @@ namespace NeoDebug
 
             Lazy<SHA256> sha256 = new Lazy<SHA256>(() => SHA256.Create());
 
-            // All NEO addresses start with an 'A' and are 34 characters long
-            if (value.StartsWith("@A", StringComparison.Ordinal))
+            if (value.StartsWith("@", StringComparison.Ordinal))
             {
                 Span<byte> tempBuffer = stackalloc byte[32];
                 Span<byte> checksum = stackalloc byte[32];

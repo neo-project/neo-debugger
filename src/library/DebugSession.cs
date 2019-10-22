@@ -260,7 +260,7 @@ namespace NeoDebug
 
         private string GetResult(ByteArrayContainer container)
         {
-            return "0x" + container.AsBigInteger().ToString("x");
+            return container.Span.ToHexString();
         }
 
         private string GetResult(Variable variable)
@@ -290,7 +290,7 @@ namespace NeoDebug
         {
             if (typeHint == "ByteArray")
             {
-                return "0x" + new BigInteger(item.GetByteArray()).ToString("x");
+                return Helpers.ToHexString(item.GetByteArray());
             }
 
             return GetResult(item.GetVariable(this, string.Empty, typeHint));

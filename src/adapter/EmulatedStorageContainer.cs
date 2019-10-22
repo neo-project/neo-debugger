@@ -28,21 +28,17 @@ namespace NeoDebug.Adapter
 
             public IEnumerable<Variable> GetVariables()
             {
-                // TODO remove .ToArray() calls
-                //yield return ByteArrayContainer.Create(session, key.ToArray(), "key");
-                //yield return ByteArrayContainer.Create(session, value.ToArray(), "value");
-
                 yield return new Variable()
                 {
                     Name = "key",
-                    Value = "0x" + new BigInteger(key.Span).ToString("x"),
+                    Value = key.Span.ToHexString(),
                     EvaluateName = $"$storage[{hashCode}].key",
                 };
 
                 yield return new Variable()
                 {
                     Name = "value",
-                    Value = "0x" + new BigInteger(value.Span).ToString("x"),
+                    Value = value.Span.ToHexString(),
                     EvaluateName = $"$storage[{hashCode}].value",
                 };
 

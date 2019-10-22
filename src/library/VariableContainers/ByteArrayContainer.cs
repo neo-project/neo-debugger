@@ -23,10 +23,7 @@ namespace NeoDebug.VariableContainers
             return Create(session, byteArray.GetByteArray(), name);
         }
 
-        public BigInteger AsBigInteger()
-        {
-            return new BigInteger(memory.Span);
-        }
+        public ReadOnlySpan<byte> Span => memory.Span;
 
         public static Variable Create(IVariableContainerSession session, ReadOnlyMemory<byte> memory, string? name, bool hashed = false)
         {
@@ -38,7 +35,7 @@ namespace NeoDebug.VariableContainers
             {
                 Name = name,
                 Type = $"{hash}ByteArray[{memory.Length}]",
-                //Value = "0x" + container.AsBigInteger().ToString("x"),
+                Value = container.Span.ToHexString(),
                 VariablesReference = containerID,
                 IndexedVariables = memory.Length,
             };
