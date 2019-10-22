@@ -198,6 +198,7 @@ namespace NeoDebug
             }
             catch (Exception ex)
             {
+                Log(ex.Message, LogCategory.DebugAdapterOutput);
                 throw new ProtocolException(ex.Message, ex);
             }
         }
@@ -223,6 +224,7 @@ namespace NeoDebug
             }
             catch (Exception ex)
             {
+                Log(ex.Message, LogCategory.DebugAdapterOutput);
                 throw new ProtocolException(ex.Message, ex);
             }
         }
@@ -238,6 +240,7 @@ namespace NeoDebug
             }
             catch (Exception ex)
             {
+                Log(ex.Message, LogCategory.DebugAdapterOutput);
                 throw new ProtocolException(ex.Message, ex);
             }
         }
@@ -253,6 +256,7 @@ namespace NeoDebug
             }
             catch (Exception ex)
             {
+                Log(ex.Message, LogCategory.DebugAdapterOutput);
                 throw new ProtocolException(ex.Message, ex);
             }
         }
@@ -268,6 +272,7 @@ namespace NeoDebug
             }
             catch (Exception ex)
             {
+                Log(ex.Message, LogCategory.DebugAdapterOutput);
                 throw new ProtocolException(ex.Message, ex);
             }
         }
@@ -321,6 +326,7 @@ namespace NeoDebug
             }
             catch (Exception ex)
             {
+                Log(ex.Message, LogCategory.DebugAdapterOutput);
                 throw new ProtocolException(ex.Message, ex);
             }
         }
@@ -338,6 +344,7 @@ namespace NeoDebug
             }
             catch (Exception ex)
             {
+                Log(ex.Message, LogCategory.DebugAdapterOutput);
                 throw new ProtocolException(ex.Message, ex);
             }
         }
@@ -355,6 +362,7 @@ namespace NeoDebug
             }
             catch (Exception ex)
             {
+                Log(ex.Message, LogCategory.DebugAdapterOutput);
                 throw new ProtocolException(ex.Message, ex);
             }
         }
@@ -372,6 +380,7 @@ namespace NeoDebug
             }
             catch (Exception ex)
             {
+                Log(ex.Message, LogCategory.DebugAdapterOutput);
                 throw new ProtocolException(ex.Message, ex);
             }
         }
@@ -390,6 +399,7 @@ namespace NeoDebug
             }
             catch (Exception ex)
             {
+                Log(ex.Message, LogCategory.DebugAdapterOutput);
                 throw new ProtocolException(ex.Message, ex);
             }
         }
@@ -405,6 +415,7 @@ namespace NeoDebug
             }
             catch (Exception ex)
             {
+                Log(ex.Message, LogCategory.DebugAdapterOutput);
                 throw new ProtocolException(ex.Message, ex);
             }
         }
