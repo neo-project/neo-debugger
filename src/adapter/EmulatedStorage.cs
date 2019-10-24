@@ -32,7 +32,7 @@ namespace NeoDebug.Adapter
 
         private readonly IBlockchainStorage? blockchain;
 
-        private readonly Dictionary<StorageKey, (bool deleted, StorageItem item)> storage = 
+        private readonly Dictionary<StorageKey, (bool deleted, StorageItem item)> storage =
             new Dictionary<StorageKey, (bool, StorageItem)>(new StorageKeyEqualityComparer());
 
         public EmulatedStorage(IBlockchainStorage? blockchain)

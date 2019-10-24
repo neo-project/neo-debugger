@@ -215,7 +215,7 @@ namespace NeoDebug.Adapter
                 if (method.Length == 4)
                 {
                     value = BitConverter.ToUInt32(method);
-                    return true; 
+                    return true;
                 }
 
                 return HashHelpers.TryInteropMethodHash(method, out value);

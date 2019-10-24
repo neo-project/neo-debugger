@@ -73,7 +73,7 @@ namespace NeoDebug.Adapter
             var blockchain = GetBlockchain(arguments.ConfigurationProperties);
             var (inputs, outputs) = GetUtxo(arguments.ConfigurationProperties, blockchain);
 
-            var tx = new InvocationTransaction(contract.Script, Fixed8.Zero, 1, default, 
+            var tx = new InvocationTransaction(contract.Script, Fixed8.Zero, 1, default,
                 inputs.ToArray(), outputs.ToArray(), default);
             var container = new ModelAdapters.TransactionAdapter(tx);
 

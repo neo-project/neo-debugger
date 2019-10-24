@@ -17,7 +17,7 @@ namespace NeoDebug
         private readonly Func<Contract, LaunchArguments, Action<OutputEvent>, IExecutionEngine> createEngineFunc;
         private readonly Func<byte[], byte[]> scriptHashFunc;
         private DebugSession? session;
-        
+
         public DebugAdapter(Stream @in, Stream @out, Func<Contract, LaunchArguments, Action<OutputEvent>, IExecutionEngine> createEngineFunc,
                             Func<byte[], byte[]> scriptHashFunc, Action<LogCategory, string>? logger = null)
         {
@@ -167,7 +167,7 @@ namespace NeoDebug
                 for (int i = 0; i < method.Parameters.Count; i++)
                 {
                     yield return ConvertArgument(
-                        method.Parameters[i], 
+                        method.Parameters[i],
                         i < args.Count ? args[i] : null);
                 }
             }

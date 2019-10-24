@@ -88,7 +88,7 @@ namespace NeoDebug.Adapter
         {
             var evalStack = engine.CurrentContext.EvaluationStack;
             var hash = new UInt256(evalStack.Pop().GetByteArray());
-            if (blockchain != null 
+            if (blockchain != null
                 && blockchain.TryGetTransaction(hash, out var _, out var tx))
             {
                 evalStack.Push(new ModelAdapters.TransactionAdapter(tx));
@@ -117,7 +117,7 @@ namespace NeoDebug.Adapter
                 {
                     hash = default;
                 }
-                
+
                 return true;
             }
             else if (data.Length == 32)

@@ -359,7 +359,7 @@ namespace NeoDebug
                     {
                         var variable = GetVariable(variables[varIndex], local);
                         if (variable != null)
-                        { 
+                        {
                             return new EvaluateResponse()
                             {
                                 Result = variable.Value,
