@@ -309,7 +309,12 @@ namespace NeoDebug
 
                 if ((session.EngineState & VMState.FAULT) != 0)
                 {
-                    throw new Exception("Engine State Faulted");
+                    Protocol.SendEvent(new OutputEvent()
+                    {
+                        Category = OutputEvent.CategoryValue.Stderr,
+                        Output = "Engine State Faulted",
+                    });
+                    Protocol.SendEvent(new TerminatedEvent());
                 }
                 if ((session.EngineState & VMState.HALT) != 0)
                 {
@@ -317,6 +322,7 @@ namespace NeoDebug
                     {
                         Protocol.SendEvent(new OutputEvent(result));
                     }
+                    Protocol.SendEvent(new ExitedEvent());
                     Protocol.SendEvent(new TerminatedEvent());
                 }
                 else
