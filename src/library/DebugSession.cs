@@ -15,22 +15,20 @@ namespace NeoDebug
         private readonly IExecutionEngine engine;
         private readonly Dictionary<int, HashSet<int>> breakPoints = new Dictionary<int, HashSet<int>>();
         private readonly Dictionary<int, IVariableContainer> variableContainers = new Dictionary<int, IVariableContainer>();
+        private readonly ReadOnlyMemory<string> returnTypes;
 
         public Contract Contract { get; }
-        public Method Method { get; }
 
         public VMState EngineState => engine.State;
 
-        public DebugSession(IExecutionEngine engine, Contract contract, Method method, ContractArgument[] arguments)
+        public DebugSession(IExecutionEngine engine, Contract contract, ContractArgument[] arguments, ReadOnlyMemory<string> returnTypes)
         {
             this.engine = engine;
+            this.returnTypes = returnTypes;
             Contract = contract;
-            Method = method;
 
-            using (var builder = contract.BuildInvokeScript(arguments))
-            {
-                engine.LoadScript(builder.ToArray());
-            }
+            using var builder = contract.BuildInvokeScript(arguments);
+            engine.LoadScript(builder.ToArray());
         }
 
         public IEnumerable<Breakpoint> SetBreakpoints(Source source, IReadOnlyList<SourceBreakpoint> sourceBreakpoints)
@@ -298,14 +296,11 @@ namespace NeoDebug
 
         public IEnumerable<string> GetResults()
         {
-            var head = engine.ResultStack.FirstOrDefault();
-            if (head != null)
+            foreach (var (item, index) in engine.ResultStack.Select((_item, index) => (_item, index)))
             {
-                yield return GetResult(head, Method.ReturnType);
-            }
-            foreach (var item in engine.ResultStack.Skip(1))
-            {
-                yield return GetResult(item);
+                var returnType = index < returnTypes.Length
+                    ? returnTypes.Span[index] : null;
+                yield return GetResult(item, returnType);
             }
         }
 

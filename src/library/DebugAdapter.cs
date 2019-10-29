@@ -135,17 +135,6 @@ namespace NeoDebug
 
         protected override LaunchResponse HandleLaunchRequest(LaunchArguments arguments)
         {
-            Method? GetMethod(Contract _contract)
-            {
-                if (arguments.ConfigurationProperties.TryGetValue("method", out var methodToken))
-                {
-                    var methodName = methodToken.Value<string>();
-                    return _contract.DebugInfo.Methods.SingleOrDefault(m => m.DisplayName == methodName);
-                }
-
-                return null;
-            }
-
             JArray GetArgsConfig()
             {
                 if (arguments.ConfigurationProperties.TryGetValue("args", out var args))
@@ -172,24 +161,26 @@ namespace NeoDebug
                 }
             }
 
+            IEnumerable<string> GetReturnTypes()
+            {
+                if (arguments.ConfigurationProperties.TryGetValue("return-types", out var returnTypes))
+                {
+                    foreach (var returnType in returnTypes)
+                    {
+                        yield return Helpers.CastOperations[returnType.Value<string>()];
+                    }
+                }
+            }
+
             try
             {
                 var programFileName = (string)arguments.ConfigurationProperties["program"];
                 var contract = Contract.Load(programFileName, scriptHashFunc);
-                var method = GetMethod(contract) ?? contract.EntryPoint;
-                var contractArgs = GetArguments(method).ToArray();
-
-                if (method.Name != contract.EntryPoint.Name)
-                {
-                    contractArgs = new ContractArgument[]
-                    {
-                        new ContractArgument(ContractParameterType.String, method.DisplayName),
-                        new ContractArgument(ContractParameterType.Array, contractArgs)
-                    };
-                }
+                var contractArgs = GetArguments(contract.EntryPoint).ToArray();
+                var returnTypes = GetReturnTypes().ToArray();
 
                 var engine = createEngineFunc(contract, arguments, outputEvent => Protocol.SendEvent(outputEvent));
-                session = new DebugSession(engine, contract, method, contractArgs);
+                session = new DebugSession(engine, contract, contractArgs, returnTypes);
 
                 session.StepIn();
                 Protocol.SendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Entry) { ThreadId = 1 });

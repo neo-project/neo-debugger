@@ -4,6 +4,7 @@ using NeoDebug.Models;
 using NeoDebug.VariableContainers;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
 using System.Numerics;
@@ -141,31 +142,34 @@ namespace NeoDebug
 
         private static readonly Regex indexRegex = new Regex(@"\[(\d+)\]$");
 
+        public static readonly IReadOnlyDictionary<string, string> CastOperations = new Dictionary<string, string>()
+            {
+                { "int", "Integer" },
+                { "bool", "Boolean" },
+                { "string", "String" },
+                { "hex", "HexString" },
+                { "byte[]", "ByteArray" },
+            }.ToImmutableDictionary();
+
         public static (string? typeHint, int? index, string name) ParseEvalExpression(string expression)
         {
-            var castOperations = new Dictionary<string, string>()
+            static (string? typeHint, string text) ParsePrefix(string input)
             {
-                { "(int)", "Integer" },
-                { "(bool)", "Boolean" },
-                { "(string)", "String" },
-                { "(hex)", "HexString" },
-                { "(byte[])", "ByteArray" },
-            };
-
-            (string? typeHint, string text) ParsePrefix(string input)
-            {
-                foreach (var kvp in castOperations)
+                foreach (var kvp in CastOperations)
                 {
-                    if (input.StartsWith(kvp.Key))
+                    if (input.Length > kvp.Key.Length + 2
+                        && input[0] == '('
+                        && input.AsSpan().Slice(1, kvp.Key.Length).SequenceEqual(kvp.Key)
+                        && input[kvp.Key.Length + 1] == ')')
                     {
-                        return (kvp.Value, input.Substring(kvp.Key.Length));
+                        return (kvp.Value, input.Substring(kvp.Key.Length + 2));
                     }
                 }
 
                 return (null, input);
             }
 
-            (int? index, string text) ParseSuffix(string input)
+            static (int? index, string text) ParseSuffix(string input)
             {
                 var match = indexRegex.Match(input);
                 if (match.Success)

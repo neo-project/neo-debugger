@@ -73,9 +73,6 @@
 								"description": "Command line arguments passed to the program.",
 								"default": []
 							},
-							"method": {
-								"type": "string"
-							},
 							"checkpoint": {
 								"type": "string"
 							},
@@ -142,6 +139,19 @@
 									}
 								},
 								"default": []
+							},
+							"return-types": {
+								"type": "array",
+								"items": {
+									"type": "string",
+									"enum": [
+										"int",
+										"bool",
+										"string",
+										"hex",
+										"byte[]"
+									]
+								}
 							},
 							"runtime": {
 								"type": "object",
