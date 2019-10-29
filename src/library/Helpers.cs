@@ -101,6 +101,20 @@ namespace NeoDebug
             return null;
         }
 
+        public static Event? GetEvent(this Contract contract, string name)
+        {
+            for (int i = 0; i < contract.DebugInfo.Events.Count; i++)
+            {
+                var @event = contract.DebugInfo.Events[i];
+                if (@event.DisplayName == name)
+                {
+                    return @event;
+                }
+            }
+
+            return null;
+        }
+
         internal static bool CheckSequencePoint(this Contract contract, ExecutionContext context)
         {
             if (contract.ScriptHash.AsSpan().SequenceEqual(context.ScriptHash))

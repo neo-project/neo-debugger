@@ -27,6 +27,7 @@ namespace NeoDebug.Adapter
         private readonly Dictionary<uint, Func<ExecutionEngine, bool>> methods = new Dictionary<uint, Func<ExecutionEngine, bool>>();
         private readonly EmulatedStorage storage;
 
+        private readonly Contract contract;
         private readonly UInt160 scriptHash;
         private readonly IBlockchainStorage? blockchain;
         private readonly Action<OutputEvent> sendOutput;
@@ -70,6 +71,7 @@ namespace NeoDebug.Adapter
                 throw new Exception($"TryParseBigInteger for {value} failed");
             }
 
+            this.contract = contract;
             this.sendOutput = sendOutput;
             this.blockchain = blockchain;
             storage = new EmulatedStorage(blockchain);

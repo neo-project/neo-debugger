@@ -16,6 +16,9 @@ namespace NeoDebug.Models
         [JsonProperty("methods")]
         public List<Method> Methods { get; set; } = new List<Method>();
 
+        [JsonProperty("events")]
+        public List<Event> Events { get; set; } = new List<Event>();
+
         [JsonProperty("sequence-points")]
         public List<SequencePoint> SequencePoints { get; set; } = new List<SequencePoint>();
 

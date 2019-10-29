@@ -1,11 +1,10 @@
 ﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.VM;
+using NeoDebug;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-
-
 
 namespace NeoDebug.Adapter
 {
@@ -96,15 +95,32 @@ namespace NeoDebug.Adapter
 
         private bool Runtime_Notify(ExecutionEngine engine)
         {
-            var state = engine.CurrentContext.EvaluationStack.Pop() as Neo.VM.Types.Array;
-            if (state != null)
+            static string StackItemToString(StackItem item, string? typeHint = null)
+            {
+                return typeHint switch
+                {
+                    "Boolean" => item.GetBoolean().ToString(),
+                    "Integer" => item.GetBigInteger().ToString(),
+                    "String" => item.GetString(),
+                    _ => item.GetBigInteger().ToHexString(),
+                };
+            }
+
+            if (engine.CurrentContext.EvaluationStack.Pop() is Neo.VM.Types.Array state && state.Count >= 1)
             {
                 var name = Encoding.UTF8.GetString(state[0].GetByteArray());
-                var @event = new OutputEvent()
+                var paramTypes = contract.GetEvent(name)?.Parameters ?? new List<Models.Parameter>();
+                var @params = new Newtonsoft.Json.Linq.JArray();
+                for (int i = 1; i < state.Count; i++)
                 {
-                    Output = $"Runtime.Notify: {name}\n",
-                };
-                sendOutput(@event);
+                    var paramType = i <= paramTypes.Count ? paramTypes[i - 1].Type : string.Empty;
+                    @params.Add(StackItemToString(state[i], paramType));
+                }
+
+                sendOutput(new OutputEvent()
+                {
+                    Output = $"Runtime.Notify: {name} {@params.ToString(Newtonsoft.Json.Formatting.None)}",
+                });
             }
             return true;
         }
