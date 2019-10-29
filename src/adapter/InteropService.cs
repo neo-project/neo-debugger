@@ -237,6 +237,15 @@ namespace NeoDebug.Adapter
                     });
                 }
             }
+            else
+            {
+                var methodHex = new BigInteger(method).ToHexString();
+                sendOutput(new OutputEvent()
+                {
+                    Category = OutputEvent.CategoryValue.Stderr,
+                    Output = $"Invalid interop method {methodHex}",
+                });
+            }
 
             return false;
         }
