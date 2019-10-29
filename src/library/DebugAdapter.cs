@@ -311,7 +311,11 @@ namespace NeoDebug
                 {
                     foreach (var result in session.GetResults())
                     {
-                        Protocol.SendEvent(new OutputEvent(result));
+                        Protocol.SendEvent(new OutputEvent()
+                        {
+                            Category = OutputEvent.CategoryValue.Stdout,
+                            Output = "Return: " + result,
+                        });
                     }
                     Protocol.SendEvent(new ExitedEvent());
                     Protocol.SendEvent(new TerminatedEvent());
