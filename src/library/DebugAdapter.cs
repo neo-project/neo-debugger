@@ -303,7 +303,7 @@ namespace NeoDebug
                     Protocol.SendEvent(new OutputEvent()
                     {
                         Category = OutputEvent.CategoryValue.Stderr,
-                        Output = "Engine State Faulted",
+                        Output = "Engine State Faulted\n",
                     });
                     Protocol.SendEvent(new TerminatedEvent());
                 }
@@ -314,7 +314,7 @@ namespace NeoDebug
                         Protocol.SendEvent(new OutputEvent()
                         {
                             Category = OutputEvent.CategoryValue.Stdout,
-                            Output = "Return: " + result,
+                            Output = $"Return: {result}\n",
                         });
                     }
                     Protocol.SendEvent(new ExitedEvent());

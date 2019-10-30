@@ -232,10 +232,11 @@ namespace NeoDebug.Adapter
                 }
                 catch (Exception ex)
                 {
+                    var methodHex = new BigInteger(method).ToHexString();
                     sendOutput(new OutputEvent()
                     {
                         Category = OutputEvent.CategoryValue.Stderr,
-                        Output = ex.ToString(),
+                        Output = $"Exception in {methodHex} method: {ex}\n",
                     });
                 }
             }
@@ -245,7 +246,7 @@ namespace NeoDebug.Adapter
                 sendOutput(new OutputEvent()
                 {
                     Category = OutputEvent.CategoryValue.Stderr,
-                    Output = $"Invalid interop method {methodHex}",
+                    Output = $"Invalid interop method {methodHex}\n",
                 });
             }
 

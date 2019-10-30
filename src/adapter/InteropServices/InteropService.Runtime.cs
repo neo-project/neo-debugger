@@ -85,11 +85,10 @@ namespace NeoDebug.Adapter
         private bool Runtime_Log(ExecutionEngine engine)
         {
             string message = Encoding.UTF8.GetString(engine.CurrentContext.EvaluationStack.Pop().GetByteArray());
-            var @event = new OutputEvent()
+            sendOutput(new OutputEvent()
             {
                 Output = $"Runtime.Log: {message}\n",
-            };
-            sendOutput(@event);
+            });
             return true;
         }
 
@@ -119,7 +118,7 @@ namespace NeoDebug.Adapter
 
                 sendOutput(new OutputEvent()
                 {
-                    Output = $"Runtime.Notify: {name} {@params.ToString(Newtonsoft.Json.Formatting.None)}",
+                    Output = $"Runtime.Notify: {name} {@params.ToString(Newtonsoft.Json.Formatting.None)}\n",
                 });
             }
             return true;
