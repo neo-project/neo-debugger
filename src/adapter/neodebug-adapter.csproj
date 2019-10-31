@@ -3,14 +3,13 @@
   <PropertyGroup>
     <AssemblyName>neodebug-adapter</AssemblyName>
     <Authors>Neo Global Development Seattle</Authors>
-    <Description>neo-express is a NEO developer blockchain tool</Description>
     <LangVersion>8</LangVersion>
     <Nullable>enable</Nullable>
     <OutputType>Exe</OutputType>
     <PackageId>Neo.Debug.Adapter</PackageId>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/neo-project/neo-debugger</PackageProjectUrl>
-    <PackageTags>NEO;Blockchain;Smart Contract;Debugger</PackageTags>
+    <PackageTags>Neo;Blockchain;Smart Contract;Debugger</PackageTags>
     <PackAsTool>true</PackAsTool>
     <RootNamespace>NeoDebug.Adapter</RootNamespace>
     <TargetFramework>netcoreapp3.0</TargetFramework>

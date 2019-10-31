@@ -119,7 +119,7 @@ class NeoContractDebugConfigurationProvider implements vscode.DebugConfiguration
 		
 		function createConfig(programPath: string | undefined = undefined): DebugConfiguration {
 			return {
-				name: programPath ? basename(programPath) : "NEO Contract",
+				name: programPath ? basename(programPath) : "Neo Contract",
 				type: "neo-contract",
 				request: "launch",
 				program: programPath && folder 

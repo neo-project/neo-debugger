@@ -1,4 +1,4 @@
-# NEO Smart Contract Debugger Change Log
+# Neo Smart Contract Debugger Change Log
 
 All notable changes to this project will be documented in this file.
 
@@ -13,12 +13,12 @@ will not have contiguous patch numbers. Initial major and minor releases will be
 in this file without a patch number. Patch version will be included for bug fix releases, but
 may not exactly match a publicly released version.
 
-## [0.6] - Unreleased
+## [0.9] - Unreleased
 
 ### Added
 
-- Blockchain data provided by NEO-Express checkpoint
-- VSCode Watch window support for NEO contract variables and storage items
+- Blockchain data provided by Neo-Express checkpoint
+- VSCode Watch window support for Neo contract variables and storage items
 - Basic type casting support for watch window expressions 
 - Debug variable support for domain model stack items like Block and Transaction
 - UTXO configuration parameters
@@ -28,6 +28,7 @@ may not exactly match a publicly released version.
 - Refactored NeoDebug Adapter to seperate common debug functionally from isolated debug
   adapter implementation.
 - Updated debug adapter to netcore 3.0 and C# 8 (with nullable types enabled)
+- Updated Neo branding as per https://neo.org/presskit
 
 ## [0.5] - 2019-09-06
 

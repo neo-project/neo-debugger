@@ -22,7 +22,7 @@ namespace NeoDebug.Adapter
         {
             var neoDebugLogPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "NEO-Debugger",
+                "Neo-Debugger",
                 "logs");
 
             if (!Directory.Exists(neoDebugLogPath))

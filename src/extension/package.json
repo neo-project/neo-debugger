@@ -2,14 +2,14 @@
 	"name": "neo-contract-debug",
 	"publisher": "ngd-seattle",
 	"version": "0.0.0",
-	"displayName": "NEO Smart Contract Debugger",
-	"description": "Debugger Extension for NEO Smart Contracts",
+	"displayName": "Neo Smart Contract Debugger",
+	"description": "Debugger Extension for Neo Smart Contracts",
 	"icon": "neo-logo-256.png",
 	"galleryBanner": {
 		"color": "#242424",
 		"theme": "dark"
 	},
-	"author": "NEO Global Development Seattle",
+	"author": "Neo Global Development Seattle",
 	"engines": {
 		"vscode": "^1.37.0"
 	},
@@ -24,7 +24,7 @@
 		"url": "https://github.com/neo-project/neo-debugger.git"
 	},
 	"keywords": [
-		"NEO",
+		"Neo",
 		"Blockchain",
 		"Smart Contract"
 	],
@@ -35,29 +35,29 @@
 	"contributes": {
 		"configuration": {
 			"type": "object",
-			"title": "NEO Debugger",
+			"title": "Neo Debugger",
 			"properties": {
 				"neo-debugger.log": {
 					"type": "boolean",
 					"default": false,
-					"description": "Enable debug adapter logging to %LOCALAPPDATA%/NEO-Debugger/logs"
+					"description": "Enable debug adapter logging to %LOCALAPPDATA%/Neo-Debugger/logs"
 				},
 				"neo-debugger.debug": {
 					"type": "boolean",
 					"default": false,
-					"description": "Pass the --debug flag when launching the NEO Debugger server"
+					"description": "Pass the --debug flag when launching the Neo Debugger server"
 				},
 				"neo-debugger.debug-adapter": {
 					"type": "array",
 					"items": "string",
-					"description": "Path to the NEO Debugger server"
+					"description": "Path to the Neo Debugger server"
 				}
 			}
 		},
 		"debuggers": [
 			{
 				"type": "neo-contract",
-				"label": "NEO Contract",
+				"label": "Neo Contract",
 				"configurationAttributes": {
 					"launch": {
 						"required": [
@@ -189,10 +189,10 @@
 				},
 				"configurationSnippets": [
 					{
-						"label": "NEO Contract: Launch",
-						"description": "A new configuration for debugging a NEO Smart Contract",
+						"label": "Neo Contract: Launch",
+						"description": "A new configuration for debugging a Neo Smart Contract",
 						"body": {
-							"name": "NEO Contract",
+							"name": "Neo Contract",
 							"type": "neo-contract",
 							"request": "launch",
 							"program": "${workspaceFolder}",

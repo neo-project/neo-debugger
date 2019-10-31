@@ -52,7 +52,7 @@ namespace NeoDebug
                 var decoded = SimpleBase.Base58.Bitcoin.Decode(value.AsSpan().Slice(1));
 
                 if (decoded.Length == 25 // address version byte + 20 bytes address + 4 byte checksum
-                    && decoded[0] == 23  // Address version 23 used by mainnet, testnet and NEO Express
+                    && decoded[0] == 23  // Address version 23 used by mainnet, testnet and Neo Express
                     && sha256.Value.TryComputeHash(decoded.Slice(0, 21), tempBuffer, out var written1)
                     && sha256.Value.TryComputeHash(tempBuffer, checksum, out var written2)
                     && written1 == 32 && written2 == 32
