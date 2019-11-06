@@ -21,14 +21,14 @@ Neo supports writing smart contracts in a variety of languages. However, the
 debugger needs the smart contract complier to emit additional information the
 debugger uses to map Neo Virtual Machine instructions back to source code.
 Currently, there is only one tool that can generate this debugger information -
-a fork of the Neo Compiler for .NET. This fork - known as NeoN-DE (DE stands for
+a fork of the Neo Compiler for .NET. This fork - known as NEON-DE (DE stands for
 Debugger Enhancements) is currently only available via a [fork of the Neo DevPack
-for .NET repo](https://github.com/devhawk/neo-devpack-dotnet/tree/dehvawk/master2/Neo.Compiler.MSIL).
+for .NET repo](https://github.com/ngdseattle/neo-devpack-dotnet/tree/master-de).
 We have every intention to move this fork into the official
 [Neo DevPack for .NET repo](https://github.com/neo-project/neo-devpack-dotnet),
-and to merge the debugger enhancements to the official NeoN tool release.
+and to merge the debugger enhancements to the official NEON tool release.
 
 Additionally, we intend to standardize and document the debug information generated
-by NeoN-DE so that other Neo smart contract compilers such as
+by NEON-DE so that other Neo smart contract compilers such as
 [neo-boa](https://github.com/CityOfZion/neo-boa) can generate it. It is an explicit
 goal for this debugger to work with any language that can compile Neo smart contracts.
