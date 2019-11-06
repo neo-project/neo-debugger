@@ -1,5 +1,7 @@
 # Neo Smart Contract Debugger for Visual Studio Code
 
+[![Build Status](https://dev.azure.com/NGDSeattle/Public/_apis/build/status/neo-project.neo-debugger?branchName=master)](https://dev.azure.com/NGDSeattle/Public/_build/latest?definitionId=27&branchName=master)
+
 This preview release enables Neo developers to debug their smart contracts
 in Visual Studio Code. As of the initial v0.5 release, the following features
 are supported.
