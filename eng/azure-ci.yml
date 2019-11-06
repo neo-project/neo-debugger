@@ -26,18 +26,13 @@ steps:
     useGlobalJson: true
     
 - task: DotNetCoreCLI@2
-  displayName: 'dotnet restore (using azure artifacts feed)'
-  inputs:
-    command: 'restore'
-    feedsToUse: 'select'
-    vstsFeed: '176ef395-dca6-4e1c-a5e7-cb4f884a7fdf'
-
-- task: DotNetCoreCLI@2
   displayName: 'dotnet pack neodebug library'
   inputs:
-    command: 'custom'
-    custom: pack
-    arguments: './src/library -c $(configuration) -o $(Build.ArtifactStagingDirectory)/library --include-symbols'
+    command: 'pack'
+    packagesToPack: './src/library/*.csproj'
+    packDirectory: '$(Build.ArtifactStagingDirectory)/library'
+    includesymbols: true
+    versioningScheme: 'off'
 
 - task: PublishBuildArtifacts@1
   displayName: 'publish neodebug library nuget artifacts'
@@ -51,14 +46,16 @@ steps:
     command: 'push'
     packagesToPush: '$(Build.ArtifactStagingDirectory)/library/*.nupkg;!$(Build.ArtifactStagingDirectory)/library/*.symbols.nupkg'
     nuGetFeedType: 'internal'
-    publishVstsFeed: '176ef395-dca6-4e1c-a5e7-cb4f884a7fdf'
-
+    publishVstsFeed: '4b2bd186-f7a1-4f00-a22c-521ae5c47cd7/fc59ee4d-b5ed-4a8d-9520-240cd3712671'
+    
 - task: DotNetCoreCLI@2
   displayName: 'dotnet pack neodebug adapter'
   inputs:
-    command: 'custom'
-    custom: pack
-    arguments: './src/adapter -c $(configuration) -o $(Build.ArtifactStagingDirectory)/adapter --include-symbols'
+    command: 'pack'
+    packagesToPack: './src/adapter/*.csproj'
+    packDirectory: '$(Build.ArtifactStagingDirectory)/adapter'
+    includesymbols: true
+    versioningScheme: 'off'
 
 - task: PublishBuildArtifacts@1
   displayName: 'publish neodebug adapter nuget artifacts'
