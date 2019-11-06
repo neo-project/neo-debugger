@@ -28,9 +28,11 @@ steps:
 - task: DotNetCoreCLI@2
   displayName: 'dotnet pack neodebug library'
   inputs:
-    command: 'custom'
-    custom: pack
-    arguments: './src/library -c $(configuration) -o $(Build.ArtifactStagingDirectory)/library --include-symbols'
+    command: 'pack'
+    packagesToPack: './src/library/*.csproj'
+    packDirectory: '$(Build.ArtifactStagingDirectory)/library'
+    includesymbols: true
+    versioningScheme: 'off'
 
 - task: PublishBuildArtifacts@1
   displayName: 'publish neodebug library nuget artifacts'
@@ -49,9 +51,11 @@ steps:
 - task: DotNetCoreCLI@2
   displayName: 'dotnet pack neodebug adapter'
   inputs:
-    command: 'custom'
-    custom: pack
-    arguments: './src/adapter -c $(configuration) -o $(Build.ArtifactStagingDirectory)/adapter --include-symbols'
+    command: 'pack'
+    packagesToPack: './src/adapter/*.csproj'
+    packDirectory: '$(Build.ArtifactStagingDirectory)/adapter'
+    includesymbols: true
+    versioningScheme: 'off'
 
 - task: PublishBuildArtifacts@1
   displayName: 'publish neodebug adapter nuget artifacts'
