@@ -12,6 +12,7 @@
     <PackageTags>Neo;Blockchain;Smart Contract;Debugger</PackageTags>
     <PackAsTool>true</PackAsTool>
     <RootNamespace>NeoDebug.Adapter</RootNamespace>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>	
     <TargetFramework>netcoreapp3.0</TargetFramework>
   </PropertyGroup>
 

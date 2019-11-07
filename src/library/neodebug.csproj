@@ -9,6 +9,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/neo-project/neo-debugger</PackageProjectUrl>
     <RootNamespace>NeoDebug</RootNamespace>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>	
     <TargetFramework>netstandard2.1</TargetFramework>
   </PropertyGroup>
 
