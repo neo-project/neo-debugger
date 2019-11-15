@@ -2,22 +2,21 @@
 
 [![Build Status](https://dev.azure.com/NGDSeattle/Public/_apis/build/status/neo-project.neo-debugger?branchName=master)](https://dev.azure.com/NGDSeattle/Public/_build/latest?definitionId=27&branchName=master)
 
-This preview release enables Neo developers to debug their smart contracts
-in Visual Studio Code. As of the initial v0.5 release, the following features
-are supported.
-
-- Automatically generating initial launch.json file from compiled Neo
-  smart contract files (.avm) discovered in the workspace
-- Launching and stepping thru a smart contract
-- Specifying smart contract entry point parameters in launch.json file
-- Visualizing local variables and contract storage while debugging
-- Specifying emulated contract storage values in launch.json
-- Specifying emulated Runtime.CheckWitness behavior in launch.json
+The Neo Smart Contract Debugger enables Neo developers to debug their smart contracts
+in Visual Studio Code. It is built on the same [virtual machine](https://github.com/neo-project/neo-vm)
+as the [core Neo project](https://github.com/neo-project/neo) to ensure maximum compatibility
+between the debugger and how contracts will execute in production.
 
 Please note, the Neo Smart Contract Debugger for Visual Studio Code is in early
 access preview. There is more work to be done and there are assuredly bugs in the
 product. Please let us know of any issues you find via our
 [GitHub repo](https://github.com/neo-project/neo-debugger/).
+
+Docs are somewhat limited at this point. Please see the
+[Neo Blockchain Toolkit Quickstart](https://github.com/neo-project/neo-blockchain-toolkit/blob/master/quickstart.md)
+for an overview of Neo-Express along with the other tools in the Neo Blockchain
+Toolkit. Please review the [Debugger Launch Configuration Reference](docs/debug-config-reference.md)
+for information on how to control the execution of contracts within the debugger.
 
 Neo supports writing smart contracts in a variety of languages. However, the
 debugger needs the smart contract complier to emit additional information the
@@ -34,6 +33,36 @@ Additionally, we intend to standardize and document the debug information genera
 by NEON-DE so that other Neo smart contract compilers such as
 [neo-boa](https://github.com/CityOfZion/neo-boa) can generate it. It is an explicit
 goal for this debugger to work with any language that can compile Neo smart contracts.
+
+## Installation
+
+The latest released version of the Neo Smart Contract Debugger can be installed via the
+[Visual Studio Code Marketplace](https://marketplace.visualstudio.com/vscode). It can be
+installed [by itself](https://marketplace.visualstudio.com/items?itemName=ngd-seattle.neo-contract-debug)
+or as part of the [Neo Blockchain Toolkit](https://marketplace.visualstudio.com/items?itemName=ngd-seattle.neo-blockchain-toolkit).
+
+The Neo Smart Contract Debugger requires that [.NET Core 3.0 SDK](https://dotnet.microsoft.com/download/dotnet-core/3.0)
+be installed.
+
+> Note, Neo Smart Contract Debugger intends to snap to Long Term Support (LTS) releases
+> of .NET Core. However, the current LTS release of .NET Core (v2.1) as of Neo Blockchain Toolkit
+> v0.9 can't run neo.dll on the Windows Subsystem for Linux due to a
+> [bug](https://github.com/dotnet/corefx/issues/26476). Because of this bug,
+> Neo Smart Contract Debugger is built against later versions .NET Core.
+>
+> As per the .NET Core [support policy](https://github.com/dotnet/core/blob/master/microsoft-support.md#current-releases)
+> and [road map](https://github.com/dotnet/core/blob/master/roadmap.md#upcoming-ship-dates),
+> the next LTS version of .NET Core is scheduled to be v3.1 in December 2019.
+> Neo Smart Contract Debugger will be moving to .NET Core 3.1 as soon as it is available.  
+
+### Install Preview Releases
+
+The Neo Smart Contract Debugger has a public [build server](https://dev.azure.com/NGDSeattle/Public/_build?definitionId=27).
+You can install preview builds of the debugger by navigating to the build you wish to install,
+pressing the "Artifacts" button in the upper right hand corner and downloading the VSIX-package
+artifact. The artifact is a zip file containing the debugger VSIX file, which can be installed
+manually. For more information on installing VSIX extensions in VSCode, please see the 
+[official VSCode docs](https://code.visualstudio.com/docs/editor/extension-gallery#_install-from-a-vsix).
 
 ## A Message from the Engineer
 
