@@ -42,15 +42,38 @@ The latest released version of the Neo Smart Contract Debugger can be installed 
 installed [by itself](https://marketplace.visualstudio.com/items?itemName=ngd-seattle.neo-contract-debug)
 or as part of the [Neo Blockchain Toolkit](https://marketplace.visualstudio.com/items?itemName=ngd-seattle.neo-blockchain-toolkit).
 
-The Neo Smart Contract Debugger requires the [.NET Core 3.1 runtime](https://dotnet.microsoft.com/download/dotnet-core/3.1)
-to be installed.
+The Neo Smart Contract Debugger requires a [.NET Core runtime](https://dotnet.microsoft.com/download/dotnet-core)
+to be installed. The version of .NET Core needed depends on the version of the Neo
+Smart Contract Debugger.
 
-> As of v0.10, Neo-Express has snapped to a Long Term Support (LTS) release of
-> .NET Core. .NET Core LTS releases are
+|Neo Smart Contract Debugger Version|.NET Core Version|
+|-----------------------------------|-----------------|
+| v0.10 | [v3.1](https://dotnet.microsoft.com/download/dotnet-core/3.1) |
+| v0.9  | [v3.0](https://dotnet.microsoft.com/download/dotnet-core/3.0) |
+| v0.5  | [v2.2](https://dotnet.microsoft.com/download/dotnet-core/2.2) |
+
+> As of v0.10, the Neo Smart Contract Debugger has snapped to a Long Term Support
+> (LTS) release of .NET Core. .NET Core LTS releases are
 > [supported for three years](https://github.com/dotnet/core/blob/master/microsoft-support.md#long-term-support-lts-releases).
 > The next LTS release of .NET Core isn't projected be released until
 > [November 2021](https://github.com/dotnet/core/blob/master/roadmap.md#upcoming-ship-dates),
 > so we expect to stay on this version of .NET core for at least two years.
+
+### Ubuntu Installation
+
+Using the checkpoint functionality on Ubuntu 18.04 requires installing libsnappy-dev and libc6-dev via apt-get.
+
+``` shell
+> sudo apt install libsnappy-dev libc6-dev -y
+```
+
+### MacOS Installation
+
+Using the checkpoint functionality on MacOS requires installing rocksdb via [Homebrew](https://brew.sh/)
+
+``` shell
+> brew install rocksdb
+```
 
 ### Install Preview Releases
 
