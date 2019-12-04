@@ -32,3 +32,8 @@ Additionally, we intend to standardize and document the debug information genera
 by NEON-DE so that other Neo smart contract compilers such as
 [neo-boa](https://github.com/CityOfZion/neo-boa) can generate it. It is an explicit
 goal for this debugger to work with any language that can compile Neo smart contracts.
+
+## Installation
+
+The Neo Smart Contract Debugger requires the [.NET Core 3.1 runtime](https://dotnet.microsoft.com/download/dotnet-core/3.1)
+to be installed.

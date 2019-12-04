@@ -13,7 +13,13 @@ will not have contiguous patch numbers. Initial major and minor releases will be
 in this file without a patch number. Patch version will be included for bug fix releases, but
 may not exactly match a publicly released version.
 
-## [0.9] - Unreleased
+## [0.10] - Unreleased
+
+### Changed
+
+- Updated debug adapter to .NET Core 3.1
+
+## [0.9] - 2019-11-06
 
 ### Added
 
@@ -27,7 +33,7 @@ may not exactly match a publicly released version.
 
 - Refactored NeoDebug Adapter to seperate common debug functionally from isolated debug
   adapter implementation.
-- Updated debug adapter to netcore 3.0 and C# 8 (with nullable types enabled)
+- Updated debug adapter to .NET Core 3.0 and C# 8 (with nullable types enabled)
 - Updated Neo branding as per https://neo.org/presskit
 
 ## [0.5] - 2019-09-06

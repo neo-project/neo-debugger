@@ -42,19 +42,15 @@ The latest released version of the Neo Smart Contract Debugger can be installed 
 installed [by itself](https://marketplace.visualstudio.com/items?itemName=ngd-seattle.neo-contract-debug)
 or as part of the [Neo Blockchain Toolkit](https://marketplace.visualstudio.com/items?itemName=ngd-seattle.neo-blockchain-toolkit).
 
-The Neo Smart Contract Debugger requires that [.NET Core 3.0 SDK](https://dotnet.microsoft.com/download/dotnet-core/3.0)
-be installed.
+The Neo Smart Contract Debugger requires the [.NET Core 3.1 runtime](https://dotnet.microsoft.com/download/dotnet-core/3.1)
+to be installed.
 
-> Note, Neo Smart Contract Debugger intends to snap to Long Term Support (LTS) releases
-> of .NET Core. However, the current LTS release of .NET Core (v2.1) as of Neo Blockchain Toolkit
-> v0.9 can't run neo.dll on the Windows Subsystem for Linux due to a
-> [bug](https://github.com/dotnet/corefx/issues/26476). Because of this bug,
-> Neo Smart Contract Debugger is built against later versions .NET Core.
->
-> As per the .NET Core [support policy](https://github.com/dotnet/core/blob/master/microsoft-support.md#current-releases)
-> and [road map](https://github.com/dotnet/core/blob/master/roadmap.md#upcoming-ship-dates),
-> the next LTS version of .NET Core is scheduled to be v3.1 in December 2019.
-> Neo Smart Contract Debugger will be moving to .NET Core 3.1 as soon as it is available.  
+> As of v0.10, Neo-Express has snapped to a Long Term Support (LTS) release of
+> .NET Core. .NET Core LTS releases are
+> [supported for three years](https://github.com/dotnet/core/blob/master/microsoft-support.md#long-term-support-lts-releases).
+> The next LTS release of .NET Core isn't projected be released until
+> [November 2021](https://github.com/dotnet/core/blob/master/roadmap.md#upcoming-ship-dates),
+> so we expect to stay on this version of .NET core for at least two years.
 
 ### Install Preview Releases
 
