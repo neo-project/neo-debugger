@@ -14,6 +14,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Models\DebugInfo.cs" />
+    <Compile Remove="Models\Event.cs" />
+    <Compile Remove="Models\Method.cs" />
+    <Compile Remove="Models\Parameter.cs" />
+    <Compile Remove="Models\SequencePoint.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Neo.VM" Version="2.4.3.1" />
     <PackageReference Include="SimpleBase" Version="2.0.0" />
     <PackageReference Include="System.Collections.Immutable" Version="1.7.0" />

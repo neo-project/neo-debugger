@@ -108,11 +108,11 @@ namespace NeoDebug.Adapter
             if (engine.CurrentContext.EvaluationStack.Pop() is Neo.VM.Types.Array state && state.Count >= 1)
             {
                 var name = Encoding.UTF8.GetString(state[0].GetByteArray());
-                var paramTypes = contract.GetEvent(name)?.Parameters ?? new List<Models.Parameter>();
+                var paramTypes = contract.GetEvent(name)?.Parameters ?? new List<(string name, string type)>();
                 var @params = new Newtonsoft.Json.Linq.JArray();
                 for (int i = 1; i < state.Count; i++)
                 {
-                    var paramType = i <= paramTypes.Count ? paramTypes[i - 1].Type : string.Empty;
+                    var paramType = i <= paramTypes.Count ? paramTypes[i - 1].type : string.Empty;
                     @params.Add(StackItemToString(state[i], paramType));
                 }
 

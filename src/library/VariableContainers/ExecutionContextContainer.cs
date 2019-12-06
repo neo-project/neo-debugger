@@ -10,14 +10,14 @@ namespace NeoDebug.VariableContainers
     {
         private readonly IVariableContainerSession session;
         private readonly ExecutionContext context;
-        private readonly Method? method;
+        private readonly IMethod? method;
 
         public ExecutionContextContainer(IVariableContainerSession session, ExecutionContext context, Contract contract)
             : this(session, context, contract.GetMethod(context))
         {
         }
 
-        public ExecutionContextContainer(IVariableContainerSession session, ExecutionContext context, Method? method)
+        public ExecutionContextContainer(IVariableContainerSession session, ExecutionContext context, IMethod? method)
         {
             this.session = session;
             this.context = context;
@@ -32,16 +32,16 @@ namespace NeoDebug.VariableContainers
 
                 for (int i = 0; i < variables.Count; i++)
                 {
-                    var parameter = method?.Locals.ElementAtOrDefault(i);
-                    if (parameter == null)
+                    var parameter = method?.GetLocals().ElementAtOrDefault(i);
+                    if (parameter.HasValue)
                     {
-                        yield return variables[i].GetVariable(session, "<variable {i}>");
+                        var variable = variables[i].GetVariable(session, parameter.Value.name, parameter.Value.type);
+                        variable.EvaluateName = parameter.Value.name;
+                        yield return variable;
                     }
                     else
                     {
-                        var variable = variables[i].GetVariable(session, parameter.Name, parameter.Type);
-                        variable.EvaluateName = parameter.Name;
-                        yield return variable;
+                        yield return variables[i].GetVariable(session, "<variable {i}>");
                     }
                 }
             }

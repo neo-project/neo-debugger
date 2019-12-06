@@ -29,6 +29,8 @@ namespace NeoDebug
             }
         }
 
+        public static IEnumerable<(string name, string type)> GetLocals(this IMethod method) => method.Parameters.Concat(method.Variables);
+
         public static string ToHexString(this BigInteger bigInteger)
             => "0x" + bigInteger.ToString("x");
 
@@ -89,24 +91,24 @@ namespace NeoDebug
             return false;
         }
 
-        internal static Method? GetMethod(this Contract contract, ExecutionContext context)
+        internal static IMethod? GetMethod(this Contract contract, ExecutionContext context)
         {
             if (contract.ScriptHash.AsSpan().SequenceEqual(context.ScriptHash))
             {
                 var ip = context.InstructionPointer;
                 return contract.DebugInfo.Methods
-                    .SingleOrDefault(m => m.StartAddress <= ip && ip <= m.EndAddress);
+                    .SingleOrDefault(m => m.Range.start <= ip && ip <= m.Range.end);
             }
 
             return null;
         }
 
-        public static Event? GetEvent(this Contract contract, string name)
+        public static IEvent? GetEvent(this Contract contract, string name)
         {
             for (int i = 0; i < contract.DebugInfo.Events.Count; i++)
             {
                 var @event = contract.DebugInfo.Events[i];
-                if (@event.DisplayName == name)
+                if (@event.Name.name == name)
                 {
                     return @event;
                 }
@@ -119,13 +121,13 @@ namespace NeoDebug
         {
             if (contract.ScriptHash.AsSpan().SequenceEqual(context.ScriptHash))
             {
-                return (contract.GetMethod(context)?.SequencePoints ?? new List<SequencePoint>())
+                return (contract.GetMethod(context)?.SequencePoints ?? new List<ISequencePoint>())
                     .Any(sp => sp.Address == context.InstructionPointer);
             }
             return false;
         }
 
-        internal static SequencePoint? GetCurrentSequencePoint(this Method method, ExecutionContext context)
+        internal static ISequencePoint? GetCurrentSequencePoint(this IMethod method, ExecutionContext context)
         {
             if (method != null)
             {

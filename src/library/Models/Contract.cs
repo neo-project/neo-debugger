@@ -8,17 +8,17 @@ namespace NeoDebug.Models
     public class Contract
     {
         public byte[] Script { get; }
-        public DebugInfo DebugInfo { get; }
+        public IDebugInfo DebugInfo { get; }
         public byte[] ScriptHash { get; }
 
-        public Contract(byte[] script, DebugInfo debugInfo, Func<byte[], byte[]> scriptHashFunc)
+        public Contract(byte[] script, IDebugInfo debugInfo, Func<byte[], byte[]> scriptHashFunc)
         {
             Script = script;
             ScriptHash = scriptHashFunc(script);
             DebugInfo = debugInfo;
         }
 
-        public Method EntryPoint => DebugInfo.Methods.Single(m => m.Name == DebugInfo.Entrypoint);
+        public IMethod EntryPoint => DebugInfo.Methods.Single(m => m.Id == DebugInfo.Entrypoint);
 
         public ScriptBuilder BuildInvokeScript(ContractArgument[] arguments)
         {
@@ -41,7 +41,8 @@ namespace NeoDebug.Models
                 throw new ArgumentException($"{nameof(vmFileName)} debug info file doesn't exist");
 
             var script = File.ReadAllBytes(vmFileName);
-            var debugInfo = DebugInfo.FromJson(File.ReadAllText(debugJsonFileName));
+            //var debugInfo = DebugInfo.FromJson(File.ReadAllText(debugJsonFileName));
+            IDebugInfo debugInfo = null!;
 
             return new Contract(script, debugInfo, scriptHashFunc);
         }
