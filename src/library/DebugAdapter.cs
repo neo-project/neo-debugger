@@ -174,7 +174,7 @@ namespace NeoDebug
 
             try
             {
-                var programFileName = (string)arguments.ConfigurationProperties["program"];
+                var programFileName = arguments.ConfigurationProperties["program"].Value<string>();
                 var contract = Contract.Load(programFileName, scriptHashFunc);
                 var contractArgs = GetArguments(contract.EntryPoint).ToArray();
                 var returnTypes = GetReturnTypes().ToArray();

@@ -38,9 +38,9 @@ namespace NeoDebug.Adapter
         private static IEnumerable<(byte[] key, byte[] value, bool constant)>
             GetStorage(Dictionary<string, JToken> config)
         {
-            static byte[] ConvertString(JToken token)
+            static byte[] ConvertString(JToken? token)
             {
-                var value = token.Value<string>();
+                var value = token?.Value<string>() ?? string.Empty;
                 if (value.TryParseBigInteger(out var bigInteger))
                 {
                     return bigInteger.ToByteArray();

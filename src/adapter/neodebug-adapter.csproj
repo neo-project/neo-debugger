@@ -21,7 +21,6 @@
     <PackageReference Include="Neo.VM" Version="2.4.3.1" />
     <PackageReference Include="Neo.Fx" Version="0.9.8" />
     <PackageReference Include="Neo.Fx.RocksDb" Version="0.9.8" />
-    <PackageReference Include="System.Security.Permissions" Version="4.6.0" />
   </ItemGroup>
 
   <ItemGroup>
