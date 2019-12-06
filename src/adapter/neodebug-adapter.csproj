@@ -17,10 +17,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="2.4.2" />
+    <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="2.4.4" />
     <PackageReference Include="Neo.VM" Version="2.4.3.1" />
-    <PackageReference Include="Neo.Fx" Version="0.9.8" />
-    <PackageReference Include="Neo.Fx.RocksDb" Version="0.9.8" />
+    <PackageReference Include="Neo.Fx" Version="0.9.10" />
+    <PackageReference Include="Neo.Fx.RocksDb" Version="0.9.10" />
   </ItemGroup>
 
   <ItemGroup>
