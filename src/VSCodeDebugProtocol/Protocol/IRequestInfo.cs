@@ -3,13 +3,13 @@ using System;
 
 namespace Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Protocol
 {
-	internal interface IRequestInfo
-	{
-		Type ArgsType
-		{
-			get;
-		}
+    internal interface IRequestInfo
+    {
+        Type ArgsType
+        {
+            get;
+        }
 
-		void InvokeHandler(DebugProtocol protocol, ProtocolRequest request, object args);
-	}
+        void InvokeHandler(DebugProtocol protocol, ProtocolRequest request, object args);
+    }
 }

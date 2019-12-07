@@ -1,6 +1,6 @@
 namespace Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages
 {
-	public class AttachResponse : ResponseBody
-	{
-	}
+    public class AttachResponse : ResponseBody
+    {
+    }
 }

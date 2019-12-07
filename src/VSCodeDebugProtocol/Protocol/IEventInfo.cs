@@ -3,13 +3,13 @@ using System;
 
 namespace Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Protocol
 {
-	internal interface IEventInfo
-	{
-		Type EventType
-		{
-			get;
-		}
+    internal interface IEventInfo
+    {
+        Type EventType
+        {
+            get;
+        }
 
-		void InvokeHandler(DebugEvent eventBody);
-	}
+        void InvokeHandler(DebugEvent eventBody);
+    }
 }

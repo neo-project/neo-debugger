@@ -1,6 +1,6 @@
 namespace Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages
 {
-	public class RestartArguments : DebugRequestArguments
-	{
-	}
+    public class RestartArguments : DebugRequestArguments
+    {
+    }
 }

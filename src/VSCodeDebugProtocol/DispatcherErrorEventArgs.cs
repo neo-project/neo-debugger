@@ -2,17 +2,17 @@ using System;
 
 namespace Microsoft.VisualStudio.Shared.VSCodeDebugProtocol
 {
-	public class DispatcherErrorEventArgs : EventArgs
-	{
-		public Exception Exception
-		{
-			get;
-			private set;
-		}
+    public class DispatcherErrorEventArgs : EventArgs
+    {
+        public Exception Exception
+        {
+            get;
+            private set;
+        }
 
-		internal DispatcherErrorEventArgs(Exception ex)
-		{
-			Exception = ex;
-		}
-	}
+        internal DispatcherErrorEventArgs(Exception ex)
+        {
+            Exception = ex;
+        }
+    }
 }

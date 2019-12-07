@@ -1,6 +1,6 @@
 namespace Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages
 {
-	public class SetExceptionBreakpointsResponse : ResponseBody
-	{
-	}
+    public class SetExceptionBreakpointsResponse : ResponseBody
+    {
+    }
 }

@@ -3,23 +3,23 @@ using System.Collections.Generic;
 
 namespace Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages
 {
-	public class VariablesResponse : ResponseBody
-	{
-		[JsonProperty("variables")]
-		public List<Variable> Variables
-		{
-			get;
-			set;
-		}
+    public class VariablesResponse : ResponseBody
+    {
+        [JsonProperty("variables")]
+        public List<Variable> Variables
+        {
+            get;
+            set;
+        }
 
-		public VariablesResponse()
-		{
-			Variables = new List<Variable>();
-		}
+        public VariablesResponse()
+        {
+            Variables = new List<Variable>();
+        }
 
-		public VariablesResponse(List<Variable> variables)
-		{
-			Variables = variables;
-		}
-	}
+        public VariablesResponse(List<Variable> variables)
+        {
+            Variables = variables;
+        }
+    }
 }
