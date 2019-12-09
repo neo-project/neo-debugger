@@ -33,16 +33,8 @@ namespace NeoDebug.Models
 
         public static Contract Load(string vmFileName, Func<byte[], byte[]> scriptHashFunc)
         {
-            if (!File.Exists(vmFileName))
-                throw new ArgumentException($"{nameof(vmFileName)} file doesn't exist");
-
-            var debugJsonFileName = Path.ChangeExtension(vmFileName, ".debug.json");
-            if (!File.Exists(debugJsonFileName))
-                throw new ArgumentException($"{nameof(vmFileName)} debug info file doesn't exist");
-
             var script = File.ReadAllBytes(vmFileName);
-            //var debugInfo = DebugInfo.FromJson(File.ReadAllText(debugJsonFileName));
-            DebugInfo debugInfo = null!;
+            var debugInfo = DebugInfoParser.Load(vmFileName);
 
             return new Contract(script, debugInfo, scriptHashFunc);
         }
