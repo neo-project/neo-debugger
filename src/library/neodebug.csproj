@@ -14,11 +14,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Models\DebugInfo.cs" />
     <Compile Remove="Models\Event.cs" />
     <Compile Remove="Models\Method.cs" />
     <Compile Remove="Models\Parameter.cs" />
-    <Compile Remove="Models\SequencePoint.cs" />
   </ItemGroup>
 
   <ItemGroup>

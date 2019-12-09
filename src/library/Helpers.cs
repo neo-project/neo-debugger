@@ -29,7 +29,7 @@ namespace NeoDebug
             }
         }
 
-        public static IEnumerable<(string name, string type)> GetLocals(this IMethod method) => method.Parameters.Concat(method.Variables);
+        public static IEnumerable<(string name, string type)> GetLocals(this MethodDebugInfo method) => method.Parameters.Concat(method.Variables);
 
         public static string ToHexString(this BigInteger bigInteger)
             => "0x" + bigInteger.ToString("x");
@@ -91,24 +91,24 @@ namespace NeoDebug
             return false;
         }
 
-        internal static IMethod? GetMethod(this Contract contract, ExecutionContext context)
+        internal static MethodDebugInfo? GetMethod(this Contract contract, ExecutionContext context)
         {
             if (contract.ScriptHash.AsSpan().SequenceEqual(context.ScriptHash))
             {
                 var ip = context.InstructionPointer;
                 return contract.DebugInfo.Methods
-                    .SingleOrDefault(m => m.Range.start <= ip && ip <= m.Range.end);
+                    .SingleOrDefault(m => m.Range.Start <= ip && ip <= m.Range.End);
             }
 
             return null;
         }
 
-        public static IEvent? GetEvent(this Contract contract, string name)
+        public static EventDebugInfo? GetEvent(this Contract contract, string name)
         {
             for (int i = 0; i < contract.DebugInfo.Events.Count; i++)
             {
                 var @event = contract.DebugInfo.Events[i];
-                if (@event.Name.name == name)
+                if (@event.Name == name)
                 {
                     return @event;
                 }
@@ -121,13 +121,13 @@ namespace NeoDebug
         {
             if (contract.ScriptHash.AsSpan().SequenceEqual(context.ScriptHash))
             {
-                return (contract.GetMethod(context)?.SequencePoints ?? new List<ISequencePoint>())
+                return (contract.GetMethod(context)?.SequencePoints ?? new List<SequencePoint>())
                     .Any(sp => sp.Address == context.InstructionPointer);
             }
             return false;
         }
 
-        internal static ISequencePoint? GetCurrentSequencePoint(this IMethod method, ExecutionContext context)
+        internal static SequencePoint? GetCurrentSequencePoint(this MethodDebugInfo method, ExecutionContext context)
         {
             if (method != null)
             {

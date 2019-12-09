@@ -10,14 +10,14 @@ namespace NeoDebug.VariableContainers
     {
         private readonly IVariableContainerSession session;
         private readonly ExecutionContext context;
-        private readonly IMethod? method;
+        private readonly MethodDebugInfo? method;
 
         public ExecutionContextContainer(IVariableContainerSession session, ExecutionContext context, Contract contract)
             : this(session, context, contract.GetMethod(context))
         {
         }
 
-        public ExecutionContextContainer(IVariableContainerSession session, ExecutionContext context, IMethod? method)
+        public ExecutionContextContainer(IVariableContainerSession session, ExecutionContext context, MethodDebugInfo? method)
         {
             this.session = session;
             this.context = context;

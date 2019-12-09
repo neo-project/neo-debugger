@@ -150,7 +150,7 @@ namespace NeoDebug
                 return new JArray();
             }
 
-            IEnumerable<ContractArgument> GetArguments(IMethod method)
+            IEnumerable<ContractArgument> GetArguments(MethodDebugInfo method)
             {
                 var args = GetArgsConfig();
                 for (int i = 0; i < method.Parameters.Count; i++)

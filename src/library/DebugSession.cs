@@ -179,7 +179,7 @@ namespace NeoDebug
                     var frame = new StackFrame()
                     {
                         Id = i,
-                        Name = method?.Name.name ?? "<unknown>",
+                        Name = method?.Name ?? "<unknown>",
                         ModuleId = context.ScriptHash,
                     };
 

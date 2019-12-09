@@ -112,7 +112,7 @@ namespace NeoDebug.Adapter
                 var @params = new Newtonsoft.Json.Linq.JArray();
                 for (int i = 1; i < state.Count; i++)
                 {
-                    var paramType = i <= paramTypes.Count ? paramTypes[i - 1].type : string.Empty;
+                    var paramType = i <= paramTypes.Count ? paramTypes[i - 1].Type : string.Empty;
                     @params.Add(StackItemToString(state[i], paramType));
                 }
 
