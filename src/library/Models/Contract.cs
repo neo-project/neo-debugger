@@ -18,7 +18,7 @@ namespace NeoDebug.Models
             DebugInfo = debugInfo;
         }
 
-        public Method EntryPoint => DebugInfo.Methods.Single(m => m.Name == DebugInfo.Entrypoint);
+        public MethodDebugInfo EntryPoint => DebugInfo.Methods.Single(m => m.Id == DebugInfo.Entrypoint);
 
         public ScriptBuilder BuildInvokeScript(ContractArgument[] arguments)
         {
@@ -33,15 +33,8 @@ namespace NeoDebug.Models
 
         public static Contract Load(string vmFileName, Func<byte[], byte[]> scriptHashFunc)
         {
-            if (!File.Exists(vmFileName))
-                throw new ArgumentException($"{nameof(vmFileName)} file doesn't exist");
-
-            var debugJsonFileName = Path.ChangeExtension(vmFileName, ".debug.json");
-            if (!File.Exists(debugJsonFileName))
-                throw new ArgumentException($"{nameof(vmFileName)} debug info file doesn't exist");
-
             var script = File.ReadAllBytes(vmFileName);
-            var debugInfo = DebugInfo.FromJson(File.ReadAllText(debugJsonFileName));
+            var debugInfo = DebugInfoParser.Load(vmFileName);
 
             return new Contract(script, debugInfo, scriptHashFunc);
         }

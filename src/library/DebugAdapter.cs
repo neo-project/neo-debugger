@@ -127,9 +127,9 @@ namespace NeoDebug
             throw new NotImplementedException($"DebugAdapter.ConvertArgument {paramType} {arg}");
         }
 
-        private static ContractArgument ConvertArgument(Parameter param, JToken? arg)
+        private static ContractArgument ConvertArgument((string name, string type) param, JToken? arg)
         {
-            var type = ParseTypeName(param.Type);
+            var type = ParseTypeName(param.type);
             return new ContractArgument(type, ConvertArgumentToObject(type, arg));
         }
 
@@ -150,7 +150,7 @@ namespace NeoDebug
                 return new JArray();
             }
 
-            IEnumerable<ContractArgument> GetArguments(Method method)
+            IEnumerable<ContractArgument> GetArguments(MethodDebugInfo method)
             {
                 var args = GetArgsConfig();
                 for (int i = 0; i < method.Parameters.Count; i++)
@@ -174,7 +174,7 @@ namespace NeoDebug
 
             try
             {
-                var programFileName = (string)arguments.ConfigurationProperties["program"];
+                var programFileName = arguments.ConfigurationProperties["program"].Value<string>();
                 var contract = Contract.Load(programFileName, scriptHashFunc);
                 var contractArgs = GetArguments(contract.EntryPoint).ToArray();
                 var returnTypes = GetReturnTypes().ToArray();

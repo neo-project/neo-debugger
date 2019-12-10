@@ -160,7 +160,7 @@ async function getDebugAdapterCommand(config:vscode.WorkspaceConfiguration) : Pr
 
 	if (inDevelopmentMode()) {
 		const adapterPath = resolve(extension.extensionPath, "..", "adapter");
-		return ["dotnet", ["run", "--project", adapterPath, "--"]];
+		return ["dotnet", ["run", "--project", adapterPath, "--no-build", "--"]];
 	}
 
 	throw new Error("cannot locate debug adapter");

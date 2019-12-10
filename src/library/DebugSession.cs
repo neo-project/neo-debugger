@@ -50,7 +50,7 @@ namespace NeoDebug
 
             foreach (var sourceBreakPoint in sourceBreakpoints)
             {
-                var sequencePoint = Array.Find(sequencePoints, sp => sp.StartLine == sourceBreakPoint.Line);
+                var sequencePoint = Array.Find(sequencePoints, sp => sp.Start.line == sourceBreakPoint.Line);
 
                 if (sequencePoint != null)
                 {
@@ -59,10 +59,10 @@ namespace NeoDebug
                     yield return new Breakpoint()
                     {
                         Verified = true,
-                        Column = sequencePoint.StartColumn,
-                        EndColumn = sequencePoint.EndColumn,
-                        Line = sequencePoint.StartLine,
-                        EndLine = sequencePoint.EndLine,
+                        Column = sequencePoint.Start.column,
+                        EndColumn = sequencePoint.End.column,
+                        Line = sequencePoint.Start.line,
+                        EndLine = sequencePoint.End.line,
                         Source = source
                     };
                 }
@@ -179,7 +179,7 @@ namespace NeoDebug
                     var frame = new StackFrame()
                     {
                         Id = i,
-                        Name = method?.DisplayName ?? "<unknown>",
+                        Name = method?.Name ?? "<unknown>",
                         ModuleId = context.ScriptHash,
                     };
 
@@ -192,10 +192,10 @@ namespace NeoDebug
                             Name = Path.GetFileName(sequencePoint.Document),
                             Path = sequencePoint.Document
                         };
-                        frame.Line = sequencePoint.StartLine;
-                        frame.Column = sequencePoint.StartColumn;
-                        frame.EndLine = sequencePoint.EndLine;
-                        frame.EndColumn = sequencePoint.EndColumn;
+                        frame.Line = sequencePoint.Start.line;
+                        frame.Column = sequencePoint.Start.column;
+                        frame.EndLine = sequencePoint.End.line;
+                        frame.EndColumn = sequencePoint.End.column;
                     }
 
                     yield return frame;
@@ -316,19 +316,19 @@ namespace NeoDebug
                 return engine.EvaluateStorageExpression(this, args);
             }
 
-            Variable? GetVariable(StackItem item, Parameter local)
+            Variable? GetVariable(StackItem item, (string name, string type) local)
             {
                 if (index.HasValue)
                 {
                     if (item is Neo.VM.Types.Array neoArray
                         && index.Value < neoArray.Count)
                     {
-                        return neoArray[index.Value].GetVariable(this, local.Name + $"[{index.Value}]", typeHint);
+                        return neoArray[index.Value].GetVariable(this, local.name + $"[{index.Value}]", typeHint);
                     }
                 }
                 else
                 {
-                    return item.GetVariable(this, local.Name, typeHint ?? local.Type);
+                    return item.GetVariable(this, local.name, typeHint ?? local.type);
                 }
 
                 return null;
@@ -344,13 +344,13 @@ namespace NeoDebug
                 if (method == null)
                     continue;
 
-                var locals = method.Locals.ToArray();
+                var locals = method.GetLocals().ToArray();
                 var variables = (Neo.VM.Types.Array)context.AltStack.Peek(0);
 
                 for (int varIndex = 0; varIndex < Math.Min(variables.Count, locals.Length); varIndex++)
                 {
                     var local = locals[varIndex];
-                    if (local.Name == variableName)
+                    if (local.name == variableName)
                     {
                         var variable = GetVariable(variables[varIndex], local);
                         if (variable != null)
