@@ -146,7 +146,7 @@ namespace NeoDebug
             };
         }
 
-        private static DebugInfo Load(Stream stream )
+        private static DebugInfo Load(Stream stream)
         {
             using var streamReader = new StreamReader(stream);
             using var jsonReader = new JsonTextReader(streamReader);
