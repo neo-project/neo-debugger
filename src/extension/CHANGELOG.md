@@ -15,6 +15,10 @@ may not exactly match a publicly released version.
 
 ## [0.10] - Unreleased
 
+### Added
+
+- Added support for new [.avmdbgnfo format](https://github.com/ngdseattle/design-notes/blob/master/NDX-DN11%20-%20NEO%20Debug%20Info%20Specification.md#v010-format)
+
 ### Changed
 
 - Updated debug adapter to .NET Core 3.1

@@ -37,3 +37,19 @@ goal for this debugger to work with any language that can compile Neo smart cont
 
 The Neo Smart Contract Debugger requires the [.NET Core 3.1 runtime](https://dotnet.microsoft.com/download/dotnet-core/3.1)
 to be installed.
+
+### Ubuntu Installation
+
+Using the checkpoint functionality on Ubuntu 18.04 requires installing libsnappy-dev and libc6-dev via apt-get.
+
+``` shell
+> sudo apt install libsnappy-dev libc6-dev -y
+```
+
+### MacOS Installation
+
+Using the checkpoint functionality on MacOS requires installing rocksdb via [Homebrew](https://brew.sh/)
+
+``` shell
+> brew install rocksdb
+```
