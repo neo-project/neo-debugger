@@ -17,7 +17,7 @@ may not exactly match a publicly released version.
 
 ### Added
 
-- Added support for new [.avmdbgnfo format](https://github.com/ngdseattle/design-notes/blob/master/NDX-DN11%20-%20NEO%20Debug%20Info%20Specification.md#v010-format)
+- Added support for [.avmdbgnfo format](https://github.com/ngdseattle/design-notes/blob/master/NDX-DN11%20-%20NEO%20Debug%20Info%20Specification.md#v010-format)
 
 ### Changed
 
