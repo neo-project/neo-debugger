@@ -182,7 +182,14 @@ class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDes
 			args.push("--log");
 		}
 
-		return new vscode.DebugAdapterExecutable(cmd, args);
+		if (session.workspaceFolder)
+		{
+			return new vscode.DebugAdapterExecutable(cmd, args, { cwd: session.workspaceFolder.uri.fsPath });	
+		}
+		else
+		{
+			return new vscode.DebugAdapterExecutable(cmd, args);
+		}
 	}
 }
 
