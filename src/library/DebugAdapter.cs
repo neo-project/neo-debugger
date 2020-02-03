@@ -4,10 +4,12 @@ using Neo.VM;
 using NeoDebug.Models;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using System.Text;
 
 namespace NeoDebug
 {
@@ -64,6 +66,7 @@ namespace NeoDebug
                 "Array" => ContractParameterType.Array,
                 "Boolean" => ContractParameterType.Boolean,
                 "ByteArray" => ContractParameterType.ByteArray,
+                "" => ContractParameterType.ByteArray,
                 _ => throw new NotImplementedException(),
             };
         }
@@ -121,8 +124,13 @@ namespace NeoDebug
                         {
                             return bigInteger;
                         }
+
+                        var byteCount = Encoding.UTF8.GetByteCount(value);
+                        using var owner = MemoryPool<byte>.Shared.Rent(byteCount);
+                        var span = owner.Memory.Span.Slice(0, byteCount);
+                        Encoding.UTF8.GetBytes(value, span);
+                        return new BigInteger(span);
                     }
-                    break;
             }
             throw new NotImplementedException($"DebugAdapter.ConvertArgument {paramType} {arg}");
         }
