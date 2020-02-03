@@ -194,8 +194,12 @@ namespace NeoDebug
                         };
                         frame.Line = sequencePoint.Start.line;
                         frame.Column = sequencePoint.Start.column;
-                        frame.EndLine = sequencePoint.End.line;
-                        frame.EndColumn = sequencePoint.End.column;
+
+                        if (sequencePoint.Start != sequencePoint.End)
+                        {
+                            frame.EndLine = sequencePoint.End.line;
+                            frame.EndColumn = sequencePoint.End.column;
+                        }
                     }
 
                     yield return frame;

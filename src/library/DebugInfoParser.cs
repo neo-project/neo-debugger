@@ -78,7 +78,28 @@ namespace NeoDebug
                 };
             }
 
-            var documents = json["documents"].Select(t => t.Value<string>()).ToList();
+            static string ResolveDocument(JToken token)
+            {
+                var document = token.Value<string>();
+                if (File.Exists(document))
+                    return document;
+
+                var cwd = Environment.CurrentDirectory;
+                var folderName = Path.GetFileName(cwd);
+                var folderIndex = document.IndexOf(folderName);
+                if (folderIndex >= 0)
+                {
+                    var relPath = document.Substring(folderIndex + folderName.Length);
+                    var newPath = Path.GetFullPath(Path.Join(cwd, relPath));
+                    
+                    if (File.Exists(newPath))
+                        return newPath;
+                }
+
+                throw new FileNotFoundException($"could not load {document}");
+            }
+
+            var documents = json["documents"].Select(ResolveDocument).ToList();
             var events = json["events"].Select(ParseEvent).ToList();
             var methods = json["methods"].Select(t => ParseMethod(t, documents)).ToList();
 
