@@ -10,7 +10,7 @@ between the debugger and how contracts will execute in production.
 
 Docs are somewhat limited at this point. Please see the
 [Neo Blockchain Toolkit Quickstart](https://github.com/neo-project/neo-blockchain-toolkit/blob/master/quickstart.md)
-for an overview of Neo-Express along with the other tools in the Neo Blockchain
+for an overview of Neo Smart Contract Debugger along with the other tools in the Neo Blockchain
 Toolkit. Please review the [Debugger Launch Configuration Reference](docs/debug-config-reference.md)
 for information on how to control the execution of contracts within the debugger.
 
