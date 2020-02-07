@@ -22,7 +22,11 @@
             "label": "npm install extension",
             "type": "shell",
             "command": "npm",
-            "args": ["install", "--prefer-offline", "--no-progress"],
+            "args": [
+                "install",
+                "--prefer-offline",
+                "--no-progress"
+            ],
             "options": {
                 "cwd": "${workspaceFolder}/src/extension/"
             },
