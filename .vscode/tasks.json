@@ -56,6 +56,37 @@
                 "kind": "build",
                 "isDefault": true
             }
-        }
+        },
+        {
+            "label": "package adapter",
+            "type": "shell",
+            "command": "dotnet",
+            "args": [
+                "pack",
+                "./src/adapter/neodebug-adapter.csproj",
+                "--no-build",
+                "--output",
+                "./src/extension"
+            ],
+            "dependsOn": "build adapter",
+            "problemMatcher": "$msCompile",
+            "presentation": {
+                "reveal": "silent"
+            }
+        },
+        {
+            "label": "package extension",
+            "type": "npm",
+            "script": "package-vsix",
+            "problemMatcher": "$tsc-watch",
+            "presentation": {
+                "reveal": "silent"
+            },
+            "group": "build",
+            "path": "src/extension/",
+            "dependsOn": [
+                "package adapter", "build extension"
+            ]
+        },
     ]
 }
