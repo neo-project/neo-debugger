@@ -261,7 +261,8 @@ namespace NeoDebug
                 Neo.VM.Types.InteropInterface _ => new Variable()
                 {
                     Name = name,
-                    Type = "InteropInterface"
+                    Type = "InteropInterface",
+                    Value = string.Empty
                 },
                 Neo.VM.Types.Map map => NeoMapContainer.Create(session, map, name),
                 // NeoArrayContainer.Create will detect Struct (which inherits from Array)

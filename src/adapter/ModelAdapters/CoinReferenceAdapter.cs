@@ -49,6 +49,7 @@ namespace NeoDebug.Adapter.ModelAdapters
             {
                 Name = name,
                 Type = "CoinReference",
+                Value = string.Empty,
                 VariablesReference = session.AddVariableContainer(new AdapterVariableContainer(this)),
                 NamedVariables = 2,
             };

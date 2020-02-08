@@ -26,6 +26,7 @@ namespace NeoDebug.VariableContainers
             {
                 Name = name,
                 Type = $"{typeName}[{array.Count}]",
+                Value = string.Empty,
                 VariablesReference = containerID,
                 IndexedVariables = array.Count,
             };

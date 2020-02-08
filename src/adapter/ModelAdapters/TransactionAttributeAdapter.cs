@@ -40,6 +40,7 @@ namespace NeoDebug.Adapter.ModelAdapters
             {
                 Name = name,
                 Type = "TransactionAttribute",
+                Value = string.Empty,
                 VariablesReference = session.AddVariableContainer(new AdapterVariableContainer(this)),
                 NamedVariables = 2,
             };

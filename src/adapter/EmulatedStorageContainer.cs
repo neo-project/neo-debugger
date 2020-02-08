@@ -70,6 +70,7 @@ namespace NeoDebug.Adapter
                 yield return new Variable()
                 {
                     Name = keyHashCode.ToString("x"),
+                    Value = string.Empty,
                     VariablesReference = session.AddVariableContainer(
                         new KvpContainer(session, keyHashCode, key, item.Value, item.IsConstant)),
                     NamedVariables = 3

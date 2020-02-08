@@ -45,6 +45,7 @@ namespace NeoDebug.VariableContainers
             {
                 Name = name,
                 Type = $"Map[{map.Count}]",
+                Value = string.Empty,
                 VariablesReference = containerID,
                 IndexedVariables = map.Count,
             };
@@ -59,6 +60,7 @@ namespace NeoDebug.VariableContainers
                 yield return new Variable()
                 {
                     Name = i.ToString(),
+                    Value = string.Empty,
                     VariablesReference = session.AddVariableContainer(container),
                     NamedVariables = 2,
                 };
