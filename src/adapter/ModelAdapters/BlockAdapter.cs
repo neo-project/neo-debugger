@@ -58,7 +58,8 @@ namespace NeoDebug.Adapter.ModelAdapters
             return new Variable()
             {
                 Name = name,
-                Type = "Block"
+                Type = "Block",
+                Value = string.Empty
             };
         }
     }
