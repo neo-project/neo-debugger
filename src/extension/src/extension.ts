@@ -103,27 +103,38 @@ function inDevelopmentMode() : boolean {
 	return vscode.env.sessionId === "someValue.sessionId";
 }
 
-async function processRuntimeDependencies(): Promise<void> {
+async function processRuntimeDependencies(channel : vscode.OutputChannel): Promise<void> {
 	
 	const extension = vscode.extensions.getExtension("ngd-seattle.neo-contract-debug") as vscode.Extension<any>;
 	
-	if (await checkDebugAdapterExists(extension)) {
+	channel.appendLine(`extension folder ${extension.extensionPath}`);
+
+	const debugAdapterPath = getDebugAdapterPath(extension);
+	if (await checkFileExists(debugAdapterPath)) {
+		channel.appendLine(`located adapter ${debugAdapterPath}`);
 		return;
 	}
 
 	const packagePath = await getDebugAdapterPackagePath(extension);
 	if (packagePath && await checkFileExists(packagePath)) {
+		channel.appendLine(`located packagePath ${packagePath}`);
 		const version = getDebugAdapterVersion(packagePath);
 		if (version) {
-			const commandLine = `dotnet tool install neo.debug.adapter --version ${version} --tool-path ./adapter --add-source .`;
+			const commandLine = `dotnet tool install Neo.Debug.Adapter --version ${version} --tool-path ./adapter --add-source .`;
+			channel.appendLine(`executing \"${commandLine}\"`);
 			await execChildProcess(commandLine, extension.extensionPath);
+			channel.appendLine(`deleting \"${packagePath}\"`);
 			await deleteFile(packagePath);
 			return;
 		}
+	} else {
+		channel.appendLine(`no packagePath found`);
 	}
 
 	if (!inDevelopmentMode()) {
 		vscode.window.showErrorMessage("Neo Debug adapter tool and package are both missing. Please reinstall the extension");
+	} else {
+		channel.appendLine(`development mode enabled`);
 	}
 
 }
@@ -132,7 +143,9 @@ async function processRuntimeDependencies(): Promise<void> {
 // your extension is activated the very first time the command is executed
 export async function activate(context: vscode.ExtensionContext) {
 
-	await processRuntimeDependencies();
+	let neoDebugChannel = vscode.window.createOutputChannel('Neo Debugger Log');
+
+	await processRuntimeDependencies(neoDebugChannel);
 
 	const configProvider = new NeoContractDebugConfigurationProvider();
 	context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider("neo-contract", configProvider));
