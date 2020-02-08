@@ -150,7 +150,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	const configProvider = new NeoContractDebugConfigurationProvider();
 	context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider("neo-contract", configProvider));
 
-	const factory = new NeoContractDebugAdapterDescriptorFactory();
+	const factory = new NeoContractDebugAdapterDescriptorFactory(neoDebugChannel);
 	context.subscriptions.push(vscode.debug.registerDebugAdapterDescriptorFactory("neo-contract", factory));
 }
 
@@ -207,6 +207,11 @@ async function getDebugAdapterCommand(config:vscode.WorkspaceConfiguration) : Pr
 }
 class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDescriptorFactory {
 
+	channel: vscode.OutputChannel;
+	constructor (channel: vscode.OutputChannel) {
+		this.channel = channel;
+	}
+
 	async createDebugAdapterDescriptor(session: vscode.DebugSession, executable: vscode.DebugAdapterExecutable | undefined): Promise<vscode.DebugAdapterDescriptor> {
 
 		const config = vscode.workspace.getConfiguration("neo-debugger");
@@ -223,6 +228,8 @@ class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDes
 		}
 
 		const options = session.workspaceFolder ? { cwd: session.workspaceFolder.uri.fsPath } : {};
+		this.channel.appendLine(`launching ${cmd} ${args.join(' ')}`);
+		this.channel.appendLine(`current directory ${options.cwd ?? 'missing'}`);
 		return new vscode.DebugAdapterExecutable(cmd, args, options);	
 	}
 }
