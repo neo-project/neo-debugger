@@ -101,6 +101,7 @@ namespace NeoDebug.Adapter.ModelAdapters
             {
                 Name = name,
                 Type = "BlockHeader",
+                Value = string.Empty,
                 VariablesReference = session.AddVariableContainer(new AdapterVariableContainer(this)),
                 NamedVariables = 2,
             };
