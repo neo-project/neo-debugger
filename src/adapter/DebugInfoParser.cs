@@ -39,7 +39,12 @@ namespace NeoDebug
                 var cwdDocument = Path.Join(cwd, Path.GetFileName(document));
                 if (File.Exists(cwdDocument))
                 {
-                    folderMap.Add(Path.GetDirectoryName(document), cwd);
+                    var directoryName = Path.GetDirectoryName(document);
+                    if (directoryName != null)
+                    {
+                        folderMap.Add(directoryName, cwd);
+                    }
+                    
                     return cwdDocument;
                 }
 
