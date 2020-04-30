@@ -15,14 +15,14 @@ namespace NeoDebug
 {
     internal class DebugSession : IVariableContainerSession
     {
-        private readonly IExecutionEngine engine;
+        private readonly DebugExecutionEngine engine;
         private readonly Contract contract;
         private readonly Action<DebugEvent> sendEvent;
         private readonly ReadOnlyMemory<string> returnTypes;
         private readonly Dictionary<int, HashSet<int>> breakPoints = new Dictionary<int, HashSet<int>>();
         private readonly Dictionary<int, IVariableContainer> variableContainers = new Dictionary<int, IVariableContainer>();
 
-        public DebugSession(IExecutionEngine engine, Contract contract, Action<DebugEvent> sendEvent, ContractArgument[] arguments, ReadOnlyMemory<string> returnTypes)
+        public DebugSession(DebugExecutionEngine engine, Contract contract, Action<DebugEvent> sendEvent, ContractArgument[] arguments, ReadOnlyMemory<string> returnTypes)
         {
             this.engine = engine;
             this.sendEvent = sendEvent;
@@ -268,7 +268,7 @@ namespace NeoDebug
         {
             while ((engine.State & HALT_OR_FAULT) == 0)
             {
-                engine.ExecuteNext();
+                engine.ExecuteInstruction();
 
                 if (CheckBreakpoint())
                 {
@@ -285,7 +285,7 @@ namespace NeoDebug
             var stopReason = StoppedEvent.ReasonValue.Step;
             while ((engine.State & HALT_OR_FAULT) == 0)
             {
-                engine.ExecuteNext();
+                engine.ExecuteInstruction();
 
                 if ((engine.State & HALT_OR_FAULT) != 0)
                 {

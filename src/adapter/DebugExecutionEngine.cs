@@ -12,7 +12,7 @@ using System.Linq;
 
 namespace NeoDebug
 {
-    internal class DebugExecutionEngine : ExecutionEngine, IExecutionEngine
+    class DebugExecutionEngine : ExecutionEngine
     {
         private readonly InteropService interopService;
 
@@ -84,19 +84,12 @@ namespace NeoDebug
             return new DebugExecutionEngine(container, table, interopService);
         }
 
-        VMState IExecutionEngine.State { get => State; set { State = value; } }
+        public void ExecuteInstruction()
+        {
+            ExecuteNext();
+        }
 
-        IEnumerable<StackItem> IExecutionEngine.ResultStack => ResultStack;
-
-        ExecutionContext IExecutionEngine.CurrentContext => CurrentContext;
-
-        RandomAccessStack<ExecutionContext> IExecutionEngine.InvocationStack => InvocationStack;
-
-        ExecutionContext IExecutionEngine.LoadScript(byte[] script, int rvcount) => LoadScript(script, rvcount);
-
-        void IExecutionEngine.ExecuteNext() => ExecuteNext();
-
-        IVariableContainer IExecutionEngine.GetStorageContainer(IVariableContainerSession session)
+        public IVariableContainer GetStorageContainer(IVariableContainerSession session)
             => interopService.GetStorageContainer(session);
 
         public EvaluateResponse EvaluateStorageExpression(IVariableContainerSession session, EvaluateArguments args)
