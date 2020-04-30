@@ -158,48 +158,6 @@ namespace NeoDebug
             }
         }
 
-        private void FireStoppedEvent(StoppedEvent.ReasonValue reasonValue)
-        {
-            try
-            {
-                if (session == null) throw new InvalidOperationException();
-
-                session.ClearVariableContainers();
-
-                if ((session.EngineState & VMState.FAULT) != 0)
-                {
-                    Protocol.SendEvent(new OutputEvent()
-                    {
-                        Category = OutputEvent.CategoryValue.Stderr,
-                        Output = "Engine State Faulted\n",
-                    });
-                    Protocol.SendEvent(new TerminatedEvent());
-                }
-                if ((session.EngineState & VMState.HALT) != 0)
-                {
-                    foreach (var result in session.GetResults())
-                    {
-                        Protocol.SendEvent(new OutputEvent()
-                        {
-                            Category = OutputEvent.CategoryValue.Stdout,
-                            Output = $"Return: {result}\n",
-                        });
-                    }
-                    Protocol.SendEvent(new ExitedEvent());
-                    Protocol.SendEvent(new TerminatedEvent());
-                }
-                else
-                {
-                    Protocol.SendEvent(new StoppedEvent(reasonValue) { ThreadId = 1 });
-                }
-            }
-            catch (Exception ex)
-            {
-                Log(ex.Message, LogCategory.DebugAdapterOutput);
-                throw new ProtocolException(ex.Message, ex);
-            }
-        }
-
         protected override ContinueResponse HandleContinueRequest(ContinueArguments arguments)
         {
             try
@@ -207,7 +165,6 @@ namespace NeoDebug
                 if (session == null) throw new InvalidOperationException();
 
                 session.Continue();
-                FireStoppedEvent(StoppedEvent.ReasonValue.Step);
 
                 return new ContinueResponse();
             }
@@ -225,7 +182,6 @@ namespace NeoDebug
                 if (session == null) throw new InvalidOperationException();
 
                 session.StepIn();
-                FireStoppedEvent(StoppedEvent.ReasonValue.Step);
 
                 return new StepInResponse();
             }
@@ -243,7 +199,6 @@ namespace NeoDebug
                 if (session == null) throw new InvalidOperationException();
 
                 session.StepOut();
-                FireStoppedEvent(StoppedEvent.ReasonValue.Step);
 
                 return new StepOutResponse();
             }
@@ -262,7 +217,6 @@ namespace NeoDebug
                 if (session == null) throw new InvalidOperationException();
 
                 session.StepOver();
-                FireStoppedEvent(StoppedEvent.ReasonValue.Step);
 
                 return new NextResponse();
             }

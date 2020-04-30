@@ -1,5 +1,4 @@
-﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.VM;
 using NeoDebug.Models;
 using NeoDebug.VariableContainers;
@@ -16,6 +15,7 @@ namespace NeoDebug
 {
     internal class DebugSession : IVariableContainerSession
     {
+        private readonly Action<DebugEvent> sendEvent;
         private readonly IExecutionEngine engine;
         private readonly Dictionary<int, HashSet<int>> breakPoints = new Dictionary<int, HashSet<int>>();
         private readonly Dictionary<int, IVariableContainer> variableContainers = new Dictionary<int, IVariableContainer>();
@@ -25,28 +25,15 @@ namespace NeoDebug
 
         public VMState EngineState => engine.State;
 
-        public DebugSession(IExecutionEngine engine, Contract contract, ContractArgument[] arguments, ReadOnlyMemory<string> returnTypes)
+        public DebugSession(IExecutionEngine engine, Contract contract, Action<DebugEvent> sendEvent, ContractArgument[] arguments, ReadOnlyMemory<string> returnTypes)
         {
+            this.sendEvent = sendEvent;
             this.engine = engine;
             this.returnTypes = returnTypes;
             Contract = contract;
 
             using var builder = contract.BuildInvokeScript(arguments);
             engine.LoadScript(builder.ToArray());
-        }
-
-        private static ContractParameterType ParseTypeName(string typeName)
-        {
-            return typeName switch
-            {
-                "Integer" => ContractParameterType.Integer,
-                "String" => ContractParameterType.String,
-                "Array" => ContractParameterType.Array,
-                "Boolean" => ContractParameterType.Boolean,
-                "ByteArray" => ContractParameterType.ByteArray,
-                "" => ContractParameterType.ByteArray,
-                _ => throw new NotImplementedException(),
-            };
         }
 
         private static ContractArgument ConvertArgument(JToken arg)
@@ -115,13 +102,29 @@ namespace NeoDebug
 
         private static ContractArgument ConvertArgument((string name, string type) param, JToken? arg)
         {
-            var type = ParseTypeName(param.type);
+            var type = param.type switch
+            {
+                "Integer" => ContractParameterType.Integer,
+                "String" => ContractParameterType.String,
+                "Array" => ContractParameterType.Array,
+                "Boolean" => ContractParameterType.Boolean,
+                "ByteArray" => ContractParameterType.ByteArray,
+                "" => ContractParameterType.ByteArray,
+                _ => throw new NotImplementedException(),
+            };
+
             return new ContractArgument(type, ConvertArgumentToObject(type, arg));
         }
 
 
         static public DebugSession Create(Contract contract, LaunchArguments arguments, Action<DebugEvent> sendEvent)
         {
+            var contractArgs = GetArguments(contract.EntryPoint).ToArray();
+            var returnTypes = GetReturnTypes().ToArray();
+
+            var engine = DebugExecutionEngine.Create(contract, arguments, outputEvent => sendEvent(outputEvent));
+            return new DebugSession(engine, contract, sendEvent, contractArgs, returnTypes);
+
             JArray GetArgsConfig()
             {
                 if (arguments.ConfigurationProperties.TryGetValue("args", out var args))
@@ -158,12 +161,6 @@ namespace NeoDebug
                     }
                 }
             }
-
-            var contractArgs = GetArguments(contract.EntryPoint).ToArray();
-            var returnTypes = GetReturnTypes().ToArray();
-
-            var engine = DebugExecutionEngine.Create(contract, arguments, outputEvent => sendEvent(outputEvent));
-            return new DebugSession(engine, contract, contractArgs, returnTypes);
         }
 
         public IEnumerable<Breakpoint> SetBreakpoints(Source source, IReadOnlyList<SourceBreakpoint> sourceBreakpoints)
@@ -239,6 +236,38 @@ namespace NeoDebug
             return false;
         }
 
+        private void FireStoppedEvent(StoppedEvent.ReasonValue reasonValue)
+        {
+            ClearVariableContainers();
+
+            if ((EngineState & VMState.FAULT) != 0)
+            {
+                sendEvent(new OutputEvent()
+                {
+                    Category = OutputEvent.CategoryValue.Stderr,
+                    Output = "Engine State Faulted\n",
+                });
+                sendEvent(new TerminatedEvent());
+            }
+            if ((EngineState & VMState.HALT) != 0)
+            {
+                foreach (var result in GetResults())
+                {
+                    sendEvent(new OutputEvent()
+                    {
+                        Category = OutputEvent.CategoryValue.Stdout,
+                        Output = $"Return: {result}\n",
+                    });
+                }
+                sendEvent(new ExitedEvent());
+                sendEvent(new TerminatedEvent());
+            }
+            else
+            {
+                sendEvent(new StoppedEvent(reasonValue) { ThreadId = 1 });
+            }
+        }
+
         public void Continue()
         {
             while ((engine.State & HALT_OR_FAULT) == 0)
@@ -250,11 +279,14 @@ namespace NeoDebug
                     break;
                 }
             }
+
+            FireStoppedEvent(StoppedEvent.ReasonValue.Breakpoint);
         }
 
         void Step(Func<int, int, bool> compare)
         {
-            int c = engine.InvocationStack.Count;
+            var c = engine.InvocationStack.Count;
+            var stopReason = StoppedEvent.ReasonValue.Step;
             while ((engine.State & HALT_OR_FAULT) == 0)
             {
                 engine.ExecuteNext();
@@ -266,6 +298,7 @@ namespace NeoDebug
 
                 if (CheckBreakpoint())
                 {
+                    stopReason = StoppedEvent.ReasonValue.Breakpoint;
                     break;
                 }
 
@@ -274,6 +307,8 @@ namespace NeoDebug
                     break;
                 }
             }
+
+            FireStoppedEvent(stopReason);
         }
 
         public void StepOver()
@@ -342,7 +377,7 @@ namespace NeoDebug
             }
         }
 
-        public void ClearVariableContainers()
+        void ClearVariableContainers()
         {
             variableContainers.Clear();
         }
@@ -423,7 +458,7 @@ namespace NeoDebug
             return string.Empty;
         }
 
-        private string GetResult(StackItem item, string? typeHint = null)
+        string GetResult(StackItem item, string? typeHint = null)
         {
             if (typeHint == "ByteArray")
             {
@@ -433,7 +468,7 @@ namespace NeoDebug
             return GetResult(item.GetVariable(this, string.Empty, typeHint));
         }
 
-        public IEnumerable<string> GetResults()
+        IEnumerable<string> GetResults()
         {
             foreach (var (item, index) in engine.ResultStack.Select((_item, index) => (_item, index)))
             {
