@@ -8,7 +8,7 @@ using System.Text;
 
 
 
-namespace NeoDebug.Adapter
+namespace NeoDebug
 {
     internal partial class InteropService
     {

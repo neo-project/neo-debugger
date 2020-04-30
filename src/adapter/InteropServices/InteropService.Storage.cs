@@ -8,7 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
-namespace NeoDebug.Adapter
+namespace NeoDebug
 {
     internal partial class InteropService
     {

@@ -2,7 +2,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace NeoDebug.Adapter
+namespace NeoDebug
 {
     internal class ScriptTable : Neo.VM.IScriptTable
     {

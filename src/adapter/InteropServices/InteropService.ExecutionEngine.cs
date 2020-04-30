@@ -3,7 +3,7 @@ using System;
 
 
 
-namespace NeoDebug.Adapter
+namespace NeoDebug
 {
     internal partial class InteropService
     {

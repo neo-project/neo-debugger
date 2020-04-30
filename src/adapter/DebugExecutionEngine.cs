@@ -10,7 +10,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace NeoDebug.Adapter
+namespace NeoDebug
 {
     internal class DebugExecutionEngine : ExecutionEngine, IExecutionEngine
     {

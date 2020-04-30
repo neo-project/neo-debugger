@@ -5,7 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 
-namespace NeoDebug.Adapter
+namespace NeoDebug
 {
     internal class EmulatedStorageContainer : IVariableContainer
     {

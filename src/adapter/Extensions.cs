@@ -6,9 +6,7 @@ using Neo.VM;
 using Neo.VM.Types;
 using NeoFx;
 
-
-
-namespace NeoDebug.Adapter
+namespace NeoDebug
 {
     static class Extensions
     {

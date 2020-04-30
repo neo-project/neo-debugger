@@ -3,7 +3,7 @@ using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using System;
 using System.IO;
 
-namespace NeoDebug.Adapter
+namespace NeoDebug
 {
 
     internal class Program

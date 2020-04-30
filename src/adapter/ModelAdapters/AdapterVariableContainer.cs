@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 
 
-namespace NeoDebug.Adapter.ModelAdapters
+namespace NeoDebug.ModelAdapters
 {
     internal class AdapterVariableContainer : IVariableContainer
     {

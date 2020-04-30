@@ -2,7 +2,7 @@
 using NeoFx;
 using System;
 
-namespace NeoDebug.Adapter
+namespace NeoDebug
 {
     class Crypto : ICrypto
     {

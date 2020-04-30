@@ -7,7 +7,7 @@ using System.Linq;
 
 
 
-namespace NeoDebug.Adapter
+namespace NeoDebug
 {
     // This code is nearly identical to the code from neo code base. As much as I would like to rewrite it 
     // for efficiency, compatibility with existing implementation is higher priority.

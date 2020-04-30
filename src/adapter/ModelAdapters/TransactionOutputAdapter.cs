@@ -7,7 +7,7 @@ using System.Collections.Generic;
 
 
 
-namespace NeoDebug.Adapter.ModelAdapters
+namespace NeoDebug.ModelAdapters
 {
     internal class TransactionOutputAdatper : AdapterBase, IVariableProvider, IVariableContainer
     {
