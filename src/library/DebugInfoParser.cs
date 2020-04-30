@@ -13,6 +13,51 @@ namespace NeoDebug
 {
     internal static class DebugInfoParser
     {
+        class DocumentResolver
+        {
+            Dictionary<string, string> folderMap = new Dictionary<string, string>();
+
+            public string ResolveDocument(JToken token)
+            {
+                var document = token.Value<string>();
+                if (File.Exists(document))
+                    return document;
+
+                foreach (var kvp in folderMap)
+                {
+                    if (document.StartsWith(kvp.Key))
+                    {
+                        var mapDocument = Path.Join(kvp.Value, document.Substring(kvp.Key.Length));
+                        if (File.Exists(mapDocument))
+                        {
+                            return mapDocument;
+                        }
+                    }
+                }
+
+                var cwd = Environment.CurrentDirectory;
+                var cwdDocument = Path.Join(cwd, Path.GetFileName(document));
+                if (File.Exists(cwdDocument))
+                {
+                    folderMap.Add(Path.GetDirectoryName(document), cwd);
+                    return cwdDocument;
+                }
+
+                var folderName = Path.GetFileName(cwd);
+                var folderIndex = document.IndexOf(folderName);
+                if (folderIndex >= 0)
+                {
+                    var relPath = document.Substring(folderIndex + folderName.Length);
+                    var newPath = Path.GetFullPath(Path.Join(cwd, relPath));
+
+                    if (File.Exists(newPath))
+                        return newPath;
+                }
+
+                throw new FileNotFoundException($"could not load {document}");
+            }
+        }
+
         private static (string, string) SplitComma(string value)
         {
             var values = value.Split(',');
@@ -78,28 +123,8 @@ namespace NeoDebug
                 };
             }
 
-            static string ResolveDocument(JToken token)
-            {
-                var document = token.Value<string>();
-                if (File.Exists(document))
-                    return document;
-
-                var cwd = Environment.CurrentDirectory;
-                var folderName = Path.GetFileName(cwd);
-                var folderIndex = document.IndexOf(folderName);
-                if (folderIndex >= 0)
-                {
-                    var relPath = document.Substring(folderIndex + folderName.Length);
-                    var newPath = Path.GetFullPath(Path.Join(cwd, relPath));
-                    
-                    if (File.Exists(newPath))
-                        return newPath;
-                }
-
-                throw new FileNotFoundException($"could not load {document}");
-            }
-
-            var documents = json["documents"].Select(ResolveDocument).ToList();
+            var documentResolver = new DocumentResolver();
+            var documents = json["documents"].Select(documentResolver.ResolveDocument).ToList();
             var events = json["events"].Select(ParseEvent).ToList();
             var methods = json["methods"].Select(t => ParseMethod(t, documents)).ToList();
 

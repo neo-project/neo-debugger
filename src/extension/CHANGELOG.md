@@ -18,6 +18,7 @@ may not exactly match a publicly released version.
 ### Fixed
 
 - Adding item with the non-unique key to emulated storage [#20](https://github.com/neo-project/neo-debugger/issues/20)
+- Improve document path resolution [#24](https://github.com/neo-project/neo-debugger/issues/24)
 
 ## [1.0] - 2020-02-06
 
