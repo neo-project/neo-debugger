@@ -15,22 +15,19 @@ namespace NeoDebug
 {
     internal class DebugSession : IVariableContainerSession
     {
-        private readonly Action<DebugEvent> sendEvent;
         private readonly IExecutionEngine engine;
+        private readonly Contract contract;
+        private readonly Action<DebugEvent> sendEvent;
+        private readonly ReadOnlyMemory<string> returnTypes;
         private readonly Dictionary<int, HashSet<int>> breakPoints = new Dictionary<int, HashSet<int>>();
         private readonly Dictionary<int, IVariableContainer> variableContainers = new Dictionary<int, IVariableContainer>();
-        private readonly ReadOnlyMemory<string> returnTypes;
-
-        public Contract Contract { get; }
-
-        public VMState EngineState => engine.State;
 
         public DebugSession(IExecutionEngine engine, Contract contract, Action<DebugEvent> sendEvent, ContractArgument[] arguments, ReadOnlyMemory<string> returnTypes)
         {
-            this.sendEvent = sendEvent;
             this.engine = engine;
+            this.sendEvent = sendEvent;
+            this.contract = contract;
             this.returnTypes = returnTypes;
-            Contract = contract;
 
             using var builder = contract.BuildInvokeScript(arguments);
             engine.LoadScript(builder.ToArray());
@@ -116,7 +113,6 @@ namespace NeoDebug
             return new ContractArgument(type, ConvertArgumentToObject(type, arg));
         }
 
-
         static public DebugSession Create(Contract contract, LaunchArguments arguments, Action<DebugEvent> sendEvent)
         {
             var contractArgs = GetArguments(contract.EntryPoint).ToArray();
@@ -175,7 +171,7 @@ namespace NeoDebug
                 yield break;
             }
 
-            var sequencePoints = Contract.DebugInfo.Methods
+            var sequencePoints = contract.DebugInfo.Methods
                 .SelectMany(m => m.SequencePoints)
                 .Where(sp => sourcePath.Equals(Path.GetFullPath(sp.Document), StringComparison.InvariantCultureIgnoreCase))
                 .ToArray();
@@ -220,7 +216,7 @@ namespace NeoDebug
             {
                 var context = engine.CurrentContext;
 
-                if (Contract.ScriptHash.AsSpan().SequenceEqual(context.ScriptHash))
+                if (contract.ScriptHash.AsSpan().SequenceEqual(context.ScriptHash))
                 {
                     var ip = context.InstructionPointer;
                     foreach (var kvp in breakPoints)
@@ -240,7 +236,7 @@ namespace NeoDebug
         {
             ClearVariableContainers();
 
-            if ((EngineState & VMState.FAULT) != 0)
+            if ((engine.State & VMState.FAULT) != 0)
             {
                 sendEvent(new OutputEvent()
                 {
@@ -249,7 +245,7 @@ namespace NeoDebug
                 });
                 sendEvent(new TerminatedEvent());
             }
-            if ((EngineState & VMState.HALT) != 0)
+            if ((engine.State & VMState.HALT) != 0)
             {
                 foreach (var result in GetResults())
                 {
@@ -302,7 +298,7 @@ namespace NeoDebug
                     break;
                 }
 
-                if (compare(engine.InvocationStack.Count, c) && Contract.CheckSequencePoint(engine.CurrentContext))
+                if (compare(engine.InvocationStack.Count, c) && contract.CheckSequencePoint(engine.CurrentContext))
                 {
                     break;
                 }
@@ -344,7 +340,7 @@ namespace NeoDebug
                 for (var i = start; i < end; i++)
                 {
                     var context = engine.InvocationStack.Peek(i);
-                    var method = Contract.GetMethod(context);
+                    var method = contract.GetMethod(context);
 
                     var frame = new StackFrame()
                     {
@@ -399,7 +395,7 @@ namespace NeoDebug
             {
                 var context = engine.InvocationStack.Peek(args.FrameId);
                 var contextID = AddVariableContainer(
-                    new ExecutionContextContainer(this, context, Contract));
+                    new ExecutionContextContainer(this, context, contract));
                 yield return new Scope("Locals", contextID, false);
 
                 var storageID = AddVariableContainer(engine.GetStorageContainer(this));
@@ -514,7 +510,7 @@ namespace NeoDebug
                 if (context.AltStack.Count <= 0)
                     continue;
 
-                var method = Contract.GetMethod(context);
+                var method = contract.GetMethod(context);
                 if (method == null)
                     continue;
 
