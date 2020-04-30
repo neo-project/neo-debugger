@@ -1,11 +1,16 @@
-﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
+using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.VM;
 using NeoDebug.Models;
 using NeoDebug.VariableContainers;
+using Newtonsoft.Json.Linq;
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Numerics;
+using System.Text;
 
 namespace NeoDebug
 {
@@ -28,6 +33,137 @@ namespace NeoDebug
 
             using var builder = contract.BuildInvokeScript(arguments);
             engine.LoadScript(builder.ToArray());
+        }
+
+        private static ContractParameterType ParseTypeName(string typeName)
+        {
+            return typeName switch
+            {
+                "Integer" => ContractParameterType.Integer,
+                "String" => ContractParameterType.String,
+                "Array" => ContractParameterType.Array,
+                "Boolean" => ContractParameterType.Boolean,
+                "ByteArray" => ContractParameterType.ByteArray,
+                "" => ContractParameterType.ByteArray,
+                _ => throw new NotImplementedException(),
+            };
+        }
+
+        private static ContractArgument ConvertArgument(JToken arg)
+        {
+            switch (arg.Type)
+            {
+                case JTokenType.Integer:
+                    return new ContractArgument(ContractParameterType.Integer, new BigInteger(arg.Value<int>()));
+                case JTokenType.String:
+                    var value = arg.Value<string>();
+                    if (value.TryParseBigInteger(out var bigInteger))
+                    {
+                        return new ContractArgument(ContractParameterType.Integer, bigInteger);
+                    }
+                    else
+                    {
+                        return new ContractArgument(ContractParameterType.String, value);
+                    }
+                default:
+                    throw new NotImplementedException($"DebugAdapter.ConvertArgument {arg.Type}");
+            }
+        }
+
+        private static object ConvertArgumentToObject(ContractParameterType paramType, JToken? arg)
+        {
+            if (arg == null)
+            {
+                return paramType switch
+                {
+                    ContractParameterType.Boolean => false,
+                    ContractParameterType.String => string.Empty,
+                    ContractParameterType.Array => Array.Empty<ContractArgument>(),
+                    _ => BigInteger.Zero,
+                };
+            }
+
+            switch (paramType)
+            {
+                case ContractParameterType.Boolean:
+                    return arg.Value<bool>();
+                case ContractParameterType.Integer:
+                    return arg.Type == JTokenType.Integer
+                        ? new BigInteger(arg.Value<int>())
+                        : BigInteger.Parse(arg.ToString());
+                case ContractParameterType.String:
+                    return arg.ToString();
+                case ContractParameterType.Array:
+                    return arg.Select(ConvertArgument).ToArray();
+                case ContractParameterType.ByteArray:
+                    {
+                        var value = arg.ToString();
+                        if (value.TryParseBigInteger(out var bigInteger))
+                        {
+                            return bigInteger;
+                        }
+
+                        var byteCount = Encoding.UTF8.GetByteCount(value);
+                        using var owner = MemoryPool<byte>.Shared.Rent(byteCount);
+                        var span = owner.Memory.Span.Slice(0, byteCount);
+                        Encoding.UTF8.GetBytes(value, span);
+                        return new BigInteger(span);
+                    }
+            }
+            throw new NotImplementedException($"DebugAdapter.ConvertArgument {paramType} {arg}");
+        }
+
+        private static ContractArgument ConvertArgument((string name, string type) param, JToken? arg)
+        {
+            var type = ParseTypeName(param.type);
+            return new ContractArgument(type, ConvertArgumentToObject(type, arg));
+        }
+
+
+        static public DebugSession Create(Contract contract, LaunchArguments arguments, Action<DebugEvent> sendEvent)
+        {
+            JArray GetArgsConfig()
+            {
+                if (arguments.ConfigurationProperties.TryGetValue("args", out var args))
+                {
+                    if (args is JArray jArray)
+                    {
+                        return jArray;
+                    }
+
+                    return new JArray(args);
+                }
+
+                return new JArray();
+            }
+
+            IEnumerable<ContractArgument> GetArguments(MethodDebugInfo method)
+            {
+                var args = GetArgsConfig();
+                for (int i = 0; i < method.Parameters.Count; i++)
+                {
+                    yield return ConvertArgument(
+                        method.Parameters[i],
+                        i < args.Count ? args[i] : null);
+                }
+            }
+
+            IEnumerable<string> GetReturnTypes()
+            {
+                if (arguments.ConfigurationProperties.TryGetValue("return-types", out var returnTypes))
+                {
+                    foreach (var returnType in returnTypes)
+                    {
+                        yield return Helpers.CastOperations[returnType.Value<string>()];
+                    }
+                }
+            }
+
+            var contractArgs = GetArguments(contract.EntryPoint).ToArray();
+            var returnTypes = GetReturnTypes().ToArray();
+
+            var engine = DebugExecutionEngine.Create(contract, arguments, outputEvent => sendEvent(outputEvent));
+            return new DebugSession(engine, contract, contractArgs, returnTypes);
         }
 
         public IEnumerable<Breakpoint> SetBreakpoints(Source source, IReadOnlyList<SourceBreakpoint> sourceBreakpoints)

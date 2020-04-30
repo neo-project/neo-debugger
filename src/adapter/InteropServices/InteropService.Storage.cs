@@ -3,10 +3,8 @@ using Neo.VM;
 using NeoDebug.VariableContainers;
 using NeoFx;
 using NeoFx.Models;
-using NeoFx.Storage;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 
 namespace NeoDebug
 {

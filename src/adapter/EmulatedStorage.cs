@@ -1,6 +1,4 @@
-﻿using Neo.VM;
-using NeoDebug.VariableContainers;
-using NeoFx;
+﻿using NeoFx;
 using NeoFx.Models;
 using NeoFx.Storage;
 using System;

@@ -1,5 +1,4 @@
 ﻿using Neo.VM;
-using System;
 using System.IO;
 using System.Linq;
 
@@ -11,10 +10,10 @@ namespace NeoDebug.Models
         public DebugInfo DebugInfo { get; }
         public byte[] ScriptHash { get; }
 
-        public Contract(byte[] script, DebugInfo debugInfo, Func<byte[], byte[]> scriptHashFunc)
+        public Contract(byte[] script, DebugInfo debugInfo)
         {
             Script = script;
-            ScriptHash = scriptHashFunc(script);
+            ScriptHash = Crypto.Hash160(script);
             DebugInfo = debugInfo;
         }
 
@@ -31,12 +30,12 @@ namespace NeoDebug.Models
             return builder;
         }
 
-        public static Contract Load(string vmFileName, Func<byte[], byte[]> scriptHashFunc)
+        public static Contract Load(string vmFileName)
         {
             var script = File.ReadAllBytes(vmFileName);
             var debugInfo = DebugInfoParser.Load(vmFileName);
 
-            return new Contract(script, debugInfo, scriptHashFunc);
+            return new Contract(script, debugInfo);
         }
     }
 }

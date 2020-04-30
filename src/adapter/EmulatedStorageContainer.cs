@@ -3,7 +3,6 @@ using NeoDebug.VariableContainers;
 using NeoFx;
 using System;
 using System.Collections.Generic;
-using System.Numerics;
 
 namespace NeoDebug
 {

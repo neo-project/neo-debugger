@@ -43,8 +43,6 @@ namespace NeoDebug
             var adapter = new DebugAdapter(
                 Console.OpenStandardInput(),
                 Console.OpenStandardOutput(),
-                DebugExecutionEngine.Create,
-                Crypto.Hash160,
                 (cat, msg) => LogMessage(msg, cat));
 
             adapter.Run();

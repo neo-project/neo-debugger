@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Text;
 using Neo.VM;
 using Neo.VM.Types;
 using NeoFx;
