@@ -96,7 +96,7 @@ namespace NeoDebug.Adapter
                 return false;
             }
 
-            storage.Add(key, (false, new StorageItem(value, constant)));
+            storage[key] = (false, new StorageItem(value, constant));
             return true;
         }
 
@@ -108,7 +108,7 @@ namespace NeoDebug.Adapter
                 return false;
             }
 
-            storage.Add(key, (true, default));
+            storage[key] = (true, default);
             return true;
         }
     }
