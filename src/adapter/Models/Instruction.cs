@@ -18,15 +18,27 @@ namespace NeoDebug.Models
             Position = position;
         }
 
+        public string OpCodeString
+        {
+            get
+            {
+                if (OpCode >= OpCode.PUSHBYTES1 && OpCode <= OpCode.PUSHBYTES75)
+                {
+                    return $"PUSHBYTES{(byte)OpCode}";
+                }
+
+                return $"{OpCode}";
+            }
+        }
+
         public static IEnumerable<Instruction> ParseScript(ReadOnlyMemory<byte> script)
         {
             int pos = 0;
-            OpCode lastOpcode = OpCode.PUSH0;
+            OpCode opcode = OpCode.PUSH0;
             while (pos < script.Length)
             {
                 var initialPos = pos;
-                var opcode = (OpCode)script.Span[pos++];
-                lastOpcode = opcode;
+                opcode = (OpCode)script.Span[pos++];
                 var operandSizePrefix = opcode switch
                 {
                     OpCode.PUSHDATA1 => 1,
@@ -40,7 +52,7 @@ namespace NeoDebug.Models
                 {
                     1 => script.Span[pos],
                     2 => BitConverter.ToUInt16(script.Span.Slice(pos, 2)),
-                    4 => BitConverter.ToUInt16(script.Span.Slice(pos, 4)),
+                    4 => BitConverter.ToInt32(script.Span.Slice(pos, 4)),
                     _ => opcode switch
                     {
                         OpCode.JMP => 2,
@@ -75,7 +87,7 @@ namespace NeoDebug.Models
                 yield return new Instruction(opcode, operand.AsMemory(), initialPos);
             }
 
-            if (lastOpcode != OpCode.RET)
+            if (opcode != OpCode.RET)
             {
                 yield return new Instruction(OpCode.RET, default, pos);
             }

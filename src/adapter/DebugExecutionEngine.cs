@@ -91,5 +91,7 @@ namespace NeoDebug
 
         public EvaluateResponse EvaluateStorageExpression(IVariableContainerSession session, EvaluateArguments args)
             => interopService.EvaluateStorageExpression(session, args);
+
+        public string GetMethodName(uint methodHash) => interopService.GetMethodName(methodHash);
     }
 }

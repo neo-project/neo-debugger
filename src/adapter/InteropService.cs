@@ -212,6 +212,16 @@ namespace NeoDebug
             methodNames.Add(value, methodName);
         }
 
+        public string GetMethodName(uint methodHash)
+        {
+            if (methodNames.TryGetValue(methodHash, out var methodName))
+            {
+                return methodName;
+            }
+
+            return string.Empty;
+        }
+
         bool IInteropService.Invoke(byte[] method, ExecutionEngine engine)
         {
             static bool TryInteropMethodHash(Span<byte> method, out uint value)

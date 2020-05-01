@@ -21,7 +21,8 @@ namespace NeoDebug
         private readonly ReadOnlyMemory<string> returnTypes;
         private readonly Dictionary<int, HashSet<int>> breakPoints = new Dictionary<int, HashSet<int>>();
         private readonly Dictionary<int, IVariableContainer> variableContainers = new Dictionary<int, IVariableContainer>();
-        private readonly SourceManager sourceManager = new SourceManager();
+        private readonly DisassemblyManager sourceManager;
+        private bool disassemblyView = true;
 
         public DebugSession(DebugExecutionEngine engine, Contract contract, Action<DebugEvent> sendEvent, ContractArgument[] arguments, ReadOnlyMemory<string> returnTypes)
         {
@@ -29,12 +30,18 @@ namespace NeoDebug
             this.sendEvent = sendEvent;
             this.contract = contract;
             this.returnTypes = returnTypes;
+            this.sourceManager = new DisassemblyManager(engine.GetMethodName);
 
             var invokeScript = contract.BuildInvokeScript(arguments);
             engine.LoadScript(invokeScript);
 
             sourceManager.Add(invokeScript);
             sourceManager.Add(contract.Script);
+
+            if (!disassemblyView)
+                StepIn();
+
+            FireStoppedEvent(StoppedEvent.ReasonValue.Entry);
         }
 
         private static ContractArgument ConvertArgument(JToken arg)
@@ -290,7 +297,12 @@ namespace NeoDebug
             while ((engine.State & HALT_OR_FAULT) == 0)
             {
                 engine.ExecuteInstruction();
-                break;
+
+                if (disassemblyView)
+                {
+                    break;
+                }
+
                 if ((engine.State & HALT_OR_FAULT) != 0)
                 {
                     break;
@@ -338,6 +350,38 @@ namespace NeoDebug
 
         public IEnumerable<StackFrame> GetStackFrames(StackTraceArguments args)
         {
+            static StackFrame GetSourceStackFrame(ExecutionContext context, Contract contract, int i)
+            {
+                var method = contract.GetMethod(context);
+
+                var frame = new StackFrame()
+                {
+                    Id = i,
+                    Name = method?.Name ?? $"frame {i}",
+                };
+
+                var sequencePoint = method?.GetCurrentSequencePoint(context);
+
+                if (sequencePoint != null)
+                {
+                    frame.Source = new Source()
+                    {
+                        Name = Path.GetFileName(sequencePoint.Document),
+                        Path = sequencePoint.Document
+                    };
+                    frame.Line = sequencePoint.Start.line;
+                    frame.Column = sequencePoint.Start.column;
+
+                    if (sequencePoint.Start != sequencePoint.End)
+                    {
+                        frame.EndLine = sequencePoint.End.line;
+                        frame.EndColumn = sequencePoint.End.column;
+                    }
+                }
+
+                return frame;
+            }
+
             System.Diagnostics.Debug.Assert(args.ThreadId == 1);
 
             if ((engine.State & HALT_OR_FAULT) == 0)
@@ -350,42 +394,9 @@ namespace NeoDebug
                 {
                     var context = engine.InvocationStack.Peek(i);
 
-                    var frame = sourceManager.GetStackFrame(context, i);
-
-                    //var method = contract.GetMethod(context);
-
-                    //var frame = new StackFrame()
-                    //{
-                    //    Id = i,
-                    //    Name = /*method?.Name ??*/ $"frame {i}",
-                    //    //ModuleId = context.ScriptHash,
-                        
-                    //};
-
-                    //frame.Source = new Source()
-                    //{
-                    //    SourceReference = context.ScriptHash.GetSequenceHashCode(),
-                    //    Name = Helpers.ToHexString(context.ScriptHash),
-                    //};
-
-                    //var sequencePoint = method?.GetCurrentSequencePoint(context);
-
-                    //if (sequencePoint != null)
-                    //{
-                    //    frame.Source = new Source()
-                    //    {
-                    //        Name = Path.GetFileName(sequencePoint.Document),
-                    //        Path = sequencePoint.Document
-                    //    };
-                    //    frame.Line = sequencePoint.Start.line;
-                    //    frame.Column = sequencePoint.Start.column;
-
-                    //    if (sequencePoint.Start != sequencePoint.End)
-                    //    {
-                    //        frame.EndLine = sequencePoint.End.line;
-                    //        frame.EndColumn = sequencePoint.End.column;
-                    //    }
-                    //}
+                    var frame = disassemblyView
+                        ? sourceManager.GetStackFrame(context, i)
+                        : GetSourceStackFrame(context, contract, i);
 
                     yield return frame;
                 }
@@ -410,13 +421,19 @@ namespace NeoDebug
 
         public IEnumerable<Scope> GetScopes(ScopesArguments args)
         {
-            yield break;
             if ((engine.State & HALT_OR_FAULT) == 0)
             {
-                var context = engine.InvocationStack.Peek(args.FrameId);
-                var contextID = AddVariableContainer(
-                    new ExecutionContextContainer(this, context, contract));
-                yield return new Scope("Locals", contextID, false);
+                if (disassemblyView)
+                {
+
+                }
+                else
+                {
+                    var context = engine.InvocationStack.Peek(args.FrameId);
+                    var contextID = AddVariableContainer(
+                        new ExecutionContextContainer(this, context, contract));
+                    yield return new Scope("Locals", contextID, false);
+                }
 
                 var storageID = AddVariableContainer(engine.GetStorageContainer(this));
                 yield return new Scope("Storage", storageID, false);
@@ -425,13 +442,13 @@ namespace NeoDebug
 
         public IEnumerable<Variable> GetVariables(VariablesArguments args)
         {
-            //if ((engine.State & HALT_OR_FAULT) == 0)
-            //{
-            //    if (variableContainers.TryGetValue(args.VariablesReference, out var container))
-            //    {
-            //        return container.GetVariables();
-            //    }
-            //}
+            if ((engine.State & HALT_OR_FAULT) == 0)
+            {
+                if (variableContainers.TryGetValue(args.VariablesReference, out var container))
+                {
+                    return container.GetVariables();
+                }
+            }
 
             return Enumerable.Empty<Variable>();
         }
