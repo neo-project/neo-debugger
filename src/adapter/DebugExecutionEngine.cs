@@ -86,8 +86,11 @@ namespace NeoDebug
 
         public void ExecuteInstruction() => ExecuteNext();
 
-        public IVariableContainer GetStorageContainer(IVariableContainerSession session)
-            => interopService.GetStorageContainer(session);
+        public IVariableContainer GetStorageContainer(IVariableContainerSession session, byte[] scriptHash)
+            => GetStorageContainer(session, new UInt160(scriptHash));
+
+        public IVariableContainer GetStorageContainer(IVariableContainerSession session, UInt160 scriptHash)
+            => interopService.GetStorageContainer(session, scriptHash);
 
         public EvaluateResponse EvaluateStorageExpression(IVariableContainerSession session, EvaluateArguments args)
             => interopService.EvaluateStorageExpression(session, args);

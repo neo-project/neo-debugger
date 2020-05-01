@@ -115,7 +115,7 @@ namespace NeoDebug
             RegisterTransaction(Register);
         }
 
-        internal IVariableContainer GetStorageContainer(IVariableContainerSession session)
+        internal IVariableContainer GetStorageContainer(IVariableContainerSession session, UInt160 scriptHash)
         {
             return new EmulatedStorageContainer(session, scriptHash, storage);
         }

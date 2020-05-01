@@ -1,4 +1,5 @@
 ﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using NeoDebug.Models;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -16,16 +17,6 @@ namespace NeoDebug
         public DisassemblyManager(Func<uint, string> methodNameResolver)
         {
             this.methodNameResolver = methodNameResolver;
-        }
-
-        static string GetOpCodeString(OpCode opcode)
-        {
-            if (opcode >= OpCode.PUSHBYTES1 && opcode <= OpCode.PUSHBYTES75)
-            {
-                return $"PUSHBYTES{(byte)opcode}";
-            }
-
-            return $"{opcode}";
         }
 
         string Comment(Models.Instruction i)
@@ -77,12 +68,34 @@ namespace NeoDebug
             return string.Empty;
         }
 
-        string ZZZ(in Models.Instruction instr)
+        string ConvertOperand(in Instruction instr)
         {
-            var opCodeStr = instr.OpCode >= OpCode.PUSHBYTES1 && instr.OpCode <= OpCode.PUSHBYTES75
-                ? $"PUSHBYTES{(byte)instr.OpCode}" : instr.OpCode.ToString();
-
-            return $"{instr.OpCode:x} {opCodeStr}\n";
+            switch (instr.OpCode)
+            {
+                case OpCode opCode when opCode >= OpCode.JMP && opCode <= OpCode.JMPIFNOT:
+                    {
+                        var offset = instr.Position + BitConverter.ToUInt16(instr.Operand.Span);
+                        return offset.ToString();
+                    }
+                case OpCode.TAILCALL:
+                case OpCode.APPCALL:
+                   {
+                        var scriptHash = new NeoFx.UInt160(instr.Operand.Span);
+                        return scriptHash.ToString();
+                   }
+                case OpCode.SYSCALL:
+                    if (instr.Operand.Length == 4)
+                    {
+                        var methodHash = BitConverter.ToUInt32(instr.Operand.Span);
+                        return methodNameResolver(methodHash);
+                    }
+                    else
+                    {
+                        return Encoding.UTF8.GetString(instr.Operand.Span);
+                    }
+                default:
+                    return string.Empty;
+            };
 
             //    instr.OpCode switch
             //{
@@ -131,17 +144,13 @@ namespace NeoDebug
             var ipMap = new Dictionary<int, int>();
             var sb = new StringBuilder();
             var lineNumber = 1;
-            foreach (var i in Models.Instruction.ParseScript(script))
+            foreach (var i in Instruction.ParseScript(script))
             {
-                var operandString = i.Operand.IsEmpty
-                    ? string.Empty
-                    : BitConverter.ToString(i.Operand.ToArray());
-
-                var commentString = Comment(i);
+                var opCodeStr = i.OpCode >= OpCode.PUSHBYTES1 && i.OpCode <= OpCode.PUSHBYTES75
+                    ? $"PUSHBYTES{(byte)i.OpCode}" : i.OpCode.ToString();
 
                 ipMap.Add(i.Position, lineNumber++);
-                //sb.Append($"{i.OpCode:x} {GetOpCodeString(i.OpCode)} {operandString} {commentString}\n");
-                sb.Append(ZZZ(i));
+                sb.Append($"{i.OpCode:x} {opCodeStr} {ConvertOperand(i)}\n");
             }
             
             sources.Add(hashCode, sb.ToString());

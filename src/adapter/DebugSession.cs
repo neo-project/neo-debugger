@@ -21,7 +21,7 @@ namespace NeoDebug
         private readonly ReadOnlyMemory<string> returnTypes;
         private readonly Dictionary<int, HashSet<int>> breakPoints = new Dictionary<int, HashSet<int>>();
         private readonly Dictionary<int, IVariableContainer> variableContainers = new Dictionary<int, IVariableContainer>();
-        private readonly DisassemblyManager sourceManager;
+        private readonly DisassemblyManager disassemblyManager;
         private bool disassemblyView = true;
 
         public DebugSession(DebugExecutionEngine engine, Contract contract, Action<DebugEvent> sendEvent, ContractArgument[] arguments, ReadOnlyMemory<string> returnTypes)
@@ -30,13 +30,13 @@ namespace NeoDebug
             this.sendEvent = sendEvent;
             this.contract = contract;
             this.returnTypes = returnTypes;
-            this.sourceManager = new DisassemblyManager(engine.GetMethodName);
+            this.disassemblyManager = new DisassemblyManager(engine.GetMethodName);
 
             var invokeScript = contract.BuildInvokeScript(arguments);
             engine.LoadScript(invokeScript);
 
-            sourceManager.Add(invokeScript);
-            sourceManager.Add(contract.Script);
+            disassemblyManager.Add(invokeScript);
+            disassemblyManager.Add(contract.Script);
 
             if (!disassemblyView)
                 StepIn();
@@ -340,7 +340,7 @@ namespace NeoDebug
 
         public string GetSource(SourceArguments arguments)
         {
-            return sourceManager.GetSource(arguments.SourceReference);
+            return disassemblyManager.GetSource(arguments.SourceReference);
         }
 
         public IEnumerable<Thread> GetThreads()
@@ -350,6 +350,26 @@ namespace NeoDebug
 
         public IEnumerable<StackFrame> GetStackFrames(StackTraceArguments args)
         {
+            System.Diagnostics.Debug.Assert(args.ThreadId == 1);
+
+            if ((engine.State & HALT_OR_FAULT) == 0)
+            {
+                var start = args.StartFrame ?? 0;
+                var count = args.Levels ?? int.MaxValue;
+                var end = Math.Min(engine.InvocationStack.Count, start + count);
+
+                for (var i = start; i < end; i++)
+                {
+                    var context = engine.InvocationStack.Peek(i);
+
+                    var frame = disassemblyView
+                        ? disassemblyManager.GetStackFrame(context, i)
+                        : GetSourceStackFrame(context, contract, i);
+
+                    yield return frame;
+                }
+            }
+
             static StackFrame GetSourceStackFrame(ExecutionContext context, Contract contract, int i)
             {
                 var method = contract.GetMethod(context);
@@ -381,26 +401,6 @@ namespace NeoDebug
 
                 return frame;
             }
-
-            System.Diagnostics.Debug.Assert(args.ThreadId == 1);
-
-            if ((engine.State & HALT_OR_FAULT) == 0)
-            {
-                var start = args.StartFrame ?? 0;
-                var count = args.Levels ?? int.MaxValue;
-                var end = Math.Min(engine.InvocationStack.Count, start + count);
-
-                for (var i = start; i < end; i++)
-                {
-                    var context = engine.InvocationStack.Peek(i);
-
-                    var frame = disassemblyView
-                        ? sourceManager.GetStackFrame(context, i)
-                        : GetSourceStackFrame(context, contract, i);
-
-                    yield return frame;
-                }
-            }
         }
 
         void ClearVariableContainers()
@@ -423,19 +423,26 @@ namespace NeoDebug
         {
             if ((engine.State & HALT_OR_FAULT) == 0)
             {
+                var context = engine.InvocationStack.Peek(args.FrameId);
+
+                var contextID = AddVariableContainer(
+                    new ExecutionContextContainer(this, context, contract));
+                var evalStackID = AddVariableContainer(
+                    new ExecutionStackContainer(this, context.EvaluationStack));
+                var altStackID = AddVariableContainer(
+                    new ExecutionStackContainer(this, context.AltStack));
+                var storageID = AddVariableContainer(engine.GetStorageContainer(this, context.ScriptHash));
+
                 if (disassemblyView)
                 {
-
+                    yield return new Scope("Evaluation Stack", evalStackID, false);
+                    yield return new Scope("Alt Stack", altStackID, false);
                 }
                 else
                 {
-                    var context = engine.InvocationStack.Peek(args.FrameId);
-                    var contextID = AddVariableContainer(
-                        new ExecutionContextContainer(this, context, contract));
                     yield return new Scope("Locals", contextID, false);
                 }
 
-                var storageID = AddVariableContainer(engine.GetStorageContainer(this));
                 yield return new Scope("Storage", storageID, false);
             }
         }
