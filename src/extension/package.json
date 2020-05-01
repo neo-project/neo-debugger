@@ -207,6 +207,29 @@
 					}
 				]
 			}
+		],
+		"languages": [
+			{
+				"id": "neovm.disassembly",
+				"aliases": [
+					"Disassembly"
+				],
+				"extensions": [
+					".neovm"
+				]
+			}
+		],
+		"grammars": [
+			{
+				"language": "neovm.disassembly",
+				"scopeName": "source.disassembly",
+				"path": "./syntaxes/disassembly.json"
+			}
+		],
+		"breakpoints": [
+			{
+				"language": "neovm.disassembly"
+			}
 		]
 	},
 	"scripts": {

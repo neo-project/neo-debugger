@@ -74,8 +74,7 @@ namespace NeoDebug
             try
             {
                 if (session == null) throw new InvalidOperationException();
-                var source = session.GetSource(arguments);
-                return new SourceResponse(source);
+                return session.GetSource(arguments);
             }
             catch (Exception ex)
             {

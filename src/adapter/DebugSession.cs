@@ -338,9 +338,13 @@ namespace NeoDebug
             Step((currentStackSize, originalStackSize) => currentStackSize < originalStackSize);
         }
 
-        public string GetSource(SourceArguments arguments)
+        public SourceResponse GetSource(SourceArguments arguments)
         {
-            return disassemblyManager.GetSource(arguments.SourceReference);
+            var source = disassemblyManager.GetSource(arguments.SourceReference);
+            return new SourceResponse(source)
+            {
+                MimeType = "text/x-neovm.disassembly"
+            };
         }
 
         public IEnumerable<Thread> GetThreads()
