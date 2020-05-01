@@ -2,6 +2,7 @@
 using Neo.VM;
 using NeoDebug.Models;
 using NeoDebug.VariableContainers;
+using NeoFx;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Buffers;
@@ -15,6 +16,19 @@ namespace NeoDebug
 {
     class DebugSession : IVariableContainerSession
     {
+        class BreakpointManager
+        {
+            /*
+            
+            There are two ways to set breakpoints. Source and Disassembly
+            For source, we get a source file + a 
+
+
+
+             */
+
+        }
+
         private readonly DebugExecutionEngine engine;
         private readonly Contract contract;
         private readonly Action<DebugEvent> sendEvent;
@@ -172,6 +186,10 @@ namespace NeoDebug
 
         public IEnumerable<Breakpoint> SetBreakpoints(Source source, IReadOnlyList<SourceBreakpoint> sourceBreakpoints)
         {
+            if (UInt160.TryParse(source.Name, out var zzz))
+            {
+
+            }
             var sourcePath = Path.GetFullPath(source.Path).ToLowerInvariant();
             var sourcePathHash = sourcePath.GetHashCode();
 
@@ -226,8 +244,9 @@ namespace NeoDebug
             if ((engine.State & HALT_OR_FAULT) == 0)
             {
                 var context = engine.CurrentContext;
+                var scriptHash = new UInt160(context.ScriptHash);
 
-                if (contract.ScriptHash.AsSpan().SequenceEqual(context.ScriptHash))
+                if (contract.ScriptHash == scriptHash)
                 {
                     var ip = context.InstructionPointer;
                     foreach (var kvp in breakPoints)
@@ -298,12 +317,12 @@ namespace NeoDebug
             {
                 engine.ExecuteInstruction();
 
-                if (disassemblyView)
+                if ((engine.State & HALT_OR_FAULT) != 0)
                 {
                     break;
                 }
 
-                if ((engine.State & HALT_OR_FAULT) != 0)
+                if (disassemblyView)
                 {
                     break;
                 }

@@ -2,6 +2,7 @@
 using Neo.VM;
 using NeoDebug.Models;
 using NeoDebug.VariableContainers;
+using NeoFx;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -101,7 +102,7 @@ namespace NeoDebug
 
         internal static MethodDebugInfo? GetMethod(this Contract contract, ExecutionContext context)
         {
-            if (contract.ScriptHash.AsSpan().SequenceEqual(context.ScriptHash))
+            if (contract.ScriptHash == new UInt160(context.ScriptHash))
             {
                 var ip = context.InstructionPointer;
                 return contract.DebugInfo.Methods
@@ -127,7 +128,7 @@ namespace NeoDebug
 
         internal static bool CheckSequencePoint(this Contract contract, ExecutionContext context)
         {
-            if (contract.ScriptHash.AsSpan().SequenceEqual(context.ScriptHash))
+            if (contract.ScriptHash == new UInt160(context.ScriptHash))
             {
                 return (contract.GetMethod(context)?.SequencePoints ?? new List<SequencePoint>())
                     .Any(sp => sp.Address == context.InstructionPointer);

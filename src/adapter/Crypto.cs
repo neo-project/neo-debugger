@@ -31,6 +31,17 @@ namespace NeoDebug
             throw new ArgumentException(nameof(message));
         }
 
+        public static UInt160 HashScript(byte[] script)
+        {
+            Span<byte> buffer = stackalloc byte[HashHelpers.Hash160Size];
+            if (HashHelpers.TryHash160(script, buffer))
+            {
+                return new UInt160(buffer);
+            }
+
+            throw new ArgumentException(nameof(script));
+        }
+
         byte[] ICrypto.Hash160(byte[] message)
         {
             return Hash160(message);

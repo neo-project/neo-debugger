@@ -29,12 +29,8 @@ namespace NeoDebug
         private readonly EmulatedStorage storage;
 
         private readonly Contract contract;
-        private readonly UInt160 scriptHash;
         private readonly IBlockchainStorage? blockchain;
         private readonly Action<OutputEvent> sendOutput;
-
-        //private readonly Dictionary<int, (byte[] key, byte[] value, bool constant)> storage =
-        //    new Dictionary<int, (byte[] key, byte[] value, bool constant)>();
 
         private static IEnumerable<(byte[] key, byte[] value, bool constant)>
             GetStorage(Dictionary<string, JToken> config)
@@ -76,11 +72,10 @@ namespace NeoDebug
             this.sendOutput = sendOutput;
             this.blockchain = blockchain;
             storage = new EmulatedStorage(blockchain);
-            scriptHash = new UInt160(contract.ScriptHash);
 
             foreach (var item in GetStorage(config))
             {
-                var storageKey = new StorageKey(scriptHash, item.key);
+                var storageKey = new StorageKey(contract.ScriptHash, item.key);
                 storage.TryPut(storageKey, item.value, item.constant);
             }
 
@@ -121,7 +116,6 @@ namespace NeoDebug
         }
 
         static readonly Regex storageRegex = new Regex(@"^\$storage\[([0-9a-fA-F]{8})\]\.(key|value)$");
-
 
         private EvaluateResponse EvaluateStorageExpression(IVariableContainerSession session, ReadOnlyMemory<byte> memory, string? typeHint)
         {
@@ -169,7 +163,7 @@ namespace NeoDebug
         {
             bool TryFindStorage(int keyHash, out (ReadOnlyMemory<byte> key, StorageItem item) value)
             {
-                foreach (var (key, item) in storage.EnumerateStorage(scriptHash))
+                foreach (var (key, item) in storage.EnumerateStorage(contract.ScriptHash))
                 {
                     if (key.Span.GetSequenceHashCode() == keyHash)
                     {
