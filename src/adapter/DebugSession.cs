@@ -361,45 +361,44 @@ namespace NeoDebug
                 for (var i = start; i < end; i++)
                 {
                     var context = engine.InvocationStack.Peek(i);
+                    var method = contract.GetMethod(context);
 
-                    var frame = disassemblyView
-                        ? disassemblyManager.GetStackFrame(context, i)
-                        : GetSourceStackFrame(context, contract, i);
+                    var frame = new StackFrame()
+                    {
+                        Id = i,
+                        Name = method?.Name ?? $"frame {engine.InvocationStack.Count - i}",
+                    };
+
+                    if (disassemblyView)
+                    {
+                        var (source, line) = disassemblyManager.GetSource(context);
+                        frame.Source = source;
+                        frame.Line = line;
+                    }
+                    else
+                    {
+                        var sequencePoint = method?.GetCurrentSequencePoint(context);
+
+                        if (sequencePoint != null)
+                        {
+                            frame.Source = new Source()
+                            {
+                                Name = Path.GetFileName(sequencePoint.Document),
+                                Path = sequencePoint.Document
+                            };
+                            frame.Line = sequencePoint.Start.line;
+                            frame.Column = sequencePoint.Start.column;
+
+                            if (sequencePoint.Start != sequencePoint.End)
+                            {
+                                frame.EndLine = sequencePoint.End.line;
+                                frame.EndColumn = sequencePoint.End.column;
+                            }
+                        }
+                    }
 
                     yield return frame;
                 }
-            }
-
-            static StackFrame GetSourceStackFrame(ExecutionContext context, Contract contract, int i)
-            {
-                var method = contract.GetMethod(context);
-
-                var frame = new StackFrame()
-                {
-                    Id = i,
-                    Name = method?.Name ?? $"frame {i}",
-                };
-
-                var sequencePoint = method?.GetCurrentSequencePoint(context);
-
-                if (sequencePoint != null)
-                {
-                    frame.Source = new Source()
-                    {
-                        Name = Path.GetFileName(sequencePoint.Document),
-                        Path = sequencePoint.Document
-                    };
-                    frame.Line = sequencePoint.Start.line;
-                    frame.Column = sequencePoint.Start.column;
-
-                    if (sequencePoint.Start != sequencePoint.End)
-                    {
-                        frame.EndLine = sequencePoint.End.line;
-                        frame.EndColumn = sequencePoint.End.column;
-                    }
-                }
-
-                return frame;
             }
         }
 
@@ -428,10 +427,11 @@ namespace NeoDebug
                 var contextID = AddVariableContainer(
                     new ExecutionContextContainer(this, context, contract));
                 var evalStackID = AddVariableContainer(
-                    new ExecutionStackContainer(this, context.EvaluationStack));
+                    new ExecutionStackContainer(this, context.EvaluationStack, "evalStack"));
                 var altStackID = AddVariableContainer(
-                    new ExecutionStackContainer(this, context.AltStack));
-                var storageID = AddVariableContainer(engine.GetStorageContainer(this, context.ScriptHash));
+                    new ExecutionStackContainer(this, context.AltStack, "altStack"));
+                var storageID = AddVariableContainer(
+                    engine.GetStorageContainer(this, context.ScriptHash));
 
                 if (disassemblyView)
                 {
@@ -530,22 +530,33 @@ namespace NeoDebug
                 return engine.EvaluateStorageExpression(this, args);
             }
 
-            Variable? GetVariable(StackItem item, (string name, string type) local)
+            EvaluateResponse GetStackVariable(RandomAccessStack<StackItem> stack)
             {
-                if (index.HasValue)
+                if (index.HasValue && (index.Value < stack.Count))
                 {
-                    if (item is Neo.VM.Types.Array neoArray
-                        && index.Value < neoArray.Count)
+                    var item = stack.Peek((int)index.Value);
+                    var variable = item.GetVariable(this, "ZZZ", typeHint);
+                    if (variable != null)
                     {
-                        return neoArray[index.Value].GetVariable(this, local.name + $"[{index.Value}]", typeHint);
+                        return new EvaluateResponse()
+                        {
+                            Result = variable.Value,
+                            VariablesReference = variable.VariablesReference,
+                            Type = variable.Type
+                        };
                     }
                 }
-                else
-                {
-                    return item.GetVariable(this, local.name, typeHint ?? local.type);
-                }
+                return DebugAdapter.FailedEvaluation;
+            }
 
-                return null;
+            if (variableName.StartsWith("$evalStack"))
+            {
+                return GetStackVariable(engine.CurrentContext.EvaluationStack);
+            }
+
+            if (variableName.StartsWith("$altStack"))
+            {
+                return GetStackVariable(engine.CurrentContext.AltStack);
             }
 
             for (var stackIndex = 0; stackIndex < engine.InvocationStack.Count; stackIndex++)
@@ -581,6 +592,26 @@ namespace NeoDebug
             }
 
             return DebugAdapter.FailedEvaluation;
+
+            
+
+            Variable? GetVariable(StackItem item, (string name, string type) local)
+            {
+                if (index.HasValue)
+                {
+                    if (item is Neo.VM.Types.Array neoArray
+                        && index.Value < neoArray.Count)
+                    {
+                        return neoArray[(int)index.Value].GetVariable(this, local.name + $"[{index.Value}]", typeHint);
+                    }
+                }
+                else
+                {
+                    return item.GetVariable(this, local.name, typeHint ?? local.type);
+                }
+
+                return null;
+            }
         }
     }
 }

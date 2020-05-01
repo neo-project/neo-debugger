@@ -175,7 +175,7 @@ namespace NeoDebug
                 { "byte[]", "ByteArray" },
             }.ToImmutableDictionary();
 
-        public static (string? typeHint, int? index, string name) ParseEvalExpression(string expression)
+        public static (string? typeHint, uint? index, string name) ParseEvalExpression(string expression)
         {
             static (string? typeHint, string text) ParsePrefix(string input)
             {
@@ -193,14 +193,15 @@ namespace NeoDebug
                 return (null, input);
             }
 
-            static (int? index, string text) ParseSuffix(string input)
+            static (uint? index, string text) ParseSuffix(string input)
             {
                 var match = indexRegex.Match(input);
                 if (match.Success)
                 {
                     var matchValue = match.Groups[0].Value;
                     var indexValue = match.Groups[1].Value;
-                    if (int.TryParse(indexValue, out var index))
+                    if (uint.TryParse(indexValue, out var index)
+                        && index < int.MaxValue)
                     {
                         return (index, input.Substring(0, input.Length - matchValue.Length));
                     }

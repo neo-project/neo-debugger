@@ -9,11 +9,13 @@ namespace NeoDebug.VariableContainers
     {
         private readonly IVariableContainerSession session;
         private readonly RandomAccessStack<StackItem> execStack;
+        private readonly string stackName;
 
-        public ExecutionStackContainer(IVariableContainerSession session, RandomAccessStack<StackItem> execStack)
+        public ExecutionStackContainer(IVariableContainerSession session, RandomAccessStack<StackItem> execStack, string stackName)
         {
             this.session = session;
             this.execStack = execStack;
+            this.stackName = stackName;
         }
 
         public IEnumerable<Variable> GetVariables()
@@ -21,7 +23,9 @@ namespace NeoDebug.VariableContainers
             for (var i = 0; i < execStack.Count; i++)
             {
                 var item = execStack.Peek(i);
-                yield return item.GetVariable(session, i.ToString());
+                var variable = item.GetVariable(session, i.ToString());
+                variable.EvaluateName = $"${stackName}[{i}]";
+                yield return variable;
             }
         }
     }

@@ -20,55 +20,6 @@ namespace NeoDebug
             this.methodNameResolver = methodNameResolver;
         }
 
-        string Comment(Models.Instruction i)
-        {
-            if (i.OpCode >= OpCode.PUSHBYTES1 && i.OpCode <= OpCode.PUSHBYTES75)
-            {
-                try
-                {
-                    var str = Encoding.UTF8.GetString(i.Operand.Span);
-                    return $" # {str}";
-                }
-                catch
-                {
-                    // if decoding failed, just skip writing out the comment
-                }
-            }
-
-            if (i.OpCode >= OpCode.JMP && i.OpCode <= OpCode.JMPIFNOT)
-            {
-                var offset = i.Position + BitConverter.ToUInt16(i.Operand.Span);
-                return $" # {offset}";
-            }
-
-            if (i.OpCode == OpCode.SYSCALL)
-            {
-                var methodName = string.Empty;
-                if (i.Operand.Length == 4)
-                {
-                    var methodHash = BitConverter.ToUInt32(i.Operand.Span);
-                    methodName = methodNameResolver(methodHash);
-                }
-                else
-                {
-                    methodName = Encoding.UTF8.GetString(i.Operand.Span);
-                }
-                
-                if (methodName.Length > 0)
-                {
-                    return $" # {methodName}";
-                }
-            }
-
-            if (i.OpCode == OpCode.APPCALL || i.OpCode == OpCode.TAILCALL)
-            {
-                var scriptHash = new NeoFx.UInt160(i.Operand.Span);
-                return $" # {scriptHash}";
-            }
-
-            return string.Empty;
-        }
-
         string GetComment(in Instruction instr)
         {
             switch (instr.OpCode)
@@ -182,23 +133,16 @@ namespace NeoDebug
             sourceMap.Add(hashCode, ipMap.ToImmutableDictionary());
         }
 
-        public StackFrame GetStackFrame(Neo.VM.ExecutionContext context, int index)
+        public (Source source, int line) GetSource(Neo.VM.ExecutionContext context)
         {
             var hashCode = context.ScriptHash.GetSequenceHashCode();
-
-            return new StackFrame
+            var source = new Source()
             {
-                Id = index,
-                Name = $"frame {index}",
-                ModuleId = hashCode,
-                Source = new Source()
-                {
-                    SourceReference = hashCode,
-                    Name = Helpers.ToHexString(context.ScriptHash),
-                },
-                Line = sourceMap[hashCode][context.InstructionPointer],
-                Column = 0,
+                SourceReference = hashCode,
+                Name = Helpers.ToHexString(context.ScriptHash),
             };
+            
+            return (source, sourceMap[hashCode][context.InstructionPointer]);
         }
 
         public string GetSource(int sourceReference)
