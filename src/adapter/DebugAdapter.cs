@@ -72,6 +72,21 @@ namespace NeoDebug
             return new SetExceptionBreakpointsResponse();
         }
 
+        protected override SourceResponse HandleSourceRequest(SourceArguments arguments)
+        {
+            try
+            {
+                if (session == null) throw new InvalidOperationException();
+                var source = session.GetSource(arguments);
+                return new SourceResponse(source);
+            }
+            catch (Exception ex)
+            {
+                Log(ex.Message, LogCategory.DebugAdapterOutput);
+                throw new ProtocolException(ex.Message, ex);
+            }
+        }
+
         protected override ThreadsResponse HandleThreadsRequest(ThreadsArguments arguments)
         {
             try

@@ -25,6 +25,7 @@ namespace NeoDebug
         }
 
         private readonly Dictionary<uint, Func<ExecutionEngine, bool>> methods = new Dictionary<uint, Func<ExecutionEngine, bool>>();
+        private readonly Dictionary<uint, string> methodNames = new Dictionary<uint, string>();
         private readonly EmulatedStorage storage;
 
         private readonly Contract contract;
@@ -208,6 +209,7 @@ namespace NeoDebug
             }
 
             methods.Add(value, handler);
+            methodNames.Add(value, methodName);
         }
 
         bool IInteropService.Invoke(byte[] method, ExecutionEngine engine)

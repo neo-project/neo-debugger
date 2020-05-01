@@ -322,6 +322,19 @@ namespace NeoDebug
             Step((currentStackSize, originalStackSize) => currentStackSize < originalStackSize);
         }
 
+        public string GetSource(SourceArguments arguments)
+        {
+            var script = engine.GetScript(arguments.SourceReference);
+
+            var sb = new StringBuilder();
+            foreach (var i in Adapter.Models.Instruction.ParseScript(script))
+            {
+                sb.Append($"{i.Position}\t{i.OpCode:x} {i.OpCode}\n");
+            }
+
+            return sb.ToString();
+        }
+
         public IEnumerable<Thread> GetThreads()
         {
             yield return new Thread(1, "main thread");
@@ -340,33 +353,40 @@ namespace NeoDebug
                 for (var i = start; i < end; i++)
                 {
                     var context = engine.InvocationStack.Peek(i);
-                    var method = contract.GetMethod(context);
+                    //var method = contract.GetMethod(context);
 
                     var frame = new StackFrame()
                     {
                         Id = i,
-                        Name = method?.Name ?? "<unknown>",
-                        ModuleId = context.ScriptHash,
+                        Name = /*method?.Name ??*/ $"frame {i}",
+                        //ModuleId = context.ScriptHash,
+                        
                     };
 
-                    var sequencePoint = method?.GetCurrentSequencePoint(context);
-
-                    if (sequencePoint != null)
+                    frame.Source = new Source()
                     {
-                        frame.Source = new Source()
-                        {
-                            Name = Path.GetFileName(sequencePoint.Document),
-                            Path = sequencePoint.Document
-                        };
-                        frame.Line = sequencePoint.Start.line;
-                        frame.Column = sequencePoint.Start.column;
+                        SourceReference = ScriptTable.GetHashCode(context.ScriptHash),
+                        Name = Helpers.ToHexString(context.ScriptHash),
+                    };
 
-                        if (sequencePoint.Start != sequencePoint.End)
-                        {
-                            frame.EndLine = sequencePoint.End.line;
-                            frame.EndColumn = sequencePoint.End.column;
-                        }
-                    }
+                    //var sequencePoint = method?.GetCurrentSequencePoint(context);
+
+                    //if (sequencePoint != null)
+                    //{
+                    //    frame.Source = new Source()
+                    //    {
+                    //        Name = Path.GetFileName(sequencePoint.Document),
+                    //        Path = sequencePoint.Document
+                    //    };
+                    //    frame.Line = sequencePoint.Start.line;
+                    //    frame.Column = sequencePoint.Start.column;
+
+                    //    if (sequencePoint.Start != sequencePoint.End)
+                    //    {
+                    //        frame.EndLine = sequencePoint.End.line;
+                    //        frame.EndColumn = sequencePoint.End.column;
+                    //    }
+                    //}
 
                     yield return frame;
                 }
@@ -391,6 +411,7 @@ namespace NeoDebug
 
         public IEnumerable<Scope> GetScopes(ScopesArguments args)
         {
+            yield break;
             if ((engine.State & HALT_OR_FAULT) == 0)
             {
                 var context = engine.InvocationStack.Peek(args.FrameId);
@@ -405,13 +426,13 @@ namespace NeoDebug
 
         public IEnumerable<Variable> GetVariables(VariablesArguments args)
         {
-            if ((engine.State & HALT_OR_FAULT) == 0)
-            {
-                if (variableContainers.TryGetValue(args.VariablesReference, out var container))
-                {
-                    return container.GetVariables();
-                }
-            }
+            //if ((engine.State & HALT_OR_FAULT) == 0)
+            //{
+            //    if (variableContainers.TryGetValue(args.VariablesReference, out var container))
+            //    {
+            //        return container.GetVariables();
+            //    }
+            //}
 
             return Enumerable.Empty<Variable>();
         }

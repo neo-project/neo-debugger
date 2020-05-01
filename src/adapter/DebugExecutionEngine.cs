@@ -15,11 +15,13 @@ namespace NeoDebug
     class DebugExecutionEngine : ExecutionEngine
     {
         private readonly InteropService interopService;
+        private readonly ScriptTable scriptTable;
 
         private DebugExecutionEngine(IScriptContainer container, ScriptTable scriptTable, InteropService interopService)
             : base(container, new Crypto(), scriptTable, interopService)
         {
             this.interopService = interopService;
+            this.scriptTable = scriptTable;
         }
 
         private static IBlockchainStorage? GetBlockchain(Dictionary<string, JToken> config)
@@ -78,16 +80,15 @@ namespace NeoDebug
             var container = new ModelAdapters.TransactionAdapter(tx);
 
             var table = new ScriptTable();
-            table.Add(contract);
+            table.Add(contract.Script);
 
             var interopService = new InteropService(contract, blockchain, arguments.ConfigurationProperties, sendOutput);
             return new DebugExecutionEngine(container, table, interopService);
         }
 
-        public void ExecuteInstruction()
-        {
-            ExecuteNext();
-        }
+        public void ExecuteInstruction() => ExecuteNext();
+
+        public byte[] GetScript(int sourceReference) => scriptTable.GetScript(sourceReference);
 
         public IVariableContainer GetStorageContainer(IVariableContainerSession session)
             => interopService.GetStorageContainer(session);

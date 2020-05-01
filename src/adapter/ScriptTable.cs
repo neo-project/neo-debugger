@@ -6,15 +6,16 @@ namespace NeoDebug
 {
     internal class ScriptTable : Neo.VM.IScriptTable
     {
-        private readonly Dictionary<int, byte[]> scripts = new Dictionary<int, byte[]>();
+        private readonly Dictionary<int, Neo.VM.Script> scripts = new Dictionary<int, Neo.VM.Script>();
 
-        public void Add(Contract contract)
+        public void Add(byte[] script)
         {
-            Add(contract.ScriptHash, contract.Script);
+            var scriptObj = new Neo.VM.Script(Crypto.Default, script);
+            scripts.Add(GetHashCode(scriptObj.ScriptHash), scriptObj);
         }
 
         // Inspired by https://stackoverflow.com/a/7244522
-        private static int GetHashCode(Span<byte> span)
+        public static int GetHashCode(Span<byte> span)
         {
             unchecked
             {
@@ -27,14 +28,12 @@ namespace NeoDebug
             }
         }
 
-        public void Add(byte[] key, byte[] script)
-        {
-            scripts[GetHashCode(key)] = script;
-        }
+        public byte[] GetScript(byte[] scripthash) 
+            => GetScript(GetHashCode(scripthash));
 
-        public byte[] GetScript(byte[] key)
-        {
-            return scripts[GetHashCode(key)];
-        }
+        public byte[] GetScript(int sourceReference) 
+            => scripts.TryGetValue(sourceReference, out var script)
+                ? script : Array.Empty<byte>();
+
     }
 }
