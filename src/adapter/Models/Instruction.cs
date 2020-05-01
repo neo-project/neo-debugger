@@ -62,10 +62,10 @@ namespace NeoDebug.Models
                         OpCode.APPCALL => 20,
                         OpCode.TAILCALL => 20,
                         OpCode.CALL_I => 4,
-                        OpCode.CALL_E => 22,
                         OpCode.CALL_ED => 2,
-                        OpCode.CALL_ET => 22,
                         OpCode.CALL_EDT => 2,
+                        OpCode.CALL_E => 22,
+                        OpCode.CALL_ET => 22,
                         _ when opcode >= OpCode.PUSHBYTES1 && opcode <= OpCode.PUSHBYTES75 => (int)opcode,
                         _ => 0
                     }
