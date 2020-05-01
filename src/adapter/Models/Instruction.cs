@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace NeoDebug.Adapter.Models
+namespace NeoDebug.Models
 {
     readonly struct Instruction
     {
@@ -21,10 +21,12 @@ namespace NeoDebug.Adapter.Models
         public static IEnumerable<Instruction> ParseScript(ReadOnlyMemory<byte> script)
         {
             int pos = 0;
+            OpCode lastOpcode = OpCode.PUSH0;
             while (pos < script.Length)
             {
                 var initialPos = pos;
                 var opcode = (OpCode)script.Span[pos++];
+                lastOpcode = opcode;
                 var operandSizePrefix = opcode switch
                 {
                     OpCode.PUSHDATA1 => 1,
@@ -71,6 +73,11 @@ namespace NeoDebug.Adapter.Models
                 }
 
                 yield return new Instruction(opcode, operand.AsMemory(), initialPos);
+            }
+
+            if (lastOpcode != OpCode.RET)
+            {
+                yield return new Instruction(OpCode.RET, default, pos);
             }
         }
     }

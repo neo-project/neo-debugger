@@ -29,6 +29,11 @@ namespace NeoDebug
             }
         }
 
+        public static int GetSequenceHashCode(this byte[] array)
+        {
+            return Helpers.GetSequenceHashCode(array.AsSpan());
+        }
+
         public static IEnumerable<(string name, string type)> GetLocals(this MethodDebugInfo method) => method.Parameters.Concat(method.Variables);
 
         public static string ToHexString(this BigInteger bigInteger)
@@ -36,6 +41,9 @@ namespace NeoDebug
 
         public static string ToHexString(this ReadOnlySpan<byte> span)
             => ToHexString(new BigInteger(span));
+
+        public static string ToHexString(this byte[] array)
+            => ToHexString(array.AsSpan());
 
         public static bool TryParseBigInteger(this string value, out BigInteger bigInteger)
         {

@@ -19,15 +19,15 @@ namespace NeoDebug.Models
 
         public MethodDebugInfo EntryPoint => DebugInfo.Methods.Single(m => m.Id == DebugInfo.Entrypoint);
 
-        public ScriptBuilder BuildInvokeScript(ContractArgument[] arguments)
+        public byte[] BuildInvokeScript(ContractArgument[] arguments)
         {
-            var builder = new ScriptBuilder();
+            using var builder = new ScriptBuilder();
             for (int i = arguments.Length - 1; i >= 0; i--)
             {
                 arguments[i].EmitPush(builder);
             }
             builder.EmitAppCall(ScriptHash);
-            return builder;
+            return builder.ToArray();
         }
 
         public static Contract Load(string vmFileName)

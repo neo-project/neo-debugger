@@ -50,7 +50,7 @@ namespace NeoDebug
                 var contract = Contract.Load(programFileName);
                 session = DebugSession.Create(contract, arguments, Protocol.SendEvent);
 
-                session.StepIn();
+                //session.StepIn();
                 Protocol.SendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Entry) { ThreadId = 1 });
 
                 return new LaunchResponse();

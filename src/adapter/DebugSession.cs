@@ -13,7 +13,7 @@ using System.Text;
 
 namespace NeoDebug
 {
-    internal class DebugSession : IVariableContainerSession
+    class DebugSession : IVariableContainerSession
     {
         private readonly DebugExecutionEngine engine;
         private readonly Contract contract;
@@ -21,6 +21,7 @@ namespace NeoDebug
         private readonly ReadOnlyMemory<string> returnTypes;
         private readonly Dictionary<int, HashSet<int>> breakPoints = new Dictionary<int, HashSet<int>>();
         private readonly Dictionary<int, IVariableContainer> variableContainers = new Dictionary<int, IVariableContainer>();
+        private readonly SourceManager sourceManager = new SourceManager();
 
         public DebugSession(DebugExecutionEngine engine, Contract contract, Action<DebugEvent> sendEvent, ContractArgument[] arguments, ReadOnlyMemory<string> returnTypes)
         {
@@ -29,8 +30,11 @@ namespace NeoDebug
             this.contract = contract;
             this.returnTypes = returnTypes;
 
-            using var builder = contract.BuildInvokeScript(arguments);
-            engine.LoadScript(builder.ToArray());
+            var invokeScript = contract.BuildInvokeScript(arguments);
+            engine.LoadScript(invokeScript);
+
+            sourceManager.Add(invokeScript);
+            sourceManager.Add(contract.Script);
         }
 
         private static ContractArgument ConvertArgument(JToken arg)
@@ -286,7 +290,7 @@ namespace NeoDebug
             while ((engine.State & HALT_OR_FAULT) == 0)
             {
                 engine.ExecuteInstruction();
-
+                break;
                 if ((engine.State & HALT_OR_FAULT) != 0)
                 {
                     break;
@@ -324,15 +328,7 @@ namespace NeoDebug
 
         public string GetSource(SourceArguments arguments)
         {
-            var script = engine.GetScript(arguments.SourceReference);
-
-            var sb = new StringBuilder();
-            foreach (var i in Adapter.Models.Instruction.ParseScript(script))
-            {
-                sb.Append($"{i.Position}\t{i.OpCode:x} {i.OpCode}\n");
-            }
-
-            return sb.ToString();
+            return sourceManager.GetSource(arguments.SourceReference);
         }
 
         public IEnumerable<Thread> GetThreads()
@@ -353,21 +349,24 @@ namespace NeoDebug
                 for (var i = start; i < end; i++)
                 {
                     var context = engine.InvocationStack.Peek(i);
+
+                    var frame = sourceManager.GetStackFrame(context, i);
+
                     //var method = contract.GetMethod(context);
 
-                    var frame = new StackFrame()
-                    {
-                        Id = i,
-                        Name = /*method?.Name ??*/ $"frame {i}",
-                        //ModuleId = context.ScriptHash,
+                    //var frame = new StackFrame()
+                    //{
+                    //    Id = i,
+                    //    Name = /*method?.Name ??*/ $"frame {i}",
+                    //    //ModuleId = context.ScriptHash,
                         
-                    };
+                    //};
 
-                    frame.Source = new Source()
-                    {
-                        SourceReference = ScriptTable.GetHashCode(context.ScriptHash),
-                        Name = Helpers.ToHexString(context.ScriptHash),
-                    };
+                    //frame.Source = new Source()
+                    //{
+                    //    SourceReference = context.ScriptHash.GetSequenceHashCode(),
+                    //    Name = Helpers.ToHexString(context.ScriptHash),
+                    //};
 
                     //var sequencePoint = method?.GetCurrentSequencePoint(context);
 
