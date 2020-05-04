@@ -152,6 +152,27 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const factory = new NeoContractDebugAdapterDescriptorFactory(neoDebugChannel);
 	context.subscriptions.push(vscode.debug.registerDebugAdapterDescriptorFactory("neo-contract", factory));
+
+	context.subscriptions.push(vscode.commands.registerCommand("neo-debugger.displaySourceView",
+		async () => await changeDebugView("source")));
+	context.subscriptions.push(vscode.commands.registerCommand("neo-debugger.displayDisassemblyView",
+		async () => await changeDebugView("disassembly")));
+	context.subscriptions.push(vscode.commands.registerCommand("neo-debugger.toggleDebugView", 
+		async () => await changeDebugView("toggle")));
+}
+
+class DebugViewSettings {
+	debugView: 'source' | 'disassembly' | 'toggle' = 'source';
+}
+
+async function changeDebugView(debugView: 'source' | 'disassembly' | 'toggle') {
+	const settings: DebugViewSettings =  {
+		debugView: debugView
+	};
+
+	if (vscode.debug.activeDebugSession && vscode.debug.activeDebugSession.type === 'neo-contract') {
+		await vscode.debug.activeDebugSession.customRequest("debugview", settings);
+	}
 }
 
 class NeoContractDebugConfigurationProvider implements vscode.DebugConfigurationProvider {

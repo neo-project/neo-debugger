@@ -219,6 +219,23 @@
 				]
 			}
 		],
+		"commands": [
+			{
+				"category": "Neo Debugger ",
+				"title": "Display source view",
+				"command": "neo-debugger.displaySourceView"
+			},
+			{
+				"category": "Neo Debugger ",
+				"title": "Display disassembly view",
+				"command": "neo-debugger.displayDisassemblyView"
+			},
+			{
+				"category": "Neo Debugger ",
+				"title": "Toggle view",
+				"command": "neo-debugger.toggleDebugView"
+			}
+		],
 		"grammars": [
 			{
 				"language": "neovm.disassembly",

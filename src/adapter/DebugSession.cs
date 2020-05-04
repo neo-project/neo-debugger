@@ -24,7 +24,14 @@ namespace NeoDebug
         private readonly Dictionary<int, IVariableContainer> variableContainers = new Dictionary<int, IVariableContainer>();
         private readonly DisassemblyManager disassemblyManager;
         private readonly BreakpointManager breakpointManager = new BreakpointManager();
-        private bool disassemblyView = true;
+        private bool disassemblyView = false;
+
+        public enum DebugView
+        {
+            Source,
+            Disassembly,
+            Toggle
+        }
 
         public DebugSession(DebugExecutionEngine engine, Contract contract, Action<DebugEvent> sendEvent, ContractArgument[] arguments, ReadOnlyMemory<string> returnTypes)
         {
@@ -169,6 +176,23 @@ namespace NeoDebug
                         yield return Helpers.CastOperations[returnType.Value<string>()];
                     }
                 }
+            }
+        }
+
+        public void SetDebugView(DebugView debugView)
+        {
+            var original = disassemblyView;
+            disassemblyView = debugView switch
+            {
+                DebugView.Disassembly => true,
+                DebugView.Source => false,
+                DebugView.Toggle => !disassemblyView,
+                _ => throw new ArgumentException(nameof(debugView))
+            };
+
+            if (original != disassemblyView)
+            {
+                FireStoppedEvent(StoppedEvent.ReasonValue.Step);
             }
         }
 

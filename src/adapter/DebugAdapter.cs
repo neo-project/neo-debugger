@@ -14,12 +14,29 @@ namespace NeoDebug
         private readonly Action<LogCategory, string> logger;
         private DebugSession? session;
 
+        class DebugViewRequest : DebugRequest<DebugViewArguments>
+        {
+            public DebugViewRequest() : base("debugview")
+            {
+            }
+        }
+
+        class DebugViewArguments : DebugRequestArguments
+        {
+            [Newtonsoft.Json.JsonProperty("debugView")]
+            public string DebugView { get; set; } = string.Empty;
+        }
+
         public DebugAdapter(Stream @in, Stream @out, Action<LogCategory, string>? logger)
         {
             this.logger = logger ?? ((_, __) => { });
 
             InitializeProtocolClient(@in, @out);
             Protocol.LogMessage += (sender, args) => this.logger(args.Category, args.Message);
+
+            Protocol.RegisterRequestType<DebugViewRequest, DebugViewArguments>(a => {
+                HandleDebugViewRequest(a.Arguments);               
+            });
         }
 
         public void Run()
@@ -32,6 +49,8 @@ namespace NeoDebug
             logger(category, message);
         }
 
+        
+        
         protected override InitializeResponse HandleInitializeRequest(InitializeArguments arguments)
         {
             Protocol.SendEvent(new InitializedEvent());
@@ -51,6 +70,22 @@ namespace NeoDebug
                 session = DebugSession.Create(contract, arguments, Protocol.SendEvent);
 
                 return new LaunchResponse();
+            }
+            catch (Exception ex)
+            {
+                Log(ex.Message, LogCategory.DebugAdapterOutput);
+                throw new ProtocolException(ex.Message, ex);
+            }
+        }
+
+        void HandleDebugViewRequest(DebugViewArguments arguments)
+        {
+            try
+            {
+                if (session == null) throw new InvalidOperationException();
+                var debugView = Enum.Parse<DebugSession.DebugView>(arguments.DebugView, true);
+
+                session.SetDebugView(debugView);
             }
             catch (Exception ex)
             {
