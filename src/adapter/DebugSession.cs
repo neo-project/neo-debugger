@@ -7,6 +7,7 @@ using Newtonsoft.Json.Linq;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Numerics;
@@ -16,18 +17,13 @@ namespace NeoDebug
 {
     class DebugSession : IVariableContainerSession
     {
-        class BreakpointManager
-        {
-            //public void 
-        }
-
         private readonly DebugExecutionEngine engine;
         private readonly Contract contract;
         private readonly Action<DebugEvent> sendEvent;
         private readonly ReadOnlyMemory<string> returnTypes;
-        private readonly Dictionary<int, HashSet<int>> breakPoints = new Dictionary<int, HashSet<int>>();
         private readonly Dictionary<int, IVariableContainer> variableContainers = new Dictionary<int, IVariableContainer>();
         private readonly DisassemblyManager disassemblyManager;
+        private readonly BreakpointManager breakpointManager = new BreakpointManager();
         private bool disassemblyView = true;
 
         public DebugSession(DebugExecutionEngine engine, Contract contract, Action<DebugEvent> sendEvent, ContractArgument[] arguments, ReadOnlyMemory<string> returnTypes)
@@ -180,92 +176,87 @@ namespace NeoDebug
         {
             if (UInt160.TryParse(source.Name, out var scriptHash))
             {
-                var zzz = new HashSet<int>();
+                var breakpoints = new HashSet<int>();
                 for (int i = 0; i < sourceBreakpoints.Count; i++)
                 {
-                    var sbp = sourceBreakpoints[i];
-                    var ip = disassemblyManager.GetInstructionPointer(scriptHash, sbp.Line);
+                    var sourceBreakPoint = sourceBreakpoints[i];
+                    var ip = disassemblyManager.GetInstructionPointer(scriptHash, sourceBreakPoint.Line);
 
                     if (ip >= 0)
                     {
-                        zzz.Add(ip);
+                        breakpoints.Add(ip);
                     }
                     
                     yield return new Breakpoint()
                     {
                         Verified = ip >= 0,
-                        Line = sbp.Line,
+                        Column = sourceBreakPoint.Column,
+                        Line = sourceBreakPoint.Line,
                         Source = source
                     };
                 }
 
+                breakpointManager.SetBreakpoints(source.Name, breakpoints);
             }
-            //var sourcePath = Path.GetFullPath(source.Path).ToLowerInvariant();
-            //var sourcePathHash = sourcePath.GetHashCode();
+            else
+            {
+                var sourcePath = Path.GetFullPath(source.Path);
+                var breakpoints = new HashSet<int>();
 
-            //breakPoints[sourcePathHash] = new HashSet<int>();
+                var sequencePoints = contract.DebugInfo.Methods
+                    .SelectMany(m => m.SequencePoints)
+                    .Where(sp => sourcePath.Equals(Path.GetFullPath(sp.Document), StringComparison.InvariantCultureIgnoreCase))
+                    .ToArray();
 
-            //if (sourceBreakpoints.Count == 0)
-            //{
-            //    yield break;
-            //}
+                for (int i = 0; i < sourceBreakpoints.Count; i++)
+                {
+                    var sourceBreakPoint = sourceBreakpoints[i];
+                    var sequencePoint = Array.Find(sequencePoints, sp => sp.Start.line == sourceBreakPoint.Line);
 
-            //var sequencePoints = contract.DebugInfo.Methods
-            //    .SelectMany(m => m.SequencePoints)
-            //    .Where(sp => sourcePath.Equals(Path.GetFullPath(sp.Document), StringComparison.InvariantCultureIgnoreCase))
-            //    .ToArray();
+                    if (sequencePoint != null)
+                    {
+                        breakpoints.Add(sequencePoint.Address);
 
-            //foreach (var sourceBreakPoint in sourceBreakpoints)
-            //{
-            //    var sequencePoint = Array.Find(sequencePoints, sp => sp.Start.line == sourceBreakPoint.Line);
+                        yield return new Breakpoint()
+                        {
+                            Verified = true,
+                            Column = sequencePoint.Start.column,
+                            EndColumn = sequencePoint.End.column,
+                            Line = sequencePoint.Start.line,
+                            EndLine = sequencePoint.End.line,
+                            Source = source
+                        };
+                    }
+                    else
+                    {
+                        yield return new Breakpoint()
+                        {
+                            Verified = false,
+                            Column = sourceBreakPoint.Column,
+                            Line = sourceBreakPoint.Line,
+                            Source = source
+                        };
+                    }
+                }
 
-            //    if (sequencePoint != null)
-            //    {
-            //        breakPoints[sourcePathHash].Add(sequencePoint.Address);
-
-            //        yield return new Breakpoint()
-            //        {
-            //            Verified = true,
-            //            Column = sequencePoint.Start.column,
-            //            EndColumn = sequencePoint.End.column,
-            //            Line = sequencePoint.Start.line,
-            //            EndLine = sequencePoint.End.line,
-            //            Source = source
-            //        };
-            //    }
-            //    else
-            //    {
-            //        yield return new Breakpoint()
-            //        {
-            //            Verified = false,
-            //            Column = sourceBreakPoint.Column,
-            //            Line = sourceBreakPoint.Line,
-            //            Source = source
-            //        };
-            //    }
-            //}
+                breakpointManager.SetBreakpoints(source.Name, breakpoints);
+            }
         }
 
 
         const VMState HALT_OR_FAULT = VMState.HALT | VMState.FAULT;
 
-        bool CheckBreakpoint()
+        bool CheckBreakpoint(IReadOnlyDictionary<UInt160, ImmutableHashSet<int>> breakpointMap)
         {
             if ((engine.State & HALT_OR_FAULT) == 0)
             {
                 var context = engine.CurrentContext;
                 var scriptHash = new UInt160(context.ScriptHash);
 
-                if (contract.ScriptHash == scriptHash)
+                if (breakpointMap.TryGetValue(scriptHash, out var breakpoints)
+                    && breakpoints.Contains(context.InstructionPointer))
                 {
-                    var ip = context.InstructionPointer;
-                    foreach (var kvp in breakPoints)
-                    {
-                        if (kvp.Value.Contains(ip))
-                        {
-                            return true;
-                        }
-                    }
+                    return true;
                 }
             }
 
@@ -306,11 +297,12 @@ namespace NeoDebug
 
         public void Continue()
         {
+            var breakpointMap = breakpointManager.GetBreakpoints(contract);
             while ((engine.State & HALT_OR_FAULT) == 0)
             {
                 engine.ExecuteInstruction();
 
-                if (CheckBreakpoint())
+                if (CheckBreakpoint(breakpointMap))
                 {
                     break;
                 }
@@ -321,6 +313,7 @@ namespace NeoDebug
 
         void Step(Func<int, int, bool> compare)
         {
+            var breakpointMap = breakpointManager.GetBreakpoints(contract); 
             var c = engine.InvocationStack.Count;
             var stopReason = StoppedEvent.ReasonValue.Step;
             while ((engine.State & HALT_OR_FAULT) == 0)
@@ -337,7 +330,7 @@ namespace NeoDebug
                     break;
                 }
 
-                if (CheckBreakpoint())
+                if (CheckBreakpoint(breakpointMap))
                 {
                     stopReason = StoppedEvent.ReasonValue.Breakpoint;
                     break;
