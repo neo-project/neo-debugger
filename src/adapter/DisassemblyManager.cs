@@ -1,5 +1,6 @@
 ﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using NeoDebug.Models;
+using NeoFx;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -97,8 +98,6 @@ namespace NeoDebug
 
         public void Add(byte[] script)
         {
-            var hashCode = Crypto.Hash160(script).GetSequenceHashCode();
-
             var ipMap = new Dictionary<int, int>();
             var sb = new StringBuilder();
             var lineNumber = 1;
@@ -128,14 +127,15 @@ namespace NeoDebug
                 }
                 sb.Append("\n");
             }
-            
+
+            var hashCode = Crypto.HashScript(script).GetHashCode();
             sources.Add(hashCode, sb.ToString());
             sourceMap.Add(hashCode, ipMap.ToImmutableDictionary());
         }
 
         public (Source source, int line) GetSource(Neo.VM.ExecutionContext context)
         {
-            var hashCode = context.ScriptHash.GetSequenceHashCode();
+            var hashCode = (new UInt160(context.ScriptHash)).GetHashCode();
             var source = new Source()
             {
                 SourceReference = hashCode,
@@ -148,6 +148,22 @@ namespace NeoDebug
         public string GetSource(int sourceReference)
         {
             return sources[sourceReference];
+        }
+
+        public int GetInstructionPointer(in UInt160 scriptHash, int line)
+        {
+            if (sourceMap.TryGetValue(scriptHash.GetHashCode(), out var map))
+            {
+                foreach (var kvp in map)
+                {
+                    if (kvp.Value == line)
+                    {
+                        return kvp.Key;
+                    }
+                }
+            }
+
+            return -1;
         }
     }
 }

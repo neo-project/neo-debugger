@@ -18,15 +18,7 @@ namespace NeoDebug
     {
         class BreakpointManager
         {
-            /*
-            
-            There are two ways to set breakpoints. Source and Disassembly
-            For source, we get a source file + a 
-
-
-
-             */
-
+            //public void 
         }
 
         private readonly DebugExecutionEngine engine;
@@ -186,54 +178,72 @@ namespace NeoDebug
 
         public IEnumerable<Breakpoint> SetBreakpoints(Source source, IReadOnlyList<SourceBreakpoint> sourceBreakpoints)
         {
-            if (UInt160.TryParse(source.Name, out var zzz))
+            if (UInt160.TryParse(source.Name, out var scriptHash))
             {
-
-            }
-            var sourcePath = Path.GetFullPath(source.Path).ToLowerInvariant();
-            var sourcePathHash = sourcePath.GetHashCode();
-
-            breakPoints[sourcePathHash] = new HashSet<int>();
-
-            if (sourceBreakpoints.Count == 0)
-            {
-                yield break;
-            }
-
-            var sequencePoints = contract.DebugInfo.Methods
-                .SelectMany(m => m.SequencePoints)
-                .Where(sp => sourcePath.Equals(Path.GetFullPath(sp.Document), StringComparison.InvariantCultureIgnoreCase))
-                .ToArray();
-
-            foreach (var sourceBreakPoint in sourceBreakpoints)
-            {
-                var sequencePoint = Array.Find(sequencePoints, sp => sp.Start.line == sourceBreakPoint.Line);
-
-                if (sequencePoint != null)
+                var zzz = new HashSet<int>();
+                for (int i = 0; i < sourceBreakpoints.Count; i++)
                 {
-                    breakPoints[sourcePathHash].Add(sequencePoint.Address);
+                    var sbp = sourceBreakpoints[i];
+                    var ip = disassemblyManager.GetInstructionPointer(scriptHash, sbp.Line);
 
+                    if (ip >= 0)
+                    {
+                        zzz.Add(ip);
+                    }
+                    
                     yield return new Breakpoint()
                     {
-                        Verified = true,
-                        Column = sequencePoint.Start.column,
-                        EndColumn = sequencePoint.End.column,
-                        Line = sequencePoint.Start.line,
-                        EndLine = sequencePoint.End.line,
+                        Verified = ip >= 0,
+                        Line = sbp.Line,
                         Source = source
                     };
                 }
-                else
-                {
-                    yield return new Breakpoint()
-                    {
-                        Verified = false,
-                        Column = sourceBreakPoint.Column,
-                        Line = sourceBreakPoint.Line,
-                        Source = source
-                    };
-                }
+
             }
+            //var sourcePath = Path.GetFullPath(source.Path).ToLowerInvariant();
+            //var sourcePathHash = sourcePath.GetHashCode();
+
+            //breakPoints[sourcePathHash] = new HashSet<int>();
+
+            //if (sourceBreakpoints.Count == 0)
+            //{
+            //    yield break;
+            //}
+
+            //var sequencePoints = contract.DebugInfo.Methods
+            //    .SelectMany(m => m.SequencePoints)
+            //    .Where(sp => sourcePath.Equals(Path.GetFullPath(sp.Document), StringComparison.InvariantCultureIgnoreCase))
+            //    .ToArray();
+
+            //foreach (var sourceBreakPoint in sourceBreakpoints)
+            //{
+            //    var sequencePoint = Array.Find(sequencePoints, sp => sp.Start.line == sourceBreakPoint.Line);
+
+            //    if (sequencePoint != null)
+            //    {
+            //        breakPoints[sourcePathHash].Add(sequencePoint.Address);
+
+            //        yield return new Breakpoint()
+            //        {
+            //            Verified = true,
+            //            Column = sequencePoint.Start.column,
+            //            EndColumn = sequencePoint.End.column,
+            //            Line = sequencePoint.Start.line,
+            //            EndLine = sequencePoint.End.line,
+            //            Source = source
+            //        };
+            //    }
+            //    else
+            //    {
+            //        yield return new Breakpoint()
+            //        {
+            //            Verified = false,
+            //            Column = sourceBreakPoint.Column,
+            //            Line = sourceBreakPoint.Line,
+            //            Source = source
+            //        };
+            //    }
+            //}
         }
 
 
