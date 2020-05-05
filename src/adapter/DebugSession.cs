@@ -46,7 +46,7 @@ namespace NeoDebug
             engine.LoadScript(invokeScript);
 
             disassemblyManager.Add(invokeScript);
-            disassemblyManager.Add(contract.Script);
+            disassemblyManager.Add(contract.Script, contract.DebugInfo);
 
             if (!disassemblyView)
                 StepIn();
@@ -422,7 +422,7 @@ namespace NeoDebug
 
                     if (disassemblyView)
                     {
-                        var (source, line) = disassemblyManager.GetSource(context);
+                        var (source, line) = disassemblyManager.GetSource(context.ScriptHash, context.InstructionPointer);
                         frame.Source = source;
                         frame.Line = line;
                     }

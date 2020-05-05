@@ -6,7 +6,7 @@
         {
             "comment": "Address and opcode",
             "name": "meta.instruction",
-            "match": "^([0-9]+) ([A-Z0-9]+)",
+            "match": "^([0-9]+) ([_A-Z0-9]+)",
             "captures": {
                 "1": { "name": "constant.numeric" },
                 "2": { "name": "keyword.opcode" }

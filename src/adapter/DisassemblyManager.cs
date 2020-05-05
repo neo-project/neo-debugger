@@ -47,7 +47,7 @@ namespace NeoDebug
                     {
                         var returnCount = instr.Operand.Span[0];
                         var paramCount = instr.Operand.Span[1];
-                        var offset = instr.Position + BitConverter.ToUInt16(instr.Operand.Span.Slice(2));
+                        var offset = instr.Position + BitConverter.ToUInt16(instr.Operand.Span.Slice(2)) + 2;
 
                         return $"position: {offset}, param count: {paramCount}, return count: {returnCount}";
                     }
@@ -96,36 +96,66 @@ namespace NeoDebug
             return 10;
         }
 
-        public void Add(byte[] script)
+        void WriteInstruction(in Instruction instr, StringBuilder sb, int digitCount)
         {
-            var ipMap = new Dictionary<int, int>();
-            var sb = new StringBuilder();
-            var lineNumber = 1;
-            var digitCount = DigitCount(Instruction.ParseScript(script).Last().Position);
+            if (sb.Length > 0) sb.Append("\n");
 
-            foreach (var instr in Instruction.ParseScript(script))
+            var pos = instr.Position.ToString().PadLeft(digitCount, '0');
+
+            var opcode = instr.OpCode >= OpCode.PUSHBYTES1 && instr.OpCode <= OpCode.PUSHBYTES75
+                ? $"PUSHBYTES{(byte)instr.OpCode}" : instr.OpCode.ToString();
+            sb.Append($"{pos} {opcode}");
+
+            var operand = instr.Operand.IsEmpty
+                ? string.Empty : BitConverter.ToString(instr.Operand.ToArray());
+            if (operand.Length > 0)
             {
-                ipMap.Add(instr.Position, lineNumber++);
+                sb.Append($" {operand}");
+            }
 
-                var pos = instr.Position.ToString().PadLeft(digitCount, '0');
+            var comment = GetComment(instr);
+            if (comment.Length > 0)
+            {
+                sb.Append($" # {comment}");
+            }
+        }
 
-                var opcode = instr.OpCode >= OpCode.PUSHBYTES1 && instr.OpCode <= OpCode.PUSHBYTES75
-                    ? $"PUSHBYTES{(byte)instr.OpCode}" : instr.OpCode.ToString();
-                sb.Append($"{pos} {opcode}");
+        public void Add(byte[] script, DebugInfo? debugInfo = null)
+        {
+            var digitCount = DigitCount(Instruction.ParseScript(script).Last().Position);
+            var sb = new StringBuilder();
+            var ipMap = new Dictionary<int, int>();
 
-                var operand = instr.Operand.IsEmpty
-                    ? string.Empty : BitConverter.ToString(instr.Operand.ToArray());
-                if (operand.Length > 0)
+            if (debugInfo == null)
+            {
+                int line = 1;
+                foreach (var instruction in Instruction.ParseScript(script))
                 {
-                    sb.Append($" {operand}");
+                    ipMap.Add(instruction.Position, line++);
+                    WriteInstruction(instruction, sb, digitCount);
                 }
-
-                var comment = GetComment(instr);
-                if (comment.Length > 0)
+            }
+            else
+            {
+                var instructions = Instruction.ParseScript(script).ToList();
+                int line = 1;
+                foreach (var m in debugInfo.Methods.OrderBy(m => m.Range.Start))
                 {
-                    sb.Append($" # {comment}");
+                    if (sb.Length > 0) sb.Append("\n");
+                    sb.Append($"# Start Method {m.Namespace}.{m.Name}");
+                    line++;
+
+                    var methodInstructions = instructions
+                        .SkipWhile(i => i.Position < m.Range.Start)
+                        .TakeWhile(i => i.Position <= m.Range.End);
+                    foreach (var instruction in methodInstructions)
+                    {
+                        ipMap.Add(instruction.Position, line++);
+                        WriteInstruction(instruction, sb, digitCount);
+                    }
+                    sb.Append($"\n# End Method {m.Namespace}.{m.Name}");
+                    line++;
                 }
-                sb.Append("\n");
             }
 
             var hashCode = Crypto.HashScript(script).GetHashCode();
@@ -133,16 +163,16 @@ namespace NeoDebug
             sourceMap.Add(hashCode, ipMap.ToImmutableDictionary());
         }
 
-        public (Source source, int line) GetSource(Neo.VM.ExecutionContext context)
+        public (Source source, int line) GetSource(byte[] scriptHash, int instructionPointer)
         {
-            var hashCode = (new UInt160(context.ScriptHash)).GetHashCode();
+            var hashCode = (new UInt160(scriptHash)).GetHashCode();
             var source = new Source()
             {
                 SourceReference = hashCode,
-                Name = Helpers.ToHexString(context.ScriptHash),
+                Name = Helpers.ToHexString(scriptHash),
             };
             
-            return (source, sourceMap[hashCode][context.InstructionPointer]);
+            return (source, sourceMap[hashCode][instructionPointer]);
         }
 
         public string GetSource(int sourceReference)
