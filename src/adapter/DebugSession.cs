@@ -33,12 +33,13 @@ namespace NeoDebug
             Toggle
         }
 
-        public DebugSession(DebugExecutionEngine engine, Contract contract, Action<DebugEvent> sendEvent, ContractArgument[] arguments, ReadOnlyMemory<string> returnTypes)
+        public DebugSession(DebugExecutionEngine engine, Contract contract, Action<DebugEvent> sendEvent, ContractArgument[] arguments, ReadOnlyMemory<string> returnTypes, DebugView defaultDebugView)
         {
             this.engine = engine;
             this.sendEvent = sendEvent;
             this.contract = contract;
             this.returnTypes = returnTypes;
+            this.disassemblyView = defaultDebugView == DebugView.Disassembly;
             this.disassemblyManager = new DisassemblyManager(engine.GetMethodName);
 
             var invokeScript = contract.BuildInvokeScript(arguments);
@@ -133,13 +134,13 @@ namespace NeoDebug
             return new ContractArgument(type, ConvertArgumentToObject(type, arg));
         }
 
-        static public DebugSession Create(Contract contract, LaunchArguments arguments, Action<DebugEvent> sendEvent)
+        static public DebugSession Create(Contract contract, LaunchArguments arguments, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
         {
             var contractArgs = GetArguments(contract.EntryPoint).ToArray();
             var returnTypes = GetReturnTypes().ToArray();
 
             var engine = DebugExecutionEngine.Create(contract, arguments, outputEvent => sendEvent(outputEvent));
-            return new DebugSession(engine, contract, sendEvent, contractArgs, returnTypes);
+            return new DebugSession(engine, contract, sendEvent, contractArgs, returnTypes, defaultDebugView);
 
             JArray GetArgsConfig()
             {

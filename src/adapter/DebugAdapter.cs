@@ -9,9 +9,10 @@ using System.Linq;
 
 namespace NeoDebug
 {
-    public class DebugAdapter : DebugAdapterBase
+    class DebugAdapter : DebugAdapterBase
     {
         private readonly Action<LogCategory, string> logger;
+        private readonly DebugSession.DebugView defaultDebugView;
         private DebugSession? session;
 
         class DebugViewRequest : DebugRequest<DebugViewArguments>
@@ -27,9 +28,10 @@ namespace NeoDebug
             public string DebugView { get; set; } = string.Empty;
         }
 
-        public DebugAdapter(Stream @in, Stream @out, Action<LogCategory, string>? logger)
+        public DebugAdapter(Stream @in, Stream @out, Action<LogCategory, string>? logger, DebugSession.DebugView defaultDebugView)
         {
             this.logger = logger ?? ((_, __) => { });
+            this.defaultDebugView = defaultDebugView;
 
             InitializeProtocolClient(@in, @out);
             Protocol.LogMessage += (sender, args) => this.logger(args.Category, args.Message);
@@ -49,8 +51,6 @@ namespace NeoDebug
             logger(category, message);
         }
 
-        
-        
         protected override InitializeResponse HandleInitializeRequest(InitializeArguments arguments)
         {
             Protocol.SendEvent(new InitializedEvent());
@@ -67,7 +67,7 @@ namespace NeoDebug
             {
                 var programFileName = arguments.ConfigurationProperties["program"].Value<string>();
                 var contract = Contract.Load(programFileName);
-                session = DebugSession.Create(contract, arguments, Protocol.SendEvent);
+                session = DebugSession.Create(contract, arguments, Protocol.SendEvent, defaultDebugView);
 
                 return new LaunchResponse();
             }

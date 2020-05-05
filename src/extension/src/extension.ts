@@ -248,6 +248,13 @@ class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDes
 			args.push("--log");
 		}
 
+		const defaultDebugView = config.get<string>("default-debug-view");
+		if (defaultDebugView)
+		{
+			args.push("--debug-view");
+			args.push(defaultDebugView);
+		}
+
 		const options = session.workspaceFolder ? { cwd: session.workspaceFolder.uri.fsPath } : {};
 		this.channel.appendLine(`launching ${cmd} ${args.join(' ')}`);
 		this.channel.appendLine(`current directory ${options.cwd ?? 'missing'}`);

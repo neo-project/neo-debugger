@@ -18,6 +18,9 @@ namespace NeoDebug
         [Option]
         private bool Log { get; }
 
+        [Option("-v|--debug-view")]
+        private string DebugView { get; } = string.Empty;
+
         public Program()
         {
             var neoDebugLogPath = Path.Combine(
@@ -40,10 +43,18 @@ namespace NeoDebug
                 System.Diagnostics.Debugger.Launch();
             }
 
+            var defaultDebugView = DebugView.Length > 0
+                ? Enum.Parse<DebugSession.DebugView>(DebugView, true)
+                : DebugSession.DebugView.Source;
+
+            if (defaultDebugView == DebugSession.DebugView.Toggle)
+                throw new ArgumentException(nameof(DebugView));
+
             var adapter = new DebugAdapter(
                 Console.OpenStandardInput(),
                 Console.OpenStandardOutput(),
-                (cat, msg) => LogMessage(msg, cat));
+                (cat, msg) => LogMessage(msg, cat),
+                defaultDebugView);
 
             adapter.Run();
         }

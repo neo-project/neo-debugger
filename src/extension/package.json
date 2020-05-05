@@ -47,6 +47,15 @@
 					"default": false,
 					"description": "Pass the --debug flag when launching the Neo Debugger server"
 				},
+				"neo-debugger.default-debug-view": {
+					"type": "string",
+					"enum": [
+						"source",
+						"disassembly"
+					],
+					"default": "source",
+					"description": "Specify the default debug view"
+				},
 				"neo-debugger.debug-adapter": {
 					"type": "array",
 					"items": "string",
