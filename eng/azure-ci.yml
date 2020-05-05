@@ -83,10 +83,10 @@ steps:
     workingDir: './src/extension' 
 
 - task: Npm@1
-  displayName: 'npm run package-vsix'
+  displayName: 'npm run package'
   inputs:
     command: 'custom'
-    customCommand: 'run package-vsix'
+    customCommand: 'run package'
     workingDir: './src/extension' 
 
 - task: CopyFiles@2
