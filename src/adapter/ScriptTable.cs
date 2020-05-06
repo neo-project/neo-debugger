@@ -32,9 +32,14 @@ namespace NeoDebug.Adapter
             scripts[GetHashCode(key)] = script;
         }
 
-        public byte[] GetScript(byte[] key)
+        public byte[]? GetScript(byte[] key)
         {
-            return scripts[GetHashCode(key)];
+            if (scripts.TryGetValue(GetHashCode(key), out var script))
+            {
+                return script;
+            }
+
+            return null;
         }
     }
 }
