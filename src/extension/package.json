@@ -242,9 +242,20 @@
 			{
 				"category": "Neo Debugger",
 				"title": "Toggle Debug view",
-				"command": "neo-debugger.toggleDebugView"
+				"command": "neo-debugger.toggleDebugView",
+				"icon": {
+					"light": "resources/tools.svg",
+					"dark": "resources/tools.svg"
+				}
 			}
 		],
+		"menus": {
+			"debug/toolBar": [
+				{
+					"command": "neo-debugger.toggleDebugView"
+				}
+			]
+		},
 		"grammars": [
 			{
 				"language": "neovm.disassembly",
