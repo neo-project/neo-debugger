@@ -28,7 +28,6 @@ namespace NeoDebug
         private readonly Dictionary<uint, string> methodNames = new Dictionary<uint, string>();
         private readonly EmulatedStorage storage;
 
-        private readonly Contract contract;
         private readonly IBlockchainStorage? blockchain;
         private readonly Action<OutputEvent> sendOutput;
 
@@ -58,20 +57,26 @@ namespace NeoDebug
 
         public InteropService(Contract contract, IBlockchainStorage? blockchain, Dictionary<string, JToken> config, Action<OutputEvent> sendOutput)
         {
-            static byte[] ParseWitness(JToken value)
-            {
-                if (value.Value<string>().TryParseBigInteger(out var bigInt))
-                {
-                    return bigInt.ToByteArray();
-                }
+            throw new NotImplementedException();
+        }
 
-                throw new Exception($"TryParseBigInteger for {value} failed");
-            }
+        public InteropService(IBlockchainStorage? blockchain, EmulatedStorage storage, TriggerType trigger, WitnessChecker witnessChecker, Action<OutputEvent> sendOutput)
+        {
+            // static byte[] ParseWitness(JToken value)
+            // {
+            //     if (value.Value<string>().TryParseBigInteger(out var bigInt))
+            //     {
+            //         return bigInt.ToByteArray();
+            //     }
 
-            this.contract = contract;
+            //     throw new Exception($"TryParseBigInteger for {value} failed");
+            // }
+
             this.sendOutput = sendOutput;
             this.blockchain = blockchain;
-            storage = null!;
+            this.storage = storage;
+            this.witnessChecker = witnessChecker;
+            this.trigger = trigger;
             // storage = new EmulatedStorage(blockchain);
 
             // foreach (var item in GetStorage(config))
@@ -80,23 +85,23 @@ namespace NeoDebug
             //     storage.TryPut(storageKey, item.value, item.constant);
             // }
 
-            if (config.TryGetValue("runtime", out var token))
-            {
-                trigger = "verification".Equals(token.Value<string>("trigger"), StringComparison.InvariantCultureIgnoreCase)
-                    ? TriggerType.Verification : TriggerType.Application;
+            // if (config.TryGetValue("runtime", out var token))
+            // {
+            //     trigger = "verification".Equals(token.Value<string>("trigger"), StringComparison.InvariantCultureIgnoreCase)
+            //         ? TriggerType.Verification : TriggerType.Application;
 
-                var witnessesJson = token["witnesses"];
-                if (witnessesJson?.Type == JTokenType.Object)
-                {
-                    checkWitnessBypass = true;
-                    checkWitnessBypassValue = witnessesJson.Value<bool>("check-result");
-                }
-                else if (witnessesJson?.Type == JTokenType.Array)
-                {
-                    checkWitnessBypass = false;
-                    witnesses = witnessesJson.Select(ParseWitness);
-                }
-            }
+            //     var witnessesJson = token["witnesses"];
+            //     if (witnessesJson?.Type == JTokenType.Object)
+            //     {
+            //         checkWitnessBypass = true;
+            //         checkWitnessBypassValue = witnessesJson.Value<bool>("check-result");
+            //     }
+            //     else if (witnessesJson?.Type == JTokenType.Array)
+            //     {
+            //         checkWitnessBypass = false;
+            //         witnesses = witnessesJson.Select(ParseWitness);
+            //     }
+            // }
 
             RegisterAccount(Register);
             RegisterAsset(Register);
@@ -164,14 +169,14 @@ namespace NeoDebug
         {
             bool TryFindStorage(int keyHash, out (ReadOnlyMemory<byte> key, StorageItem item) value)
             {
-                foreach (var (key, item) in storage.EnumerateStorage(contract.ScriptHash))
-                {
-                    if (key.Span.GetSequenceHashCode() == keyHash)
-                    {
-                        value = (key, item);
-                        return true;
-                    }
-                }
+                // foreach (var (key, item) in storage.EnumerateStorage(contract.ScriptHash))
+                // {
+                //     if (key.Span.GetSequenceHashCode() == keyHash)
+                //     {
+                //         value = (key, item);
+                //         return true;
+                //     }
+                // }
 
                 value = default;
                 return false;

@@ -2,28 +2,15 @@
 using Neo.VM;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 
 namespace NeoDebug
 {
-    internal enum StackItemType : byte
-    {
-        ByteArray = 0x00,
-        Boolean = 0x01,
-        Integer = 0x02,
-        InteropInterface = 0x40,
-        Array = 0x80,
-        Struct = 0x81,
-        Map = 0x82,
-    }
 
-    internal partial class InteropService
+    partial class InteropService
     {
         private readonly TriggerType trigger = TriggerType.Application;
-        private readonly bool checkWitnessBypass = false;
-        private readonly bool checkWitnessBypassValue;
-        private readonly IEnumerable<byte[]> witnesses = Enumerable.Empty<byte[]>();
+        private readonly WitnessChecker witnessChecker = null!;
 
         private void RegisterRuntime(Action<string, Func<ExecutionEngine, bool>, int> register)
         {
@@ -93,33 +80,33 @@ namespace NeoDebug
 
         private bool Runtime_Notify(ExecutionEngine engine)
         {
-            static string StackItemToString(StackItem item, string? typeHint = null)
-            {
-                return typeHint switch
-                {
-                    "Boolean" => item.GetBoolean().ToString(),
-                    "Integer" => item.GetBigInteger().ToString(),
-                    "String" => item.GetString(),
-                    _ => item.GetBigInteger().ToHexString(),
-                };
-            }
+            // static string StackItemToString(StackItem item, string? typeHint = null)
+            // {
+            //     return typeHint switch
+            //     {
+            //         "Boolean" => item.GetBoolean().ToString(),
+            //         "Integer" => item.GetBigInteger().ToString(),
+            //         "String" => item.GetString(),
+            //         _ => item.GetBigInteger().ToHexString(),
+            //     };
+            // }
 
-            if (engine.CurrentContext.EvaluationStack.Pop() is Neo.VM.Types.Array state && state.Count >= 1)
-            {
-                var name = Encoding.UTF8.GetString(state[0].GetByteArray());
-                var paramTypes = contract.GetEvent(name)?.Parameters ?? new List<(string name, string type)>();
-                var @params = new Newtonsoft.Json.Linq.JArray();
-                for (int i = 1; i < state.Count; i++)
-                {
-                    var paramType = i <= paramTypes.Count ? paramTypes[i - 1].Type : string.Empty;
-                    @params.Add(StackItemToString(state[i], paramType));
-                }
+            // if (engine.CurrentContext.EvaluationStack.Pop() is Neo.VM.Types.Array state && state.Count >= 1)
+            // {
+            //     var name = Encoding.UTF8.GetString(state[0].GetByteArray());
+            //     var paramTypes = contract.GetEvent(name)?.Parameters ?? new List<(string name, string type)>();
+            //     var @params = new Newtonsoft.Json.Linq.JArray();
+            //     for (int i = 1; i < state.Count; i++)
+            //     {
+            //         var paramType = i <= paramTypes.Count ? paramTypes[i - 1].Type : string.Empty;
+            //         @params.Add(StackItemToString(state[i], paramType));
+            //     }
 
-                sendOutput(new OutputEvent()
-                {
-                    Output = $"Runtime.Notify: {name} {@params.ToString(Newtonsoft.Json.Formatting.None)}\n",
-                });
-            }
+            //     sendOutput(new OutputEvent()
+            //     {
+            //         Output = $"Runtime.Notify: {name} {@params.ToString(Newtonsoft.Json.Formatting.None)}\n",
+            //     });
+            // }
             return true;
         }
 
@@ -128,26 +115,9 @@ namespace NeoDebug
             var evalStack = engine.CurrentContext.EvaluationStack;
             var hash = evalStack.Pop().GetByteArray();
 
-            if (checkWitnessBypass)
-            {
-                evalStack.Push(checkWitnessBypassValue);
-                return true;
-            }
-            else
-            {
-                var hashSpan = hash.AsSpan();
-                foreach (var witness in witnesses)
-                {
-                    if (hashSpan.SequenceEqual(witness))
-                    {
-                        evalStack.Push(true);
-                        return true;
-                    }
-                }
-
-                evalStack.Push(false);
-                return true;
-            }
+            var result = witnessChecker.Check(hash);
+            evalStack.Push(result);
+            return true;
         }
 
         private bool Runtime_GetTrigger(ExecutionEngine engine)
