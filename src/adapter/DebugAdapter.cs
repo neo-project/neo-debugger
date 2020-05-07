@@ -65,11 +65,12 @@ namespace NeoDebug
         {
             try
             {
-                var programFileName = arguments.ConfigurationProperties["program"].Value<string>();
-                var contract = Contract.Load(programFileName);
-                session = DebugSession.Create(contract, arguments, Protocol.SendEvent, defaultDebugView);
+                throw new Exception();
+                // var programFileName = arguments.ConfigurationProperties["program"].Value<string>();
+                // var contract = Contract.Load(programFileName);
+                // session = DebugSession.Create(contract, arguments, Protocol.SendEvent, defaultDebugView);
 
-                return new LaunchResponse();
+                // return new LaunchResponse();
             }
             catch (Exception ex)
             {

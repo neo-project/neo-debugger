@@ -23,6 +23,10 @@ namespace NeoDebug
             witnesses = Enumerable.Empty<byte[]>();
         }
 
+        static readonly Lazy<WitnessChecker> _default = new Lazy<WitnessChecker>(() => new WitnessChecker(true));
+
+        public static WitnessChecker Default => _default.Value;
+
         public bool Check(byte[] hash)
         {
             if (bypassCheck)

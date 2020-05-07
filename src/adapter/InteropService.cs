@@ -27,73 +27,15 @@ namespace NeoDebug
         private readonly Dictionary<uint, Func<ExecutionEngine, bool>> methods = new Dictionary<uint, Func<ExecutionEngine, bool>>();
         private readonly Dictionary<uint, string> methodNames = new Dictionary<uint, string>();
 
-        // private static IEnumerable<(byte[] key, byte[] value, bool constant)>
-        //     GetStorage(Dictionary<string, JToken> config)
-        // {
-        //     static byte[] ConvertString(JToken? token)
-        //     {
-        //         var value = token?.Value<string>() ?? string.Empty;
-        //         if (value.TryParseBigInteger(out var bigInteger))
-        //         {
-        //             return bigInteger.ToByteArray();
-        //         }
-        //         return Encoding.UTF8.GetBytes(value);
-        //     }
-
-        //     if (config.TryGetValue("storage", out var token))
-        //     {
-        //         return token.Select(t =>
-        //             (ConvertString(t["key"]),
-        //             ConvertString(t["value"]),
-        //             t.Value<bool?>("constant") ?? false));
-        //     }
-
-        //     return Enumerable.Empty<(byte[], byte[], bool)>();
-        // }
-
         public InteropService(IBlockchainStorage? blockchain, EmulatedStorage storage, TriggerType trigger, WitnessChecker witnessChecker, Action<OutputEvent> sendOutput, 
             IEnumerable<(UInt160 scriptHash, string name, EventDebugInfo info)> events)
         {
-            // static byte[] ParseWitness(JToken value)
-            // {
-            //     if (value.Value<string>().TryParseBigInteger(out var bigInt))
-            //     {
-            //         return bigInt.ToByteArray();
-            //     }
-
-            //     throw new Exception($"TryParseBigInteger for {value} failed");
-            // }
-
             this.sendOutput = sendOutput;
             this.blockchain = blockchain;
             this.storage = storage;
             this.witnessChecker = witnessChecker;
             this.trigger = trigger;
             this.events = events.ToDictionary(t => (t.scriptHash, t.name), t => t.info);
-
-            // foreach (var item in GetStorage(config))
-            // {
-            //     var storageKey = new StorageKey(contract.ScriptHash, item.key);
-            //     storage.TryPut(storageKey, item.value, item.constant);
-            // }
-
-            // if (config.TryGetValue("runtime", out var token))
-            // {
-            //     trigger = "verification".Equals(token.Value<string>("trigger"), StringComparison.InvariantCultureIgnoreCase)
-            //         ? TriggerType.Verification : TriggerType.Application;
-
-            //     var witnessesJson = token["witnesses"];
-            //     if (witnessesJson?.Type == JTokenType.Object)
-            //     {
-            //         checkWitnessBypass = true;
-            //         checkWitnessBypassValue = witnessesJson.Value<bool>("check-result");
-            //     }
-            //     else if (witnessesJson?.Type == JTokenType.Array)
-            //     {
-            //         checkWitnessBypass = false;
-            //         witnesses = witnessesJson.Select(ParseWitness);
-            //     }
-            // }
 
             RegisterAccount(Register);
             RegisterAsset(Register);
@@ -161,6 +103,7 @@ namespace NeoDebug
         {
             bool TryFindStorage(int keyHash, out (ReadOnlyMemory<byte> key, StorageItem item) value)
             {
+                // TODO
                 // foreach (var (key, item) in storage.EnumerateStorage(contract.ScriptHash))
                 // {
                 //     if (key.Span.GetSequenceHashCode() == keyHash)
@@ -249,6 +192,7 @@ namespace NeoDebug
                 var methodHex = new BigInteger(method).ToHexString();
                 sendOutput(new OutputEvent()
                 {
+
                     Category = OutputEvent.CategoryValue.Stderr,
                     Output = $"Invalid interop method {methodHex}\n",
                 });
