@@ -80,7 +80,12 @@ namespace NeoDebug
             var table = new ScriptTable();
             table.Add(contract.Script);
 
-            var interopService = new InteropService(contract, blockchain, arguments.ConfigurationProperties, sendOutput);
+            //TODO: load these from launch config
+            var emulatedStorage = new EmulatedStorage(null, Enumerable.Empty<(StorageKey, StorageItem)>());
+            var witnessChecker = new WitnessChecker(true);
+            var events = Enumerable.Empty<(UInt160, string, EventDebugInfo)>();
+
+            var interopService = new InteropService(null, emulatedStorage, TriggerType.Application, witnessChecker, sendOutput, events); 
             return new DebugExecutionEngine(container, table, interopService);
         }
 

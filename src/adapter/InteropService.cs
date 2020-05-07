@@ -16,51 +16,43 @@ using System.Text.RegularExpressions;
 
 namespace NeoDebug
 {
-    internal partial class InteropService : IInteropService
+    partial class InteropService : IInteropService
     {
-        public enum TriggerType
-        {
-            Verification = 0x00,
-            Application = 0x10,
-        }
-
+        private readonly IBlockchainStorage? blockchain;
+        private readonly TriggerType trigger = TriggerType.Application;
+        private readonly EmulatedStorage storage;
+        private readonly WitnessChecker witnessChecker = null!;
+        private readonly Action<OutputEvent> sendOutput;
+        private readonly IReadOnlyDictionary<(UInt160, string), EventDebugInfo> events;
         private readonly Dictionary<uint, Func<ExecutionEngine, bool>> methods = new Dictionary<uint, Func<ExecutionEngine, bool>>();
         private readonly Dictionary<uint, string> methodNames = new Dictionary<uint, string>();
-        private readonly EmulatedStorage storage;
 
-        private readonly IBlockchainStorage? blockchain;
-        private readonly Action<OutputEvent> sendOutput;
+        // private static IEnumerable<(byte[] key, byte[] value, bool constant)>
+        //     GetStorage(Dictionary<string, JToken> config)
+        // {
+        //     static byte[] ConvertString(JToken? token)
+        //     {
+        //         var value = token?.Value<string>() ?? string.Empty;
+        //         if (value.TryParseBigInteger(out var bigInteger))
+        //         {
+        //             return bigInteger.ToByteArray();
+        //         }
+        //         return Encoding.UTF8.GetBytes(value);
+        //     }
 
-        private static IEnumerable<(byte[] key, byte[] value, bool constant)>
-            GetStorage(Dictionary<string, JToken> config)
-        {
-            static byte[] ConvertString(JToken? token)
-            {
-                var value = token?.Value<string>() ?? string.Empty;
-                if (value.TryParseBigInteger(out var bigInteger))
-                {
-                    return bigInteger.ToByteArray();
-                }
-                return Encoding.UTF8.GetBytes(value);
-            }
+        //     if (config.TryGetValue("storage", out var token))
+        //     {
+        //         return token.Select(t =>
+        //             (ConvertString(t["key"]),
+        //             ConvertString(t["value"]),
+        //             t.Value<bool?>("constant") ?? false));
+        //     }
 
-            if (config.TryGetValue("storage", out var token))
-            {
-                return token.Select(t =>
-                    (ConvertString(t["key"]),
-                    ConvertString(t["value"]),
-                    t.Value<bool?>("constant") ?? false));
-            }
+        //     return Enumerable.Empty<(byte[], byte[], bool)>();
+        // }
 
-            return Enumerable.Empty<(byte[], byte[], bool)>();
-        }
-
-        public InteropService(Contract contract, IBlockchainStorage? blockchain, Dictionary<string, JToken> config, Action<OutputEvent> sendOutput)
-        {
-            throw new NotImplementedException();
-        }
-
-        public InteropService(IBlockchainStorage? blockchain, EmulatedStorage storage, TriggerType trigger, WitnessChecker witnessChecker, Action<OutputEvent> sendOutput)
+        public InteropService(IBlockchainStorage? blockchain, EmulatedStorage storage, TriggerType trigger, WitnessChecker witnessChecker, Action<OutputEvent> sendOutput, 
+            IEnumerable<(UInt160 scriptHash, string name, EventDebugInfo info)> events)
         {
             // static byte[] ParseWitness(JToken value)
             // {
@@ -77,7 +69,7 @@ namespace NeoDebug
             this.storage = storage;
             this.witnessChecker = witnessChecker;
             this.trigger = trigger;
-            // storage = new EmulatedStorage(blockchain);
+            this.events = events.ToDictionary(t => (t.scriptHash, t.name), t => t.info);
 
             // foreach (var item in GetStorage(config))
             // {
