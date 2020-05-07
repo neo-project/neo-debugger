@@ -28,14 +28,14 @@ namespace NeoDebug
         private readonly Dictionary<uint, string> methodNames = new Dictionary<uint, string>();
 
         public InteropService(IBlockchainStorage? blockchain, EmulatedStorage storage, TriggerType trigger, WitnessChecker witnessChecker, Action<OutputEvent> sendOutput, 
-            IEnumerable<(UInt160 scriptHash, string name, EventDebugInfo info)> events)
+            IEnumerable<(UInt160 scriptHash, EventDebugInfo info)> events)
         {
             this.sendOutput = sendOutput;
             this.blockchain = blockchain;
             this.storage = storage;
             this.witnessChecker = witnessChecker;
             this.trigger = trigger;
-            this.events = events.ToDictionary(t => (t.scriptHash, t.name), t => t.info);
+            this.events = events.ToDictionary(t => (t.scriptHash, t.info.Name), t => t.info);
 
             RegisterAccount(Register);
             RegisterAsset(Register);

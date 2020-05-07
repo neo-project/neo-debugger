@@ -1,5 +1,4 @@
-﻿using Neo.VM;
-using NeoFx;
+﻿using NeoFx;
 using System.IO;
 using System.Linq;
 
@@ -19,18 +18,6 @@ namespace NeoDebug.Models
         }
 
         public MethodDebugInfo EntryPoint => DebugInfo.Methods.Single(m => m.Id == DebugInfo.Entrypoint);
-
-        public byte[] BuildInvokeScript(ContractArgument[] arguments)
-        {
-            using var builder = new ScriptBuilder();
-            for (int i = arguments.Length - 1; i >= 0; i--)
-            {
-                arguments[i].EmitPush(builder);
-            }
-
-            builder.EmitAppCall(ScriptHash);
-            return builder.ToArray();
-        }
 
         public static Contract Load(string vmFileName)
         {

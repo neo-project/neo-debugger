@@ -16,7 +16,7 @@ namespace NeoDebug
     {
         private readonly InteropService interopService;
 
-        private DebugExecutionEngine(IScriptContainer container, ScriptTable scriptTable, InteropService interopService)
+        public DebugExecutionEngine(IScriptContainer container, ScriptTable scriptTable, InteropService interopService)
             : base(container, new Crypto(), scriptTable, interopService)
         {
             this.interopService = interopService;

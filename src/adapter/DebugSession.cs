@@ -17,7 +17,7 @@ namespace NeoDebug
         private readonly DebugExecutionEngine engine;
         private readonly Contract contract;
         private readonly Action<DebugEvent> sendEvent;
-        private readonly ReadOnlyMemory<string> returnTypes;
+        private readonly IReadOnlyList<string> returnTypes;
         private readonly Dictionary<int, IVariableContainer> variableContainers = new Dictionary<int, IVariableContainer>();
         private readonly DisassemblyManager disassemblyManager;
         private readonly BreakpointManager breakpointManager = new BreakpointManager();
@@ -30,7 +30,7 @@ namespace NeoDebug
             Toggle
         }
 
-        public DebugSession(DebugExecutionEngine engine, Contract contract, Action<DebugEvent> sendEvent, ContractArgument[] arguments, ReadOnlyMemory<string> returnTypes, DebugView defaultDebugView)
+        public DebugSession(DebugExecutionEngine engine, Contract contract, Action<DebugEvent> sendEvent, IReadOnlyList<string> returnTypes, DebugView defaultDebugView)
         {
             this.engine = engine;
             this.sendEvent = sendEvent;
@@ -39,10 +39,7 @@ namespace NeoDebug
             this.disassemblyView = defaultDebugView == DebugView.Disassembly;
             this.disassemblyManager = new DisassemblyManager(engine.GetMethodName);
 
-            var invokeScript = contract.BuildInvokeScript(arguments);
-            engine.LoadScript(invokeScript);
-
-            disassemblyManager.Add(invokeScript);
+            disassemblyManager.Add((byte[])engine.EntryContext.Script);
             disassemblyManager.Add(contract.Script, contract.DebugInfo);
 
             if (!disassemblyView)
@@ -434,8 +431,8 @@ namespace NeoDebug
         {
             foreach (var (item, index) in engine.ResultStack.Select((_item, index) => (_item, index)))
             {
-                var returnType = index < returnTypes.Length
-                    ? returnTypes.Span[index] : null;
+                var returnType = index < returnTypes.Count
+                    ? returnTypes[index] : null;
                 yield return GetResult(item, returnType);
             }
         }
