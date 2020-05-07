@@ -71,13 +71,14 @@ namespace NeoDebug
             this.contract = contract;
             this.sendOutput = sendOutput;
             this.blockchain = blockchain;
-            storage = new EmulatedStorage(blockchain);
+            storage = null!;
+            // storage = new EmulatedStorage(blockchain);
 
-            foreach (var item in GetStorage(config))
-            {
-                var storageKey = new StorageKey(contract.ScriptHash, item.key);
-                storage.TryPut(storageKey, item.value, item.constant);
-            }
+            // foreach (var item in GetStorage(config))
+            // {
+            //     var storageKey = new StorageKey(contract.ScriptHash, item.key);
+            //     storage.TryPut(storageKey, item.value, item.constant);
+            // }
 
             if (config.TryGetValue("runtime", out var token))
             {
