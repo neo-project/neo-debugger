@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using NeoDebug.Models;
 using NeoFx;
 using NeoFx.Models;
 using NeoFx.Storage;
@@ -11,6 +13,17 @@ namespace NeoDebug
 {
     class LaunchConfigurationParser
     {
+        public static DebugSession CreateDebugSession(LaunchArguments arguments, Action<DebugEvent> sendEvent, DebugSession.DebugView defaultDebugView)
+        {
+            var contract = Contract.Load(arguments.ConfigurationProperties["program"].Value<string>());
+
+
+            // session = DebugSession.Create(contract, arguments, Protocol.SendEvent, defaultDebugView);
+
+
+            throw new NotImplementedException();
+        }
+
         public static IBlockchainStorage? ParseBlockchain(Dictionary<string, JToken> config)
         {
             if (config.TryGetValue("checkpoint", out var checkpoint))
@@ -120,153 +133,153 @@ namespace NeoDebug
     }
 }
 
-        // public static DebugExecutionEngine Create(Contract contract, LaunchArguments arguments, Action<OutputEvent> sendOutput)
-        // {
-        //     throw new Exception();
-        //     // var blockchain = GetBlockchain(arguments.ConfigurationProperties);
-        //     // var (inputs, outputs) = GetUtxo(arguments.ConfigurationProperties, blockchain);
+// public static DebugExecutionEngine Create(Contract contract, LaunchArguments arguments, Action<OutputEvent> sendOutput)
+// {
+//     throw new Exception();
+//     // var blockchain = GetBlockchain(arguments.ConfigurationProperties);
+//     // var (inputs, outputs) = GetUtxo(arguments.ConfigurationProperties, blockchain);
 
-        //     // var tx = new InvocationTransaction(contract.Script, Fixed8.Zero, 1, default,
-        //     //     inputs.ToArray(), outputs.ToArray(), default);
-        //     // var container = new ModelAdapters.TransactionAdapter(tx);
+//     // var tx = new InvocationTransaction(contract.Script, Fixed8.Zero, 1, default,
+//     //     inputs.ToArray(), outputs.ToArray(), default);
+//     // var container = new ModelAdapters.TransactionAdapter(tx);
 
-        //     // var table = new ScriptTable();
-        //     // table.Add(contract.Script);
+//     // var table = new ScriptTable();
+//     // table.Add(contract.Script);
 
-        //     // //TODO: load these from launch config
-        //     // var emulatedStorage = new EmulatedStorage(null, Enumerable.Empty<(StorageKey, StorageItem)>());
-        //     // var witnessChecker = new WitnessChecker(true);
-        //     // var events = Enumerable.Empty<(UInt160, string, EventDebugInfo)>();
+//     // //TODO: load these from launch config
+//     // var emulatedStorage = new EmulatedStorage(null, Enumerable.Empty<(StorageKey, StorageItem)>());
+//     // var witnessChecker = new WitnessChecker(true);
+//     // var events = Enumerable.Empty<(UInt160, string, EventDebugInfo)>();
 
-        //     // var interopService = new InteropService(null, emulatedStorage, TriggerType.Application, witnessChecker, sendOutput, events);
-        //     // return new DebugExecutionEngine(container, table, interopService);
-        // }
+//     // var interopService = new InteropService(null, emulatedStorage, TriggerType.Application, witnessChecker, sendOutput, events);
+//     // return new DebugExecutionEngine(container, table, interopService);
+// }
 
-        //         static public DebugSession Create(Contract contract, LaunchArguments arguments, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
-        // {
-        //     throw new Exception();
+//         static public DebugSession Create(Contract contract, LaunchArguments arguments, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
+// {
+//     throw new Exception();
 
-            // var contractArgs = GetArguments(contract.EntryPoint).ToArray();
-            // var returnTypes = GetReturnTypes().ToArray();
+// var contractArgs = GetArguments(contract.EntryPoint).ToArray();
+// var returnTypes = GetReturnTypes().ToArray();
 
-            // var engine = DebugExecutionEngine.Create(contract, arguments, outputEvent => sendEvent(outputEvent));
-            // return new DebugSession(engine, contract, sendEvent, contractArgs, returnTypes, defaultDebugView);
+// var engine = DebugExecutionEngine.Create(contract, arguments, outputEvent => sendEvent(outputEvent));
+// return new DebugSession(engine, contract, sendEvent, contractArgs, returnTypes, defaultDebugView);
 
-            // JArray GetArgsConfig()
-            // {
-            //     if (arguments.ConfigurationProperties.TryGetValue("args", out var args))
-            //     {
-            //         if (args is JArray jArray)
-            //         {
-            //             return jArray;
-            //         }
+// JArray GetArgsConfig()
+// {
+//     if (arguments.ConfigurationProperties.TryGetValue("args", out var args))
+//     {
+//         if (args is JArray jArray)
+//         {
+//             return jArray;
+//         }
 
-            //         return new JArray(args);
-            //     }
+//         return new JArray(args);
+//     }
 
-            //     return new JArray();
-            // }
+//     return new JArray();
+// }
 
-            // IEnumerable<ContractArgument> GetArguments(MethodDebugInfo method)
-            // {
-            //     var args = GetArgsConfig();
-            //     for (int i = 0; i < method.Parameters.Count; i++)
-            //     {
-            //         yield return ConvertArgument(
-            //             method.Parameters[i],
-            //             i < args.Count ? args[i] : null);
-            //     }
-            // }
+// IEnumerable<ContractArgument> GetArguments(MethodDebugInfo method)
+// {
+//     var args = GetArgsConfig();
+//     for (int i = 0; i < method.Parameters.Count; i++)
+//     {
+//         yield return ConvertArgument(
+//             method.Parameters[i],
+//             i < args.Count ? args[i] : null);
+//     }
+// }
 
-            // IEnumerable<string> GetReturnTypes()
-            // {
-            //     if (arguments.ConfigurationProperties.TryGetValue("return-types", out var returnTypes))
-            //     {
-            //         foreach (var returnType in returnTypes)
-            //         {
-            //             yield return Helpers.CastOperations[returnType.Value<string>()];
-            //         }
-            //     }
-            // }
-        // }
+// IEnumerable<string> GetReturnTypes()
+// {
+//     if (arguments.ConfigurationProperties.TryGetValue("return-types", out var returnTypes))
+//     {
+//         foreach (var returnType in returnTypes)
+//         {
+//             yield return Helpers.CastOperations[returnType.Value<string>()];
+//         }
+//     }
+// }
+// }
 
 
-        // private static ContractArgument ConvertArgument(JToken arg)
-        // {
-        //     switch (arg.Type)
-        //     {
-        //         case JTokenType.Integer:
-        //             return new ContractArgument(ContractParameterType.Integer, new BigInteger(arg.Value<int>()));
-        //         case JTokenType.String:
-        //             var value = arg.Value<string>();
-        //             if (value.TryParseBigInteger(out var bigInteger))
-        //             {
-        //                 return new ContractArgument(ContractParameterType.Integer, bigInteger);
-        //             }
-        //             else
-        //             {
-        //                 return new ContractArgument(ContractParameterType.String, value);
-        //             }
-        //         default:
-        //             throw new NotImplementedException($"DebugAdapter.ConvertArgument {arg.Type}");
-        //     }
-        // }
+// private static ContractArgument ConvertArgument(JToken arg)
+// {
+//     switch (arg.Type)
+//     {
+//         case JTokenType.Integer:
+//             return new ContractArgument(ContractParameterType.Integer, new BigInteger(arg.Value<int>()));
+//         case JTokenType.String:
+//             var value = arg.Value<string>();
+//             if (value.TryParseBigInteger(out var bigInteger))
+//             {
+//                 return new ContractArgument(ContractParameterType.Integer, bigInteger);
+//             }
+//             else
+//             {
+//                 return new ContractArgument(ContractParameterType.String, value);
+//             }
+//         default:
+//             throw new NotImplementedException($"DebugAdapter.ConvertArgument {arg.Type}");
+//     }
+// }
 
-        // private static object ConvertArgumentToObject(ContractParameterType paramType, JToken? arg)
-        // {
-        //     if (arg == null)
-        //     {
-        //         return paramType switch
-        //         {
-        //             ContractParameterType.Boolean => false,
-        //             ContractParameterType.String => string.Empty,
-        //             ContractParameterType.Array => Array.Empty<ContractArgument>(),
-        //             _ => BigInteger.Zero,
-        //         };
-        //     }
+// private static object ConvertArgumentToObject(ContractParameterType paramType, JToken? arg)
+// {
+//     if (arg == null)
+//     {
+//         return paramType switch
+//         {
+//             ContractParameterType.Boolean => false,
+//             ContractParameterType.String => string.Empty,
+//             ContractParameterType.Array => Array.Empty<ContractArgument>(),
+//             _ => BigInteger.Zero,
+//         };
+//     }
 
-        //     switch (paramType)
-        //     {
-        //         case ContractParameterType.Boolean:
-        //             return arg.Value<bool>();
-        //         case ContractParameterType.Integer:
-        //             return arg.Type == JTokenType.Integer
-        //                 ? new BigInteger(arg.Value<int>())
-        //                 : BigInteger.Parse(arg.ToString());
-        //         case ContractParameterType.String:
-        //             return arg.ToString();
-        //         case ContractParameterType.Array:
-        //             return arg.Select(ConvertArgument).ToArray();
-        //         case ContractParameterType.ByteArray:
-        //             {
-        //                 var value = arg.ToString();
-        //                 if (value.TryParseBigInteger(out var bigInteger))
-        //                 {
-        //                     return bigInteger;
-        //                 }
+//     switch (paramType)
+//     {
+//         case ContractParameterType.Boolean:
+//             return arg.Value<bool>();
+//         case ContractParameterType.Integer:
+//             return arg.Type == JTokenType.Integer
+//                 ? new BigInteger(arg.Value<int>())
+//                 : BigInteger.Parse(arg.ToString());
+//         case ContractParameterType.String:
+//             return arg.ToString();
+//         case ContractParameterType.Array:
+//             return arg.Select(ConvertArgument).ToArray();
+//         case ContractParameterType.ByteArray:
+//             {
+//                 var value = arg.ToString();
+//                 if (value.TryParseBigInteger(out var bigInteger))
+//                 {
+//                     return bigInteger;
+//                 }
 
-        //                 var byteCount = Encoding.UTF8.GetByteCount(value);
-        //                 using var owner = MemoryPool<byte>.Shared.Rent(byteCount);
-        //                 var span = owner.Memory.Span.Slice(0, byteCount);
-        //                 Encoding.UTF8.GetBytes(value, span);
-        //                 return new BigInteger(span);
-        //             }
-        //     }
-        //     throw new NotImplementedException($"DebugAdapter.ConvertArgument {paramType} {arg}");
-        // }
+//                 var byteCount = Encoding.UTF8.GetByteCount(value);
+//                 using var owner = MemoryPool<byte>.Shared.Rent(byteCount);
+//                 var span = owner.Memory.Span.Slice(0, byteCount);
+//                 Encoding.UTF8.GetBytes(value, span);
+//                 return new BigInteger(span);
+//             }
+//     }
+//     throw new NotImplementedException($"DebugAdapter.ConvertArgument {paramType} {arg}");
+// }
 
-        // private static ContractArgument ConvertArgument((string name, string type) param, JToken? arg)
-        // {
-        //     var type = param.type switch
-        //     {
-        //         "Integer" => ContractParameterType.Integer,
-        //         "String" => ContractParameterType.String,
-        //         "Array" => ContractParameterType.Array,
-        //         "Boolean" => ContractParameterType.Boolean,
-        //         "ByteArray" => ContractParameterType.ByteArray,
-        //         "" => ContractParameterType.ByteArray,
-        //         _ => throw new NotImplementedException(),
-        //     };
+// private static ContractArgument ConvertArgument((string name, string type) param, JToken? arg)
+// {
+//     var type = param.type switch
+//     {
+//         "Integer" => ContractParameterType.Integer,
+//         "String" => ContractParameterType.String,
+//         "Array" => ContractParameterType.Array,
+//         "Boolean" => ContractParameterType.Boolean,
+//         "ByteArray" => ContractParameterType.ByteArray,
+//         "" => ContractParameterType.ByteArray,
+//         _ => throw new NotImplementedException(),
+//     };
 
-        //     return new ContractArgument(type, ConvertArgumentToObject(type, arg));
-        // }
+//     return new ContractArgument(type, ConvertArgumentToObject(type, arg));
+// }

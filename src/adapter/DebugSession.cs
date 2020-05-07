@@ -3,15 +3,12 @@ using Neo.VM;
 using NeoDebug.Models;
 using NeoDebug.VariableContainers;
 using NeoFx;
-using Newtonsoft.Json.Linq;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
-using System.Numerics;
-using System.Text;
 
 namespace NeoDebug
 {
