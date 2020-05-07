@@ -244,8 +244,8 @@
 				"title": "Toggle Debug view",
 				"command": "neo-debugger.toggleDebugView",
 				"icon": {
-					"light": "resources/tools.svg",
-					"dark": "resources/tools.svg"
+					"light": "resources/light/tools.svg",
+					"dark": "resources/dark/tools.svg"
 				}
 			}
 		],
