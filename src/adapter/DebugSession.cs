@@ -446,7 +446,7 @@ namespace NeoDebug
 
             if (variableName.StartsWith("$storage"))
             {
-                return engine.EvaluateStorageExpression(this, args);
+                return engine.EvaluateStorageExpression(this, engine.CurrentContext.ScriptHash, args);
             }
 
             EvaluateResponse GetStackVariable(RandomAccessStack<StackItem> stack)

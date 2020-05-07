@@ -50,7 +50,7 @@ namespace NeoDebug
             RegisterTransaction(Register);
         }
 
-        internal IVariableContainer GetStorageContainer(IVariableContainerSession session, UInt160 scriptHash)
+        internal IVariableContainer GetStorageContainer(IVariableContainerSession session, in UInt160 scriptHash)
         {
             return new EmulatedStorageContainer(session, scriptHash, storage);
         }
@@ -99,19 +99,18 @@ namespace NeoDebug
             }
         }
 
-        public EvaluateResponse EvaluateStorageExpression(IVariableContainerSession session, EvaluateArguments args)
+        public EvaluateResponse EvaluateStorageExpression(IVariableContainerSession session, in UInt160 scriptHash, EvaluateArguments args)
         {
-            bool TryFindStorage(int keyHash, out (ReadOnlyMemory<byte> key, StorageItem item) value)
+            bool TryFindStorage(int keyHash, in UInt160 _scriptHash, out (ReadOnlyMemory<byte> key, StorageItem item) value)
             {
-                // TODO
-                // foreach (var (key, item) in storage.EnumerateStorage(contract.ScriptHash))
-                // {
-                //     if (key.Span.GetSequenceHashCode() == keyHash)
-                //     {
-                //         value = (key, item);
-                //         return true;
-                //     }
-                // }
+                foreach (var (key, item) in storage.EnumerateStorage(_scriptHash))
+                {
+                    if (key.Span.GetSequenceHashCode() == keyHash)
+                    {
+                        value = (key, item);
+                        return true;
+                    }
+                }
 
                 value = default;
                 return false;
@@ -122,7 +121,7 @@ namespace NeoDebug
 
             if (!index.HasValue && match.Success
                 && int.TryParse(match.Groups[1].Value, NumberStyles.HexNumber, null, out var keyHash)
-                && TryFindStorage(keyHash, out var _storage))
+                && TryFindStorage(keyHash, scriptHash, out var _storage))
             {
                 switch (match.Groups[2].Value)
                 {

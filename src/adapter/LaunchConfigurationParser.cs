@@ -266,7 +266,6 @@ namespace NeoDebug
         {
             if (config.TryGetValue("runtime", out var token))
             {
-                // TODO: check to make sure this doesn't throw if trigger json value is missing
                 var trigger = "verification".Equals(token.Value<string>("trigger"), StringComparison.InvariantCultureIgnoreCase)
                     ? TriggerType.Verification : TriggerType.Application;
 
