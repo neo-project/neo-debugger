@@ -16,6 +16,13 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
 
+    <!-- https://stackoverflow.com/a/48714896 to detect platform -->
+  <PropertyGroup Condition=" '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))' ">
+    <!-- UseAppHost to enable loading librocksdb.dylib dependencies on MacOS
+         https://docs.microsoft.com/en-us/dotnet/core/install/macos-notarization-issues#apphost-is-disabled-by-default  -->
+    <UseAppHost>true</UseAppHost>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="3.0.0" />
     <PackageReference Include="Neo.VM" Version="2.4.3.1" />
