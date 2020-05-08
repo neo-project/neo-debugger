@@ -9,9 +9,9 @@ using System.IO.Compression;
 using System.Linq;
 using System.Text.RegularExpressions;
 
-namespace NeoDebug
+namespace NeoDebug.Models
 {
-    internal static class DebugInfoParser
+    static class DebugInfoParser
     {
         class DocumentResolver
         {
