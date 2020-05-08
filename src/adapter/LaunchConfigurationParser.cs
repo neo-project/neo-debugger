@@ -40,7 +40,7 @@ namespace NeoDebug
             var table = new ScriptTable();
             table.Add(contract.Script);
 
-            var events =  contract.DebugInfo.Events.Select(i => (contract.ScriptHash, i));
+            var events = contract.DebugInfo.Events.Select(i => (contract.ScriptHash, i));
             var emulatedStorage = new EmulatedStorage(blockchain, ParseStorage(contract.ScriptHash, config));
             var (trigger, witnessChecker) = ParseRuntime(config);
 
@@ -107,7 +107,7 @@ namespace NeoDebug
                 }
 
                 return new JArray();
-            }        
+            }
         }
 
         static ContractArgument ConvertArgument(JToken arg)
@@ -189,7 +189,7 @@ namespace NeoDebug
 
             return new ContractArgument(type, ConvertArgumentToObject(type, arg));
         }
-        
+
         static (IEnumerable<CoinReference> inputs, IEnumerable<TransactionOutput> outputs)
             ParseUtxo(IBlockchainStorage? blockchain, Dictionary<string, JToken> config)
         {
@@ -230,10 +230,11 @@ namespace NeoDebug
             ParseStorage(UInt160 scriptHash, Dictionary<string, JToken> config)
         {
             return ParseStorage(config)
-                .Select(s => {
+                .Select(s =>
+                {
                     var key = new StorageKey(scriptHash, s.key);
                     var value = new StorageItem(s.value, s.constant);
-                    return (key, value); 
+                    return (key, value);
                 });
         }
 

@@ -9,7 +9,7 @@ namespace NeoDebug
     {
         private readonly Dictionary<UInt160, byte[]> scripts = new Dictionary<UInt160, byte[]>();
 
-        public void Add(byte[] script) 
+        public void Add(byte[] script)
             => scripts.Add(Crypto.HashScript(script), script);
 
         public byte[]? GetScript(byte[] scriptHash)

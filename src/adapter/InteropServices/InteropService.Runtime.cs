@@ -99,7 +99,7 @@ namespace NeoDebug
                 {
                     return _eventDebugInfo.Parameters;
                 }
-                
+
                 return new List<(string name, string type)>();
             }
 

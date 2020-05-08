@@ -80,7 +80,7 @@ namespace NeoDebug
                     {
                         breakpoints.Add(ip);
                     }
-                    
+
                     yield return new Breakpoint()
                     {
                         Verified = ip >= 0,
@@ -207,7 +207,7 @@ namespace NeoDebug
 
         void Step(Func<int, int, bool> compare)
         {
-            var breakpointMap = breakpointManager.GetBreakpoints(contract); 
+            var breakpointMap = breakpointManager.GetBreakpoints(contract);
             var c = engine.InvocationStack.Count;
             var stopReason = StoppedEvent.ReasonValue.Step;
             while ((engine.State & HALT_OR_FAULT) == 0)

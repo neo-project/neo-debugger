@@ -36,8 +36,9 @@ namespace NeoDebug
             InitializeProtocolClient(@in, @out);
             Protocol.LogMessage += (sender, args) => this.logger(args.Category, args.Message);
 
-            Protocol.RegisterRequestType<DebugViewRequest, DebugViewArguments>(a => {
-                HandleDebugViewRequest(a.Arguments);               
+            Protocol.RegisterRequestType<DebugViewRequest, DebugViewArguments>(a =>
+            {
+                HandleDebugViewRequest(a.Arguments);
             });
         }
 

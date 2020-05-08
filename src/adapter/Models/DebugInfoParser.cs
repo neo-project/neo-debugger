@@ -44,7 +44,7 @@ namespace NeoDebug.Models
                     {
                         folderMap.Add(directoryName, cwd);
                     }
-                    
+
                     return cwdDocument;
                 }
 

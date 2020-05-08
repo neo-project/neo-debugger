@@ -101,7 +101,7 @@ namespace NeoDebug
             return items;
         }
 
-                public static Variable GetVariable(this StackItem item, IVariableContainerSession session, string name, string? typeHint = null)
+        public static Variable GetVariable(this StackItem item, IVariableContainerSession session, string name, string? typeHint = null)
         {
             switch (typeHint)
             {

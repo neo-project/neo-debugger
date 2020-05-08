@@ -27,7 +27,7 @@ namespace NeoDebug
         private readonly Dictionary<uint, Func<ExecutionEngine, bool>> methods = new Dictionary<uint, Func<ExecutionEngine, bool>>();
         private readonly Dictionary<uint, string> methodNames = new Dictionary<uint, string>();
 
-        public InteropService(IBlockchainStorage? blockchain, EmulatedStorage storage, TriggerType trigger, WitnessChecker witnessChecker, Action<OutputEvent> sendOutput, 
+        public InteropService(IBlockchainStorage? blockchain, EmulatedStorage storage, TriggerType trigger, WitnessChecker witnessChecker, Action<OutputEvent> sendOutput,
             IEnumerable<(UInt160 scriptHash, EventDebugInfo info)> events)
         {
             this.sendOutput = sendOutput;

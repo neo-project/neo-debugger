@@ -8,7 +8,7 @@ using System.Linq;
 
 namespace NeoDebug
 {
-    
+
     class EmulatedStorage
     {
         private class StorageKeyEqualityComparer : IEqualityComparer<StorageKey>
