@@ -79,7 +79,7 @@ namespace NeoDebug
             {
                 foreach (var returnType in returnTypes)
                 {
-                    yield return Helpers.CastOperations[returnType.Value<string>()];
+                    yield return DebugSession.CastOperations[returnType.Value<string>()];
                 }
             }
         }

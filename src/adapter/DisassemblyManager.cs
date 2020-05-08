@@ -169,7 +169,7 @@ namespace NeoDebug
             var source = new Source()
             {
                 SourceReference = hashCode,
-                Name = Helpers.ToHexString(scriptHash),
+                Name = scriptHash.ToHexString(),
             };
             
             return (source, sourceMap[hashCode][instructionPointer]);

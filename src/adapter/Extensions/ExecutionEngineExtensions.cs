@@ -1,13 +1,14 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
+using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.VM;
 using Neo.VM.Types;
+using NeoDebug.VariableContainers;
 using NeoFx;
 
 namespace NeoDebug
 {
-    static class Extensions
+    static class ExecutionEngineExtensions
     {
         public static bool TryPopInterface<T>(this RandomAccessStack<StackItem> stack, [NotNullWhen(true)] out T? value)
             where T : class
@@ -100,56 +101,70 @@ namespace NeoDebug
             return items;
         }
 
-        public static ulong ReadVarInt(this BinaryReader reader, ulong max = ulong.MaxValue)
+                public static Variable GetVariable(this StackItem item, IVariableContainerSession session, string name, string? typeHint = null)
         {
-            byte fb = reader.ReadByte();
-            ulong value;
-            if (fb == 0xFD)
-                value = reader.ReadUInt16();
-            else if (fb == 0xFE)
-                value = reader.ReadUInt32();
-            else if (fb == 0xFF)
-                value = reader.ReadUInt64();
-            else
-                value = fb;
-            if (value > max) throw new FormatException();
-            return value;
-        }
+            switch (typeHint)
+            {
+                case "Boolean":
+                    return new Variable()
+                    {
+                        Name = name,
+                        Value = item.GetBoolean().ToString(),
+                        Type = "#Boolean",
+                    };
+                case "Integer":
+                    return new Variable()
+                    {
+                        Name = name,
+                        Value = item.GetBigInteger().ToString(),
+                        Type = "#Integer",
+                    };
+                case "String":
+                    return new Variable()
+                    {
+                        Name = name,
+                        Value = item.GetString(),
+                        Type = "#String",
+                    };
+                case "HexString":
+                    return new Variable()
+                    {
+                        Name = name,
+                        Value = item.GetBigInteger().ToHexString(),
+                        Type = "#ByteArray"
+                    };
+                case "ByteArray":
+                    return ByteArrayContainer.Create(session, item.GetByteArray(), name, true);
+            }
 
-        public static void WriteVarInt(this BinaryWriter writer, long value)
-        {
-            if (value < 0)
-                throw new ArgumentOutOfRangeException();
-            if (value < 0xFD)
+            return item switch
             {
-                writer.Write((byte)value);
-            }
-            else if (value <= 0xFFFF)
-            {
-                writer.Write((byte)0xFD);
-                writer.Write((ushort)value);
-            }
-            else if (value <= 0xFFFFFFFF)
-            {
-                writer.Write((byte)0xFE);
-                writer.Write((uint)value);
-            }
-            else
-            {
-                writer.Write((byte)0xFF);
-                writer.Write(value);
-            }
-        }
-
-        public static byte[] ReadVarBytes(this BinaryReader reader, int max = 0x1000000)
-        {
-            return reader.ReadBytes((int)reader.ReadVarInt((ulong)max));
-        }
-
-        public static void WriteVarBytes(this BinaryWriter writer, byte[] value)
-        {
-            writer.WriteVarInt(value.Length);
-            writer.Write(value);
+                IVariableProvider provider => provider.GetVariable(session, name),
+                Neo.VM.Types.Boolean _ => new Variable()
+                {
+                    Name = name,
+                    Value = item.GetBoolean().ToString(),
+                    Type = "Boolean"
+                },
+                Neo.VM.Types.Integer _ => new Variable()
+                {
+                    Name = name,
+                    Value = item.GetBigInteger().ToString(),
+                    Type = "Integer"
+                },
+                Neo.VM.Types.ByteArray byteArray => ByteArrayContainer.Create(session, byteArray, name),
+                Neo.VM.Types.InteropInterface _ => new Variable()
+                {
+                    Name = name,
+                    Type = "InteropInterface",
+                    Value = string.Empty
+                },
+                Neo.VM.Types.Map map => NeoMapContainer.Create(session, map, name),
+                // NeoArrayContainer.Create will detect Struct (which inherits from Array)
+                // and distinguish accordingly
+                Neo.VM.Types.Array array => NeoArrayContainer.Create(session, array, name),
+                _ => throw new NotImplementedException($"GetStackItemValue {item.GetType().FullName}"),
+            };
         }
     }
 }

@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace NeoDebug
 {
@@ -421,7 +422,7 @@ namespace NeoDebug
         {
             if (typeHint == "ByteArray")
             {
-                return Helpers.ToHexString(item.GetByteArray());
+                return item.GetByteArray().ToHexString();
             }
 
             return GetResult(item.GetVariable(this, string.Empty, typeHint));
@@ -442,7 +443,7 @@ namespace NeoDebug
             if ((engine.State & HALT_OR_FAULT) != 0)
                 return DebugAdapter.FailedEvaluation;
 
-            var (typeHint, index, variableName) = Helpers.ParseEvalExpression(args.Expression);
+            var (typeHint, index, variableName) = ParseEvalExpression(args.Expression);
 
             if (variableName.StartsWith("$storage"))
             {
@@ -512,8 +513,6 @@ namespace NeoDebug
 
             return DebugAdapter.FailedEvaluation;
 
-            
-
             Variable? GetVariable(StackItem item, (string name, string type) local)
             {
                 if (index.HasValue)
@@ -531,6 +530,56 @@ namespace NeoDebug
 
                 return null;
             }
+        }
+        private static readonly Regex indexRegex = new Regex(@"\[(\d+)\]$");
+
+        public static readonly IReadOnlyDictionary<string, string> CastOperations = new Dictionary<string, string>()
+            {
+                { "int", "Integer" },
+                { "bool", "Boolean" },
+                { "string", "String" },
+                { "hex", "HexString" },
+                { "byte[]", "ByteArray" },
+            }.ToImmutableDictionary();
+
+        public static (string? typeHint, uint? index, string name) ParseEvalExpression(string expression)
+        {
+            static (string? typeHint, string text) ParsePrefix(string input)
+            {
+                foreach (var kvp in CastOperations)
+                {
+                    if (input.Length > kvp.Key.Length + 2
+                        && input[0] == '('
+                        && input.AsSpan().Slice(1, kvp.Key.Length).SequenceEqual(kvp.Key)
+                        && input[kvp.Key.Length + 1] == ')')
+                    {
+                        return (kvp.Value, input.Substring(kvp.Key.Length + 2));
+                    }
+                }
+
+                return (null, input);
+            }
+
+            static (uint? index, string text) ParseSuffix(string input)
+            {
+                var match = indexRegex.Match(input);
+                if (match.Success)
+                {
+                    var matchValue = match.Groups[0].Value;
+                    var indexValue = match.Groups[1].Value;
+                    if (uint.TryParse(indexValue, out var index)
+                        && index < int.MaxValue)
+                    {
+                        return (index, input.Substring(0, input.Length - matchValue.Length));
+                    }
+                }
+                return (null, input);
+            }
+
+            var prefix = ParsePrefix(expression);
+            var suffix = ParseSuffix(prefix.text);
+
+            return (prefix.typeHint, suffix.index, suffix.text.Trim());
         }
     }
 }

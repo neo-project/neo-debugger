@@ -116,7 +116,7 @@ namespace NeoDebug
                 return false;
             }
 
-            var (typeHint, index, name) = Helpers.ParseEvalExpression(args.Expression);
+            var (typeHint, index, name) = DebugSession.ParseEvalExpression(args.Expression);
             var match = storageRegex.Match(name);
 
             if (!index.HasValue && match.Success
