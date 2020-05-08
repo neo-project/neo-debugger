@@ -26,7 +26,7 @@ namespace NeoDebug
             return new DebugSession(engine, contract, sendEvent, returnTypes, defaultDebugView);
         }
 
-        private static DebugExecutionEngine CreateExecutionEngine(Contract contract, Dictionary<string, JToken> config, Action<OutputEvent> sendOutput)
+        static DebugExecutionEngine CreateExecutionEngine(Contract contract, Dictionary<string, JToken> config, Action<OutputEvent> sendOutput)
         {
             var contractArgs = ParseArguments(contract.EntryPoint, config);
             var invokeScript = BuildInvokeScript(contract.ScriptHash, contractArgs);
@@ -63,7 +63,7 @@ namespace NeoDebug
             }
         }
 
-        public static IBlockchainStorage? CreateBlockchainStorage(Dictionary<string, JToken> config)
+        static IBlockchainStorage? CreateBlockchainStorage(Dictionary<string, JToken> config)
         {
             if (config.TryGetValue("checkpoint", out var checkpoint))
             {
@@ -131,7 +131,7 @@ namespace NeoDebug
             }
         }
 
-        private static object ConvertArgumentToObject(ContractParameterType paramType, JToken? arg)
+        static object ConvertArgumentToObject(ContractParameterType paramType, JToken? arg)
         {
             if (arg == null)
             {
@@ -174,7 +174,7 @@ namespace NeoDebug
             throw new NotImplementedException($"DebugAdapter.ConvertArgument {paramType} {arg}");
         }
 
-        private static ContractArgument ConvertArgument((string name, string type) param, JToken? arg)
+        static ContractArgument ConvertArgument((string name, string type) param, JToken? arg)
         {
             var type = param.type switch
             {
@@ -189,7 +189,6 @@ namespace NeoDebug
 
             return new ContractArgument(type, ConvertArgumentToObject(type, arg));
         }
-
         
         static (IEnumerable<CoinReference> inputs, IEnumerable<TransactionOutput> outputs)
             ParseUtxo(IBlockchainStorage? blockchain, Dictionary<string, JToken> config)
@@ -238,7 +237,7 @@ namespace NeoDebug
                 });
         }
 
-        public static IEnumerable<(byte[] key, byte[] value, bool constant)>
+        static IEnumerable<(byte[] key, byte[] value, bool constant)>
             ParseStorage(Dictionary<string, JToken> config)
         {
             if (config.TryGetValue("storage", out var token))
@@ -262,7 +261,7 @@ namespace NeoDebug
             }
         }
 
-        public static (TriggerType trigger, WitnessChecker witnessChecker) ParseRuntime(Dictionary<string, JToken> config)
+        static (TriggerType trigger, WitnessChecker witnessChecker) ParseRuntime(Dictionary<string, JToken> config)
         {
             if (config.TryGetValue("runtime", out var token))
             {
