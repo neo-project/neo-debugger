@@ -8,7 +8,7 @@ using System.Collections.Generic;
 
 namespace NeoDebug.ModelAdapters
 {
-    internal class TransactionAttributeAdapter : AdapterBase, IVariableProvider, IVariableContainer
+    class TransactionAttributeAdapter : AdapterBase, IVariableProvider, IVariableContainer
     {
         public readonly TransactionAttribute Item;
 

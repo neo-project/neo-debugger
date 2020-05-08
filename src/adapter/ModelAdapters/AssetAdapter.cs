@@ -7,7 +7,7 @@ using NeoFx.Models;
 
 namespace NeoDebug.ModelAdapters
 {
-    internal class AssetAdapter : AdapterBase, IVariableProvider
+    class AssetAdapter : AdapterBase, IVariableProvider
     {
         public readonly Asset Item;
 

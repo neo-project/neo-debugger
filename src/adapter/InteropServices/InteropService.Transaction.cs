@@ -6,7 +6,7 @@ using NeoDebug.ModelAdapters;
 
 namespace NeoDebug
 {
-    internal partial class InteropService
+    partial class InteropService
     {
         public void RegisterTransaction(Action<string, Func<ExecutionEngine, bool>, int> register)
         {

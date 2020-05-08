@@ -8,7 +8,7 @@ using NeoFx.Models;
 
 namespace NeoDebug.ModelAdapters
 {
-    internal class AccountAdapter : AdapterBase, IVariableProvider
+    class AccountAdapter : AdapterBase, IVariableProvider
     {
         public readonly Account Item;
 

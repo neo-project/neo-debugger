@@ -8,7 +8,7 @@ using System.Collections.Generic;
 
 namespace NeoDebug
 {
-    internal partial class InteropService
+    partial class InteropService
     {
         private class StorageContext : ModelAdapters.AdapterBase, IVariableProvider
         {

@@ -7,7 +7,7 @@ using NeoFx.Models;
 
 namespace NeoDebug.ModelAdapters
 {
-    internal class DeployedContractAdapter : AdapterBase, IVariableProvider
+    class DeployedContractAdapter : AdapterBase, IVariableProvider
     {
         public readonly DeployedContract Item;
 

@@ -5,7 +5,7 @@ using System.Collections.Generic;
 
 namespace NeoDebug
 {
-    internal class ScriptTable : Neo.VM.IScriptTable
+    class ScriptTable : Neo.VM.IScriptTable
     {
         private readonly Dictionary<UInt160, byte[]> scripts = new Dictionary<UInt160, byte[]>();
 

@@ -6,7 +6,7 @@ using System.IO;
 namespace NeoDebug
 {
 
-    internal class Program
+    class Program
     {
         private static void Main(string[] args) => CommandLineApplication.Execute<Program>(args);
 

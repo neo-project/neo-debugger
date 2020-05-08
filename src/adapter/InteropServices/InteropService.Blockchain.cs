@@ -7,7 +7,7 @@ using System;
 
 namespace NeoDebug
 {
-    internal partial class InteropService
+    partial class InteropService
     {
         public void RegisterBlockchain(Action<string, Func<ExecutionEngine, bool>, int> register)
         {

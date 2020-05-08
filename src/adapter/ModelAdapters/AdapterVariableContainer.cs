@@ -6,7 +6,7 @@ using System.Collections.Generic;
 
 namespace NeoDebug.ModelAdapters
 {
-    internal class AdapterVariableContainer : IVariableContainer
+    class AdapterVariableContainer : IVariableContainer
     {
         private readonly IVariableContainer adapter;
 

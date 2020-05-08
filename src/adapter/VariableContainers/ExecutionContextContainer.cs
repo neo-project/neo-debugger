@@ -6,7 +6,7 @@ using System.Linq;
 
 namespace NeoDebug.VariableContainers
 {
-    internal class ExecutionContextContainer : IVariableContainer
+    class ExecutionContextContainer : IVariableContainer
     {
         private readonly IVariableContainerSession session;
         private readonly ExecutionContext context;
