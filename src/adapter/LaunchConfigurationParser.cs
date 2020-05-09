@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Text;
+using System.Threading.Tasks;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using NeoDebug.Models;
 using NeoFx;
@@ -15,10 +16,10 @@ namespace NeoDebug
 {
     class LaunchConfigurationParser
     {
-        public static DebugSession CreateDebugSession(LaunchArguments arguments, Action<DebugEvent> sendEvent, DebugSession.DebugView defaultDebugView)
+        public static async Task<DebugSession> CreateDebugSession(LaunchArguments arguments, Action<DebugEvent> sendEvent, DebugSession.DebugView defaultDebugView)
         {
             var config = arguments.ConfigurationProperties;
-            var contract = Contract.Load(config["program"].Value<string>());
+            var contract = await Contract.Load(config["program"].Value<string>()).ConfigureAwait(false);
 
             var returnTypes = ParseReturnTypes(config).ToList();
             var engine = CreateExecutionEngine(contract, config, sendEvent);

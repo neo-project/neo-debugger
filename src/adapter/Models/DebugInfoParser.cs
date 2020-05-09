@@ -8,6 +8,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace NeoDebug.Models
 {
@@ -197,29 +198,29 @@ namespace NeoDebug.Models
             };
         }
 
-        private static DebugInfo Load(Stream stream)
+        private static async Task<DebugInfo> Load(Stream stream)
         {
             using var streamReader = new StreamReader(stream);
             using var jsonReader = new JsonTextReader(streamReader);
-            var root = JObject.Load(jsonReader);
+            var root = await JObject.LoadAsync(jsonReader).ConfigureAwait(false);
             return root.ContainsKey("documents") ? Parse(root) : ParseLegacy(root);
         }
 
-        public static DebugInfo Load(string avmFileName)
+        public static async Task<DebugInfo> Load(string avmFileName)
         {
             var debugJsonFileName = Path.ChangeExtension(avmFileName, ".avmdbgnfo");
             if (File.Exists(debugJsonFileName))
             {
                 using var avmDbgNfoFile = ZipFile.OpenRead(debugJsonFileName);
                 using var debugJsonStream = avmDbgNfoFile.Entries[0].Open();
-                return Load(debugJsonStream);
+                return await Load(debugJsonStream).ConfigureAwait(false);
             }
 
             debugJsonFileName = Path.ChangeExtension(avmFileName, ".debug.json");
             if (File.Exists(debugJsonFileName))
             {
                 using var debugJsonStream = File.OpenRead(debugJsonFileName);
-                return Load(debugJsonStream);
+                return await Load(debugJsonStream).ConfigureAwait(false);
             }
 
             throw new ArgumentException($"{nameof(avmFileName)} debug info file doesn't exist");
