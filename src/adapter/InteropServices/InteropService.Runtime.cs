@@ -95,9 +95,9 @@ namespace NeoDebug
             IList<(string Name, string Type)> GetEventParamTypes(byte[] scriptHash, string _name)
             {
                 var _scriptHash = new UInt160(scriptHash);
-                if (events.TryGetValue((_scriptHash, _name), out var _eventDebugInfo))
+                if (events.TryGetValue((_scriptHash, _name), out var @event))
                 {
-                    return _eventDebugInfo.Parameters;
+                    return @event.Parameters;
                 }
 
                 return new List<(string name, string type)>();

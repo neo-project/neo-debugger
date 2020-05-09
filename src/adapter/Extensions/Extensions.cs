@@ -33,7 +33,7 @@ namespace NeoDebug
             return GetSequenceHashCode(array.AsSpan());
         }
 
-        public static IEnumerable<(string name, string type)> GetLocals(this MethodDebugInfo method)
+        public static IEnumerable<(string name, string type)> GetLocals(this DebugInfo.Method method)
             => method.Parameters.Concat(method.Variables);
 
         public static string ToHexString(this BigInteger bigInteger)

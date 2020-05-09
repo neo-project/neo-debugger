@@ -84,7 +84,7 @@ namespace NeoDebug
             }
         }
 
-        static IEnumerable<ContractArgument> ParseArguments(MethodDebugInfo method, Dictionary<string, JToken> config)
+        static IEnumerable<ContractArgument> ParseArguments(DebugInfo.Method method, Dictionary<string, JToken> config)
         {
             var args = GetArgsConfig();
             for (int i = 0; i < method.Parameters.Count; i++)

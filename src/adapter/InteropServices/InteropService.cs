@@ -23,12 +23,12 @@ namespace NeoDebug
         private readonly EmulatedStorage storage;
         private readonly WitnessChecker witnessChecker = null!;
         private readonly Action<OutputEvent> sendOutput;
-        private readonly IReadOnlyDictionary<(UInt160, string), EventDebugInfo> events;
+        private readonly IReadOnlyDictionary<(UInt160, string), DebugInfo.Event> events;
         private readonly Dictionary<uint, Func<ExecutionEngine, bool>> methods = new Dictionary<uint, Func<ExecutionEngine, bool>>();
         private readonly Dictionary<uint, string> methodNames = new Dictionary<uint, string>();
 
         public InteropService(IBlockchainStorage? blockchain, EmulatedStorage storage, TriggerType trigger, WitnessChecker witnessChecker, Action<OutputEvent> sendOutput,
-            IEnumerable<(UInt160 scriptHash, EventDebugInfo info)> events)
+            IEnumerable<(UInt160 scriptHash, DebugInfo.Event info)> events)
         {
             this.sendOutput = sendOutput;
             this.blockchain = blockchain;

@@ -74,11 +74,11 @@ namespace NeoDebug.Models
 
         private static DebugInfo Parse(JObject json)
         {
-            static EventDebugInfo ParseEvent(JToken token)
+            static DebugInfo.Event ParseEvent(JToken token)
             {
                 var (ns, name) = SplitComma(token.Value<string>("name"));
                 var @params = token["params"].Select(t => SplitComma(t.Value<string>()));
-                return new EventDebugInfo()
+                return new DebugInfo.Event()
                 {
                     Id = token.Value<string>("id"),
                     Name = name,
@@ -87,7 +87,7 @@ namespace NeoDebug.Models
                 };
             }
 
-            static SequencePoint ParseSequencePoint(string value, IList<string> documents)
+            static DebugInfo.SequencePoint ParseSequencePoint(string value, IList<string> documents)
             {
                 var matches = spRegex.Value.Match(value);
                 Debug.Assert(matches.Groups.Count == 7);
@@ -97,7 +97,7 @@ namespace NeoDebug.Models
                     return int.Parse(matches.Groups[i].Value);
                 }
 
-                return new SequencePoint
+                return new DebugInfo.SequencePoint
                 {
                     Address = ParseGroup(1),
                     Document = documents[ParseGroup(2)],
@@ -106,7 +106,7 @@ namespace NeoDebug.Models
                 };
             }
 
-            static MethodDebugInfo ParseMethod(JToken token, IList<string> documents)
+            static DebugInfo.Method ParseMethod(JToken token, IList<string> documents)
             {
                 var (ns, name) = SplitComma(token.Value<string>("name"));
                 var @params = token["params"].Select(t => SplitComma(t.Value<string>()));
@@ -115,7 +115,7 @@ namespace NeoDebug.Models
                 var range = token.Value<string>("range").Split('-');
                 Debug.Assert(range.Length == 2);
 
-                return new MethodDebugInfo()
+                return new DebugInfo.Method()
                 {
                     Id = token.Value<string>("id"),
                     Name = name,
@@ -143,10 +143,10 @@ namespace NeoDebug.Models
 
         private static DebugInfo ParseLegacy(JObject json)
         {
-            static EventDebugInfo ParseEvent(JToken token)
+            static DebugInfo.Event ParseEvent(JToken token)
             {
                 var @params = token["parameters"].Select(t => (t.Value<string>("name"), t.Value<string>("type")));
-                return new EventDebugInfo()
+                return new DebugInfo.Event()
                 {
                     Id = token.Value<string>("name"),
                     Name = token.Value<string>("display-name"),
@@ -155,9 +155,9 @@ namespace NeoDebug.Models
                 };
             }
 
-            static SequencePoint ParseSequencePoint(JToken token)
+            static DebugInfo.SequencePoint ParseSequencePoint(JToken token)
             {
-                return new SequencePoint
+                return new DebugInfo.SequencePoint
                 {
                     Address = token.Value<int>("address"),
                     Document = token.Value<string>("document"),
@@ -166,13 +166,13 @@ namespace NeoDebug.Models
                 };
             }
 
-            static MethodDebugInfo ParseMethod(JToken token)
+            static DebugInfo.Method ParseMethod(JToken token)
             {
                 var @params = token["parameters"].Select(t => (t.Value<string>("name"), t.Value<string>("type")));
                 var variables = token["variables"].Select(t => (t.Value<string>("name"), t.Value<string>("type")));
                 var sequencePoints = token["sequence-points"].Select(ParseSequencePoint);
 
-                return new MethodDebugInfo()
+                return new DebugInfo.Method()
                 {
                     Id = token.Value<string>("name"),
                     Name = token.Value<string>("display-name"),

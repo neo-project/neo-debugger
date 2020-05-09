@@ -17,7 +17,7 @@ namespace NeoDebug.Models
             DebugInfo = debugInfo;
         }
 
-        public MethodDebugInfo EntryPoint => DebugInfo.Methods.Single(m => m.Id == DebugInfo.Entrypoint);
+        public DebugInfo.Method EntryPoint => DebugInfo.Methods.Single(m => m.Id == DebugInfo.Entrypoint);
 
         public static Contract Load(string vmFileName)
         {
