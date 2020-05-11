@@ -1,0 +1,21 @@
+{
+    "name": "NeoVM Disassembly",
+    "scopeName": "source.disassembly",
+    "uuid": "5ae81d58-07d1-4701-ace7-f0383b06278e",
+    "patterns": [
+        {
+            "comment": "Address and opcode",
+            "name": "meta.instruction",
+            "match": "^([0-9]+) ([_A-Z0-9]+)",
+            "captures": {
+                "1": { "name": "constant.numeric" },
+                "2": { "name": "keyword.opcode" }
+            }
+        },
+        {
+            "comment": "End of line comment",
+            "name": "comment.line.number-sign",
+            "match": "#.*$"
+        }
+    ]
+}

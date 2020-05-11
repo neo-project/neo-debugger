@@ -2,19 +2,15 @@
 using Neo.VM.Types;
 using System;
 using System.Collections.Generic;
-using System.Numerics;
-using System.Text;
 
 namespace NeoDebug.VariableContainers
 {
     public class ByteArrayContainer : IVariableContainer
     {
-        private readonly IVariableContainerSession session;
         private readonly ReadOnlyMemory<byte> memory;
 
-        public ByteArrayContainer(IVariableContainerSession session, ReadOnlyMemory<byte> memory)
+        public ByteArrayContainer(ReadOnlyMemory<byte> memory)
         {
-            this.session = session;
             this.memory = memory;
         }
 
@@ -27,7 +23,7 @@ namespace NeoDebug.VariableContainers
 
         public static Variable Create(IVariableContainerSession session, ReadOnlyMemory<byte> memory, string? name, bool hashed = false)
         {
-            var container = new ByteArrayContainer(session, memory);
+            var container = new ByteArrayContainer(memory);
             var containerID = session.AddVariableContainer(container);
             var hash = hashed ? "#" : string.Empty;
 

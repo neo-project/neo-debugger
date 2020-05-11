@@ -6,7 +6,7 @@ using System.Linq;
 
 
 
-namespace NeoDebug.Adapter
+namespace NeoDebug
 {
     internal partial class InteropService
     {

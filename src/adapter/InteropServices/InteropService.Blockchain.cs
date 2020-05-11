@@ -1,14 +1,11 @@
 ﻿using Neo.VM;
 using NeoFx;
 using NeoFx.Models;
-using NeoFx.Storage;
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 
 
-namespace NeoDebug.Adapter
+namespace NeoDebug
 {
     internal partial class InteropService
     {

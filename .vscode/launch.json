@@ -15,7 +15,7 @@
             "outFiles": [
                 "${workspaceFolder}/src/extension/out/**/*.js"
             ],
-            "preLaunchTask": "build all"
+            // "preLaunchTask": "build all"
         },
         {
             "name": ".NET Core Attach",

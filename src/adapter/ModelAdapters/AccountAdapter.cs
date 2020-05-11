@@ -6,7 +6,7 @@ using NeoFx.Models;
 
 
 
-namespace NeoDebug.Adapter.ModelAdapters
+namespace NeoDebug.ModelAdapters
 {
     internal class AccountAdapter : AdapterBase, IVariableProvider
     {

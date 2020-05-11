@@ -5,7 +5,7 @@ using NeoFx.Models;
 
 
 
-namespace NeoDebug.Adapter.ModelAdapters
+namespace NeoDebug.ModelAdapters
 {
     class WitnessAdapter : AdapterBase, IVariableProvider
     {

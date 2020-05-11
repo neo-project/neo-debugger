@@ -3,7 +3,7 @@ using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using System;
 using System.IO;
 
-namespace NeoDebug.Adapter
+namespace NeoDebug
 {
 
     internal class Program
@@ -17,6 +17,9 @@ namespace NeoDebug.Adapter
 
         [Option]
         private bool Log { get; }
+
+        [Option("-v|--debug-view")]
+        private string DebugView { get; } = string.Empty;
 
         public Program()
         {
@@ -40,12 +43,18 @@ namespace NeoDebug.Adapter
                 System.Diagnostics.Debugger.Launch();
             }
 
+            var defaultDebugView = DebugView.Length > 0
+                ? Enum.Parse<DebugSession.DebugView>(DebugView, true)
+                : DebugSession.DebugView.Source;
+
+            if (defaultDebugView == DebugSession.DebugView.Toggle)
+                throw new ArgumentException(nameof(DebugView));
+
             var adapter = new DebugAdapter(
                 Console.OpenStandardInput(),
                 Console.OpenStandardOutput(),
-                DebugExecutionEngine.Create,
-                Crypto.Hash160,
-                (cat, msg) => LogMessage(msg, cat));
+                (cat, msg) => LogMessage(msg, cat),
+                defaultDebugView);
 
             adapter.Run();
         }

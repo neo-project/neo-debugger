@@ -1,8 +1,8 @@
 ﻿using Neo.VM;
-using NeoDebug.Adapter.ModelAdapters;
+using NeoDebug.ModelAdapters;
 using System;
 
-namespace NeoDebug.Adapter
+namespace NeoDebug
 {
     internal partial class InteropService
     {

@@ -4,12 +4,11 @@ using NeoDebug.VariableContainers;
 using NeoFx;
 using NeoFx.Models;
 using NeoFx.Storage;
-using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 
-namespace NeoDebug.Adapter.ModelAdapters
+namespace NeoDebug.ModelAdapters
 {
     internal class TransactionAdapter : AdapterBase, IScriptContainer, IVariableProvider, IVariableContainer
     {

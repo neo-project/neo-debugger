@@ -10,9 +10,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace NeoDebug.Adapter
+namespace NeoDebug
 {
-    internal class DebugExecutionEngine : ExecutionEngine, IExecutionEngine
+    class DebugExecutionEngine : ExecutionEngine
     {
         private readonly InteropService interopService;
 
@@ -78,28 +78,23 @@ namespace NeoDebug.Adapter
             var container = new ModelAdapters.TransactionAdapter(tx);
 
             var table = new ScriptTable();
-            table.Add(contract);
+            table.Add(contract.Script);
 
             var interopService = new InteropService(contract, blockchain, arguments.ConfigurationProperties, sendOutput);
             return new DebugExecutionEngine(container, table, interopService);
         }
 
-        VMState IExecutionEngine.State { get => State; set { State = value; } }
+        public void ExecuteInstruction() => ExecuteNext();
 
-        IEnumerable<StackItem> IExecutionEngine.ResultStack => ResultStack;
+        public IVariableContainer GetStorageContainer(IVariableContainerSession session, byte[] scriptHash)
+            => GetStorageContainer(session, new UInt160(scriptHash));
 
-        ExecutionContext IExecutionEngine.CurrentContext => CurrentContext;
-
-        RandomAccessStack<ExecutionContext> IExecutionEngine.InvocationStack => InvocationStack;
-
-        ExecutionContext IExecutionEngine.LoadScript(byte[] script, int rvcount) => LoadScript(script, rvcount);
-
-        void IExecutionEngine.ExecuteNext() => ExecuteNext();
-
-        IVariableContainer IExecutionEngine.GetStorageContainer(IVariableContainerSession session)
-            => interopService.GetStorageContainer(session);
+        public IVariableContainer GetStorageContainer(IVariableContainerSession session, UInt160 scriptHash)
+            => interopService.GetStorageContainer(session, scriptHash);
 
         public EvaluateResponse EvaluateStorageExpression(IVariableContainerSession session, EvaluateArguments args)
             => interopService.EvaluateStorageExpression(session, args);
+
+        public string GetMethodName(uint methodHash) => interopService.GetMethodName(methodHash);
     }
 }

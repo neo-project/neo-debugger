@@ -1,40 +1,22 @@
 ﻿using NeoDebug.Models;
+using NeoFx;
 using System;
 using System.Collections.Generic;
 
-namespace NeoDebug.Adapter
+namespace NeoDebug
 {
     internal class ScriptTable : Neo.VM.IScriptTable
     {
-        private readonly Dictionary<int, byte[]> scripts = new Dictionary<int, byte[]>();
+        private readonly Dictionary<UInt160, byte[]> scripts = new Dictionary<UInt160, byte[]>();
 
-        public void Add(Contract contract)
-        {
-            Add(contract.ScriptHash, contract.Script);
-        }
+        public void Add(byte[] script) 
+            => scripts.Add(Crypto.HashScript(script), script);
 
-        // Inspired by https://stackoverflow.com/a/7244522
-        private static int GetHashCode(Span<byte> span)
-        {
-            unchecked
-            {
-                int hash = 17;
-                for (int i = 0; i < span.Length; i++)
-                {
-                    hash = (hash * 23) + span[i];
-                }
-                return hash;
-            }
-        }
+        public byte[]? GetScript(byte[] scriptHash)
+            => GetScript(new UInt160(scriptHash));
 
-        public void Add(byte[] key, byte[] script)
-        {
-            scripts[GetHashCode(key)] = script;
-        }
-
-        public byte[] GetScript(byte[] key)
-        {
-            return scripts[GetHashCode(key)];
-        }
+        public byte[]? GetScript(in UInt160 scriptHash)
+            => scripts.TryGetValue(scriptHash, out var script)
+                ? script : null;
     }
 }

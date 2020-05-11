@@ -5,7 +5,7 @@ using NeoFx.Models;
 
 
 
-namespace NeoDebug.Adapter.ModelAdapters
+namespace NeoDebug.ModelAdapters
 {
     internal class DeployedContractAdapter : AdapterBase, IVariableProvider
     {

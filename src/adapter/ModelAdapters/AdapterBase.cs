@@ -3,7 +3,7 @@ using System;
 
 
 
-namespace NeoDebug.Adapter.ModelAdapters
+namespace NeoDebug.ModelAdapters
 {
     internal class AdapterBase : StackItem
     {

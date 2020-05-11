@@ -1,14 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Text;
 using Neo.VM;
 using Neo.VM.Types;
 using NeoFx;
 
-
-
-namespace NeoDebug.Adapter
+namespace NeoDebug
 {
     static class Extensions
     {
@@ -77,6 +73,18 @@ namespace NeoDebug.Adapter
 
             value = default;
             return false;
+        }
+
+        public static void EmitAppCall(this ScriptBuilder @this, UInt160 scriptHash, bool useTailCall = false)
+        {
+            if (scriptHash.TryToArray(out var array))
+            {
+                @this.EmitAppCall(array, useTailCall);
+            }
+            else
+            {
+                throw new Exception("UInt160.TryToArray failed");
+            }
         }
 
         public delegate StackItem WrapStackItem<T>(in T item);

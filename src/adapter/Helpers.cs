@@ -2,6 +2,7 @@
 using Neo.VM;
 using NeoDebug.Models;
 using NeoDebug.VariableContainers;
+using NeoFx;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -29,6 +30,11 @@ namespace NeoDebug
             }
         }
 
+        public static int GetSequenceHashCode(this byte[] array)
+        {
+            return Helpers.GetSequenceHashCode(array.AsSpan());
+        }
+
         public static IEnumerable<(string name, string type)> GetLocals(this MethodDebugInfo method) => method.Parameters.Concat(method.Variables);
 
         public static string ToHexString(this BigInteger bigInteger)
@@ -36,6 +42,9 @@ namespace NeoDebug
 
         public static string ToHexString(this ReadOnlySpan<byte> span)
             => ToHexString(new BigInteger(span));
+
+        public static string ToHexString(this byte[] array)
+            => ToHexString(array.AsSpan());
 
         public static bool TryParseBigInteger(this string value, out BigInteger bigInteger)
         {
@@ -93,7 +102,7 @@ namespace NeoDebug
 
         internal static MethodDebugInfo? GetMethod(this Contract contract, ExecutionContext context)
         {
-            if (contract.ScriptHash.AsSpan().SequenceEqual(context.ScriptHash))
+            if (contract.ScriptHash == new UInt160(context.ScriptHash))
             {
                 var ip = context.InstructionPointer;
                 return contract.DebugInfo.Methods
@@ -119,7 +128,7 @@ namespace NeoDebug
 
         internal static bool CheckSequencePoint(this Contract contract, ExecutionContext context)
         {
-            if (contract.ScriptHash.AsSpan().SequenceEqual(context.ScriptHash))
+            if (contract.ScriptHash == new UInt160(context.ScriptHash))
             {
                 return (contract.GetMethod(context)?.SequencePoints ?? new List<SequencePoint>())
                     .Any(sp => sp.Address == context.InstructionPointer);
@@ -167,7 +176,7 @@ namespace NeoDebug
                 { "byte[]", "ByteArray" },
             }.ToImmutableDictionary();
 
-        public static (string? typeHint, int? index, string name) ParseEvalExpression(string expression)
+        public static (string? typeHint, uint? index, string name) ParseEvalExpression(string expression)
         {
             static (string? typeHint, string text) ParsePrefix(string input)
             {
@@ -185,14 +194,15 @@ namespace NeoDebug
                 return (null, input);
             }
 
-            static (int? index, string text) ParseSuffix(string input)
+            static (uint? index, string text) ParseSuffix(string input)
             {
                 var match = indexRegex.Match(input);
                 if (match.Success)
                 {
                     var matchValue = match.Groups[0].Value;
                     var indexValue = match.Groups[1].Value;
-                    if (int.TryParse(indexValue, out var index))
+                    if (uint.TryParse(indexValue, out var index)
+                        && index < int.MaxValue)
                     {
                         return (index, input.Substring(0, input.Length - matchValue.Length));
                     }

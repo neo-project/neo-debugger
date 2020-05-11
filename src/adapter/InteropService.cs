@@ -14,7 +14,7 @@ using System.Numerics;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace NeoDebug.Adapter
+namespace NeoDebug
 {
     internal partial class InteropService : IInteropService
     {
@@ -25,15 +25,12 @@ namespace NeoDebug.Adapter
         }
 
         private readonly Dictionary<uint, Func<ExecutionEngine, bool>> methods = new Dictionary<uint, Func<ExecutionEngine, bool>>();
+        private readonly Dictionary<uint, string> methodNames = new Dictionary<uint, string>();
         private readonly EmulatedStorage storage;
 
         private readonly Contract contract;
-        private readonly UInt160 scriptHash;
         private readonly IBlockchainStorage? blockchain;
         private readonly Action<OutputEvent> sendOutput;
-
-        //private readonly Dictionary<int, (byte[] key, byte[] value, bool constant)> storage =
-        //    new Dictionary<int, (byte[] key, byte[] value, bool constant)>();
 
         private static IEnumerable<(byte[] key, byte[] value, bool constant)>
             GetStorage(Dictionary<string, JToken> config)
@@ -75,11 +72,10 @@ namespace NeoDebug.Adapter
             this.sendOutput = sendOutput;
             this.blockchain = blockchain;
             storage = new EmulatedStorage(blockchain);
-            scriptHash = new UInt160(contract.ScriptHash);
 
             foreach (var item in GetStorage(config))
             {
-                var storageKey = new StorageKey(scriptHash, item.key);
+                var storageKey = new StorageKey(contract.ScriptHash, item.key);
                 storage.TryPut(storageKey, item.value, item.constant);
             }
 
@@ -114,13 +110,12 @@ namespace NeoDebug.Adapter
             RegisterTransaction(Register);
         }
 
-        internal IVariableContainer GetStorageContainer(IVariableContainerSession session)
+        internal IVariableContainer GetStorageContainer(IVariableContainerSession session, UInt160 scriptHash)
         {
             return new EmulatedStorageContainer(session, scriptHash, storage);
         }
 
         static readonly Regex storageRegex = new Regex(@"^\$storage\[([0-9a-fA-F]{8})\]\.(key|value)$");
-
 
         private EvaluateResponse EvaluateStorageExpression(IVariableContainerSession session, ReadOnlyMemory<byte> memory, string? typeHint)
         {
@@ -168,7 +163,7 @@ namespace NeoDebug.Adapter
         {
             bool TryFindStorage(int keyHash, out (ReadOnlyMemory<byte> key, StorageItem item) value)
             {
-                foreach (var (key, item) in storage.EnumerateStorage(scriptHash))
+                foreach (var (key, item) in storage.EnumerateStorage(contract.ScriptHash))
                 {
                     if (key.Span.GetSequenceHashCode() == keyHash)
                     {
@@ -208,6 +203,17 @@ namespace NeoDebug.Adapter
             }
 
             methods.Add(value, handler);
+            methodNames.Add(value, methodName);
+        }
+
+        public string GetMethodName(uint methodHash)
+        {
+            if (methodNames.TryGetValue(methodHash, out var methodName))
+            {
+                return methodName;
+            }
+
+            return string.Empty;
         }
 
         bool IInteropService.Invoke(byte[] method, ExecutionEngine engine)

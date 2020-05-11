@@ -26,29 +26,6 @@ steps:
     useGlobalJson: true
     
 - task: DotNetCoreCLI@2
-  displayName: 'dotnet pack neodebug library'
-  inputs:
-    command: 'pack'
-    packagesToPack: './src/library/*.csproj'
-    packDirectory: '$(Build.ArtifactStagingDirectory)/library'
-    includesymbols: true
-    versioningScheme: 'off'
-
-- task: PublishBuildArtifacts@1
-  displayName: 'publish neodebug library nuget artifacts'
-  inputs:
-    pathToPublish: '$(Build.ArtifactStagingDirectory)/library'
-    artifactName: 'nuget-package'
-
-- task: NuGetCommand@2
-  displayName: 'NuGet push neodebug library to NeoDevPackages feed'
-  inputs:
-    command: 'push'
-    packagesToPush: '$(Build.ArtifactStagingDirectory)/library/*.nupkg;!$(Build.ArtifactStagingDirectory)/library/*.symbols.nupkg'
-    nuGetFeedType: 'internal'
-    publishVstsFeed: '4b2bd186-f7a1-4f00-a22c-521ae5c47cd7/fc59ee4d-b5ed-4a8d-9520-240cd3712671'
-    
-- task: DotNetCoreCLI@2
   displayName: 'dotnet pack neodebug adapter'
   inputs:
     command: 'pack'
@@ -83,10 +60,10 @@ steps:
     workingDir: './src/extension' 
 
 - task: Npm@1
-  displayName: 'npm run package-vsix'
+  displayName: 'npm run package'
   inputs:
     command: 'custom'
-    customCommand: 'run package-vsix'
+    customCommand: 'run package'
     workingDir: './src/extension' 
 
 - task: CopyFiles@2
