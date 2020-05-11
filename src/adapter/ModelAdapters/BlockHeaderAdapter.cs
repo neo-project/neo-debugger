@@ -9,7 +9,7 @@ using System.Collections.Generic;
 
 namespace NeoDebug.ModelAdapters
 {
-    internal class BlockHeaderAdapter : AdapterBase, IVariableProvider, IVariableContainer
+    class BlockHeaderAdapter : AdapterBase, IVariableProvider, IVariableContainer
     {
         public readonly BlockHeader Item;
 

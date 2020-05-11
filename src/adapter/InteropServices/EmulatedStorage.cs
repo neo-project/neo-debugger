@@ -4,10 +4,12 @@ using NeoFx.Storage;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 
 namespace NeoDebug
 {
-    internal class EmulatedStorage
+
+    class EmulatedStorage
     {
         private class StorageKeyEqualityComparer : IEqualityComparer<StorageKey>
         {
@@ -18,14 +20,7 @@ namespace NeoDebug
             }
 
             public int GetHashCode([DisallowNull] StorageKey obj)
-            {
-                var hashCode = obj.ScriptHash.GetHashCode();
-                for (int i = 0; i < obj.Key.Length; i++)
-                {
-                    hashCode = HashCode.Combine(hashCode, obj.Key.Span[i]);
-                }
-                return hashCode;
-            }
+                => HashCode.Combine(obj.ScriptHash.GetHashCode(), obj.Key.Span.GetSequenceHashCode());
         }
 
         private readonly IBlockchainStorage? blockchain;
@@ -33,9 +28,13 @@ namespace NeoDebug
         private readonly Dictionary<StorageKey, (bool deleted, StorageItem item)> storage =
             new Dictionary<StorageKey, (bool, StorageItem)>(new StorageKeyEqualityComparer());
 
-        public EmulatedStorage(IBlockchainStorage? blockchain)
+        public EmulatedStorage(IBlockchainStorage? blockchain, IEnumerable<(StorageKey key, StorageItem value)> storage)
         {
             this.blockchain = blockchain;
+            foreach (var (key, value) in storage)
+            {
+                this.storage.Add(key, (false, value));
+            }
         }
 
         public IEnumerable<(ReadOnlyMemory<byte> key, StorageItem item)> EnumerateStorage(UInt160 scriptHash)

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace NeoDebug.VariableContainers
 {
-    internal class NeoArrayContainer : IVariableContainer
+    class NeoArrayContainer : IVariableContainer
     {
         private readonly IVariableContainerSession session;
         private readonly Neo.VM.Types.Array array;

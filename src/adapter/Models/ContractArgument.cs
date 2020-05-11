@@ -1,4 +1,5 @@
 ﻿using Neo.VM;
+using NeoFx.Models;
 using System;
 using System.Linq;
 using System.Numerics;

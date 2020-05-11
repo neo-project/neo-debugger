@@ -10,7 +10,7 @@ using System.Diagnostics;
 
 namespace NeoDebug.ModelAdapters
 {
-    internal class TransactionAdapter : AdapterBase, IScriptContainer, IVariableProvider, IVariableContainer
+    class TransactionAdapter : AdapterBase, IScriptContainer, IVariableProvider, IVariableContainer
     {
         public readonly Transaction Item;
 

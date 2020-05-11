@@ -6,9 +6,9 @@ using System.Collections.Generic;
 
 namespace NeoDebug
 {
-    internal class EmulatedStorageContainer : IVariableContainer
+    class EmulatedStorageContainer : IVariableContainer
     {
-        internal class KvpContainer : IVariableContainer
+        class KvpContainer : IVariableContainer
         {
             private readonly string hashCode;
             private readonly ReadOnlyMemory<byte> key;

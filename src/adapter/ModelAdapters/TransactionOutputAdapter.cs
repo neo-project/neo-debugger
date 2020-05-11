@@ -9,7 +9,7 @@ using System.Collections.Generic;
 
 namespace NeoDebug.ModelAdapters
 {
-    internal class TransactionOutputAdatper : AdapterBase, IVariableProvider, IVariableContainer
+    class TransactionOutputAdatper : AdapterBase, IVariableProvider, IVariableContainer
     {
         public readonly TransactionOutput Item;
 

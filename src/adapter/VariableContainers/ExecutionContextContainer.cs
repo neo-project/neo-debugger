@@ -6,18 +6,18 @@ using System.Linq;
 
 namespace NeoDebug.VariableContainers
 {
-    internal class ExecutionContextContainer : IVariableContainer
+    class ExecutionContextContainer : IVariableContainer
     {
         private readonly IVariableContainerSession session;
         private readonly ExecutionContext context;
-        private readonly MethodDebugInfo? method;
+        private readonly DebugInfo.Method? method;
 
         public ExecutionContextContainer(IVariableContainerSession session, ExecutionContext context, Contract contract)
             : this(session, context, contract.GetMethod(context))
         {
         }
 
-        public ExecutionContextContainer(IVariableContainerSession session, ExecutionContext context, MethodDebugInfo? method)
+        public ExecutionContextContainer(IVariableContainerSession session, ExecutionContext context, DebugInfo.Method? method)
         {
             this.session = session;
             this.context = context;

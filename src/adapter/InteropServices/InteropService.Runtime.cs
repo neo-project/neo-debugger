@@ -1,30 +1,18 @@
 ﻿using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.VM;
+using NeoDebug.Models;
+using NeoFx;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq;
 using System.Text;
 
 namespace NeoDebug
 {
-    internal enum StackItemType : byte
+    partial class InteropService
     {
-        ByteArray = 0x00,
-        Boolean = 0x01,
-        Integer = 0x02,
-        InteropInterface = 0x40,
-        Array = 0x80,
-        Struct = 0x81,
-        Map = 0x82,
-    }
-
-    internal partial class InteropService
-    {
-        private readonly TriggerType trigger = TriggerType.Application;
-        private readonly bool checkWitnessBypass = false;
-        private readonly bool checkWitnessBypassValue;
-        private readonly IEnumerable<byte[]> witnesses = Enumerable.Empty<byte[]>();
-
         private void RegisterRuntime(Action<string, Func<ExecutionEngine, bool>, int> register)
         {
             register("Neo.Runtime.GetTrigger", Runtime_GetTrigger, 1);
@@ -59,7 +47,7 @@ namespace NeoDebug
         {
             var evalStack = engine.CurrentContext.EvaluationStack;
             var item = evalStack.Pop();
-            if (SerializationHelpers.TrySerialize(item, engine.MaxItemSize, out var array))
+            if (TrySerialize(item, engine.MaxItemSize, out var array))
             {
                 evalStack.Push(array);
                 return true;
@@ -72,7 +60,7 @@ namespace NeoDebug
         {
             var evalStack = engine.CurrentContext.EvaluationStack;
             var data = evalStack.Pop().GetByteArray();
-            if (SerializationHelpers.TryDeserialize(data, engine, out var item))
+            if (TryDeserialize(data, engine, out var item))
             {
                 evalStack.Push(item);
                 return true;
@@ -104,10 +92,21 @@ namespace NeoDebug
                 };
             }
 
+            IList<(string Name, string Type)> GetEventParamTypes(byte[] scriptHash, string _name)
+            {
+                var _scriptHash = new UInt160(scriptHash);
+                if (events.TryGetValue((_scriptHash, _name), out var @event))
+                {
+                    return @event.Parameters;
+                }
+
+                return new List<(string name, string type)>();
+            }
+
             if (engine.CurrentContext.EvaluationStack.Pop() is Neo.VM.Types.Array state && state.Count >= 1)
             {
                 var name = Encoding.UTF8.GetString(state[0].GetByteArray());
-                var paramTypes = contract.GetEvent(name)?.Parameters ?? new List<(string name, string type)>();
+                var paramTypes = GetEventParamTypes(engine.CurrentContext.ScriptHash, name);
                 var @params = new Newtonsoft.Json.Linq.JArray();
                 for (int i = 1; i < state.Count; i++)
                 {
@@ -128,26 +127,9 @@ namespace NeoDebug
             var evalStack = engine.CurrentContext.EvaluationStack;
             var hash = evalStack.Pop().GetByteArray();
 
-            if (checkWitnessBypass)
-            {
-                evalStack.Push(checkWitnessBypassValue);
-                return true;
-            }
-            else
-            {
-                var hashSpan = hash.AsSpan();
-                foreach (var witness in witnesses)
-                {
-                    if (hashSpan.SequenceEqual(witness))
-                    {
-                        evalStack.Push(true);
-                        return true;
-                    }
-                }
-
-                evalStack.Push(false);
-                return true;
-            }
+            var result = witnessChecker.Check(hash);
+            evalStack.Push(result);
+            return true;
         }
 
         private bool Runtime_GetTrigger(ExecutionEngine engine)
@@ -170,6 +152,204 @@ namespace NeoDebug
             }
 
             return false;
+        }
+
+        // This code is nearly identical to the code from neo code base. As much as I would like to rewrite it 
+        // for efficiency, compatibility with existing implementation is higher priority.
+
+        static bool TrySerialize(StackItem stackItem, uint maxItemSize, [NotNullWhen(true)] out byte[]? array)
+        {
+            using (var ms = new MemoryStream())
+            using (var writer = new BinaryWriter(ms))
+            {
+                try
+                {
+                    SerializeStackItem(stackItem, writer);
+                }
+                catch (NotSupportedException)
+                {
+                    array = null!;
+                    return false;
+                }
+
+                writer.Flush();
+                if (ms.Length <= maxItemSize)
+                {
+                    array = ms.ToArray();
+                    return true;
+                }
+            }
+
+            array = null;
+            return false;
+        }
+
+        static void SerializeStackItem(StackItem item, BinaryWriter writer)
+        {
+            List<StackItem> serialized = new List<StackItem>();
+            Stack<StackItem> unserialized = new Stack<StackItem>();
+            unserialized.Push(item);
+            while (unserialized.Count > 0)
+            {
+                item = unserialized.Pop();
+                switch (item)
+                {
+                    case Neo.VM.Types.ByteArray _:
+                        writer.Write((byte)StackItemType.ByteArray);
+                        writer.WriteVarBytes(item.GetByteArray());
+                        break;
+                    case Neo.VM.Types.Boolean _:
+                        writer.Write((byte)StackItemType.Boolean);
+                        writer.Write(item.GetBoolean());
+                        break;
+                    case Neo.VM.Types.Integer _:
+                        writer.Write((byte)StackItemType.Integer);
+                        writer.WriteVarBytes(item.GetByteArray());
+                        break;
+                    case Neo.VM.Types.InteropInterface _:
+                        throw new NotSupportedException();
+                    case Neo.VM.Types.Array array:
+                        if (serialized.Any(p => ReferenceEquals(p, array)))
+                            throw new NotSupportedException();
+                        serialized.Add(array);
+                        if (array is Neo.VM.Types.Struct)
+                            writer.Write((byte)StackItemType.Struct);
+                        else
+                            writer.Write((byte)StackItemType.Array);
+                        writer.WriteVarInt(array.Count);
+                        for (int i = array.Count - 1; i >= 0; i--)
+                            unserialized.Push(array[i]);
+                        break;
+                    case Neo.VM.Types.Map map:
+                        if (serialized.Any(p => ReferenceEquals(p, map)))
+                            throw new NotSupportedException();
+                        serialized.Add(map);
+                        writer.Write((byte)StackItemType.Map);
+                        writer.WriteVarInt(map.Count);
+                        foreach (var pair in map.Reverse())
+                        {
+                            unserialized.Push(pair.Value);
+                            unserialized.Push(pair.Key);
+                        }
+                        break;
+                }
+            }
+        }
+
+        public static bool TryDeserialize(byte[] data, ExecutionEngine engine, [NotNullWhen(true)] out StackItem? item)
+        {
+            using MemoryStream ms = new MemoryStream(data, false);
+            using BinaryReader reader = new BinaryReader(ms);
+
+            try
+            {
+                item = DeserializeStackItem(reader, engine);
+                return true;
+            }
+            catch (FormatException)
+            {
+                item = null!;
+                return false;
+            }
+            catch (IOException)
+            {
+                item = null!;
+                return false;
+            }
+        }
+
+        private static StackItem DeserializeStackItem(BinaryReader reader, ExecutionEngine engine)
+        {
+            Stack<StackItem> deserialized = new Stack<StackItem>();
+            int undeserialized = 1;
+            while (undeserialized-- > 0)
+            {
+                StackItemType type = (StackItemType)reader.ReadByte();
+                switch (type)
+                {
+                    case StackItemType.ByteArray:
+                        deserialized.Push(new Neo.VM.Types.ByteArray(reader.ReadVarBytes()));
+                        break;
+                    case StackItemType.Boolean:
+                        deserialized.Push(new Neo.VM.Types.Boolean(reader.ReadBoolean()));
+                        break;
+                    case StackItemType.Integer:
+                        deserialized.Push(new Neo.VM.Types.Integer(new System.Numerics.BigInteger(reader.ReadVarBytes())));
+                        break;
+                    case StackItemType.Array:
+                    case StackItemType.Struct:
+                        {
+                            int count = (int)reader.ReadVarInt(engine.MaxArraySize);
+                            deserialized.Push(new ContainerPlaceholder
+                            {
+                                Type = type,
+                                ElementCount = count
+                            });
+                            undeserialized += count;
+                        }
+                        break;
+                    case StackItemType.Map:
+                        {
+                            int count = (int)reader.ReadVarInt(engine.MaxArraySize);
+                            deserialized.Push(new ContainerPlaceholder
+                            {
+                                Type = type,
+                                ElementCount = count
+                            });
+                            undeserialized += count * 2;
+                        }
+                        break;
+                    default:
+                        throw new FormatException();
+                }
+            }
+            Stack<StackItem> stack_temp = new Stack<StackItem>();
+            while (deserialized.Count > 0)
+            {
+                StackItem item = deserialized.Pop();
+                if (item is ContainerPlaceholder placeholder)
+                {
+                    switch (placeholder.Type)
+                    {
+                        case StackItemType.Array:
+                            var array = new Neo.VM.Types.Array();
+                            for (int i = 0; i < placeholder.ElementCount; i++)
+                                array.Add(stack_temp.Pop());
+                            item = array;
+                            break;
+                        case StackItemType.Struct:
+                            var @struct = new Neo.VM.Types.Struct();
+                            for (int i = 0; i < placeholder.ElementCount; i++)
+                                @struct.Add(stack_temp.Pop());
+                            item = @struct;
+                            break;
+                        case StackItemType.Map:
+                            var map = new Neo.VM.Types.Map();
+                            for (int i = 0; i < placeholder.ElementCount; i++)
+                            {
+                                StackItem key = stack_temp.Pop();
+                                StackItem value = stack_temp.Pop();
+                                map.Add(key, value);
+                            }
+                            item = map;
+                            break;
+                    }
+                }
+                stack_temp.Push(item);
+            }
+            return stack_temp.Peek();
+        }
+
+        class ContainerPlaceholder : StackItem
+        {
+            public StackItemType Type;
+            public int ElementCount;
+
+            public override bool Equals(StackItem other) => throw new NotSupportedException();
+
+            public override bool GetBoolean() => throw new NotImplementedException();
+
+            public override byte[] GetByteArray() => throw new NotSupportedException();
         }
     }
 }

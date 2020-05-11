@@ -5,9 +5,9 @@ using System.Linq;
 
 namespace NeoDebug.VariableContainers
 {
-    internal class NeoMapContainer : IVariableContainer
+    class NeoMapContainer : IVariableContainer
     {
-        internal class KvpContainer : IVariableContainer
+        class KvpContainer : IVariableContainer
         {
             private readonly IVariableContainerSession session;
             private readonly StackItem key;

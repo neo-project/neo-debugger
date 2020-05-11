@@ -36,8 +36,9 @@ namespace NeoDebug
             InitializeProtocolClient(@in, @out);
             Protocol.LogMessage += (sender, args) => this.logger(args.Category, args.Message);
 
-            Protocol.RegisterRequestType<DebugViewRequest, DebugViewArguments>(a => {
-                HandleDebugViewRequest(a.Arguments);               
+            Protocol.RegisterRequestType<DebugViewRequest, DebugViewArguments>(a =>
+            {
+                HandleDebugViewRequest(a.Arguments);
             });
         }
 
@@ -61,20 +62,18 @@ namespace NeoDebug
             };
         }
 
-        protected override LaunchResponse HandleLaunchRequest(LaunchArguments arguments)
+        protected override async void HandleLaunchRequestAsync(IRequestResponder<LaunchArguments> responder)
         {
             try
             {
-                var programFileName = arguments.ConfigurationProperties["program"].Value<string>();
-                var contract = Contract.Load(programFileName);
-                session = DebugSession.Create(contract, arguments, Protocol.SendEvent, defaultDebugView);
-
-                return new LaunchResponse();
+                session = await LaunchConfigurationParser.CreateDebugSession(responder.Arguments, Protocol.SendEvent, defaultDebugView)
+                    .ConfigureAwait(false);
+                responder.SetResponse(new LaunchResponse());
             }
             catch (Exception ex)
             {
                 Log(ex.Message, LogCategory.DebugAdapterOutput);
-                throw new ProtocolException(ex.Message, ex);
+                responder.SetError(new ProtocolException(ex.Message, ex));
             }
         }
 

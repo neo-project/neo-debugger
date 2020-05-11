@@ -1,7 +1,7 @@
-﻿using Neo.VM;
-using NeoFx;
+﻿using NeoFx;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace NeoDebug.Models
 {
@@ -18,26 +18,16 @@ namespace NeoDebug.Models
             DebugInfo = debugInfo;
         }
 
-        public MethodDebugInfo EntryPoint => DebugInfo.Methods.Single(m => m.Id == DebugInfo.Entrypoint);
+        public DebugInfo.Method EntryPoint => DebugInfo.Methods.Single(m => m.Id == DebugInfo.Entrypoint);
 
-        public byte[] BuildInvokeScript(ContractArgument[] arguments)
+        public static async Task<Contract> Load(string vmFileName)
         {
-            using var builder = new ScriptBuilder();
-            for (int i = arguments.Length - 1; i >= 0; i--)
-            {
-                arguments[i].EmitPush(builder);
-            }
+            var scriptTask = File.ReadAllBytesAsync(vmFileName);
+            var debugInfoTask = DebugInfoParser.Load(vmFileName);
 
-            builder.EmitAppCall(ScriptHash);
-            return builder.ToArray();
-        }
+            await Task.WhenAll(scriptTask, debugInfoTask).ConfigureAwait(false);
 
-        public static Contract Load(string vmFileName)
-        {
-            var script = File.ReadAllBytes(vmFileName);
-            var debugInfo = DebugInfoParser.Load(vmFileName);
-
-            return new Contract(script, debugInfo);
+            return new Contract(scriptTask.Result, debugInfoTask.Result);
         }
     }
 }

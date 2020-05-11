@@ -15,7 +15,7 @@ namespace NeoDebug
         {
             sourceBreakpoints[source] = breakpoints.ToImmutableHashSet();
             scriptBreakpoints = null;
-        } 
+        }
 
         public IReadOnlyDictionary<UInt160, ImmutableHashSet<int>> GetBreakpoints(Contract contract)
         {

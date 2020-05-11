@@ -7,7 +7,7 @@ using NeoFx.Models;
 
 namespace NeoDebug.ModelAdapters
 {
-    internal class BlockAdapter : AdapterBase, IVariableProvider
+    class BlockAdapter : AdapterBase, IVariableProvider
     {
         public readonly Block Item;
 

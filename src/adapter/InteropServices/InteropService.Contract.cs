@@ -6,7 +6,7 @@ using System;
 
 namespace NeoDebug
 {
-    internal partial class InteropService
+    partial class InteropService
     {
         public static void RegisterContract(Action<string, Func<ExecutionEngine, bool>, int> register)
         {

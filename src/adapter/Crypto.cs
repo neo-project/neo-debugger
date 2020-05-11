@@ -7,7 +7,7 @@ namespace NeoDebug
     class Crypto : ICrypto
     {
         static readonly Lazy<ICrypto> @default = new Lazy<ICrypto>(() => new Crypto());
-        public static ICrypto Default = @default.Value; 
+        public static ICrypto Default = @default.Value;
 
         public static byte[] Hash256(byte[] message)
         {

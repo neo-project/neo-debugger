@@ -8,7 +8,7 @@ using System.Collections.Generic;
 
 namespace NeoDebug.ModelAdapters
 {
-    internal class CoinReferenceAdapter : AdapterBase, IVariableProvider, IVariableContainer
+    class CoinReferenceAdapter : AdapterBase, IVariableProvider, IVariableContainer
     {
         public readonly CoinReference Item;
 

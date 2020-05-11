@@ -4,7 +4,7 @@ using System;
 
 namespace NeoDebug
 {
-    internal partial class InteropService
+    partial class InteropService
     {
         public void RegisterAccount(Action<string, Func<ExecutionEngine, bool>, int> register)
         {

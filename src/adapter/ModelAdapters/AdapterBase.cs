@@ -5,7 +5,7 @@ using System;
 
 namespace NeoDebug.ModelAdapters
 {
-    internal class AdapterBase : StackItem
+    class AdapterBase : StackItem
     {
         public override bool Equals(StackItem other)
         {

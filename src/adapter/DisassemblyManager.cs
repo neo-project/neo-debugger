@@ -39,10 +39,10 @@ namespace NeoDebug
                     }
                 case OpCode.TAILCALL:
                 case OpCode.APPCALL:
-                   {
+                    {
                         var scriptHash = new NeoFx.UInt160(instr.Operand.Span);
                         return scriptHash.ToString();
-                   }
+                    }
                 case OpCode.CALL_I:
                     {
                         var returnCount = instr.Operand.Span[0];
@@ -169,9 +169,9 @@ namespace NeoDebug
             var source = new Source()
             {
                 SourceReference = hashCode,
-                Name = Helpers.ToHexString(scriptHash),
+                Name = scriptHash.ToHexString(),
             };
-            
+
             return (source, sourceMap[hashCode][instructionPointer]);
         }
 

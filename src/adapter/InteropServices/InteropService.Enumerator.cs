@@ -8,20 +8,20 @@ using System.Linq;
 
 namespace NeoDebug
 {
-    internal partial class InteropService
+    partial class InteropService
     {
-        internal interface IEnumerator
+        interface IEnumerator
         {
             bool MoveNext();
             StackItem Value { get; }
         }
 
-        internal interface IIterator : IEnumerator
+        interface IIterator : IEnumerator
         {
             StackItem Key { get; }
         }
 
-        internal class Iterator : IIterator
+        class Iterator : IIterator
         {
             private readonly IEnumerator<(StackItem key, StackItem value)> enumerator;
 

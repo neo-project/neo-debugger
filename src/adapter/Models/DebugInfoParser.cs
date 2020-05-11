@@ -8,10 +8,11 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
-namespace NeoDebug
+namespace NeoDebug.Models
 {
-    internal static class DebugInfoParser
+    static class DebugInfoParser
     {
         class DocumentResolver
         {
@@ -44,7 +45,7 @@ namespace NeoDebug
                     {
                         folderMap.Add(directoryName, cwd);
                     }
-                    
+
                     return cwdDocument;
                 }
 
@@ -74,11 +75,11 @@ namespace NeoDebug
 
         private static DebugInfo Parse(JObject json)
         {
-            static EventDebugInfo ParseEvent(JToken token)
+            static DebugInfo.Event ParseEvent(JToken token)
             {
                 var (ns, name) = SplitComma(token.Value<string>("name"));
                 var @params = token["params"].Select(t => SplitComma(t.Value<string>()));
-                return new EventDebugInfo()
+                return new DebugInfo.Event()
                 {
                     Id = token.Value<string>("id"),
                     Name = name,
@@ -87,7 +88,7 @@ namespace NeoDebug
                 };
             }
 
-            static SequencePoint ParseSequencePoint(string value, IList<string> documents)
+            static DebugInfo.SequencePoint ParseSequencePoint(string value, IList<string> documents)
             {
                 var matches = spRegex.Value.Match(value);
                 Debug.Assert(matches.Groups.Count == 7);
@@ -97,7 +98,7 @@ namespace NeoDebug
                     return int.Parse(matches.Groups[i].Value);
                 }
 
-                return new SequencePoint
+                return new DebugInfo.SequencePoint
                 {
                     Address = ParseGroup(1),
                     Document = documents[ParseGroup(2)],
@@ -106,7 +107,7 @@ namespace NeoDebug
                 };
             }
 
-            static MethodDebugInfo ParseMethod(JToken token, IList<string> documents)
+            static DebugInfo.Method ParseMethod(JToken token, IList<string> documents)
             {
                 var (ns, name) = SplitComma(token.Value<string>("name"));
                 var @params = token["params"].Select(t => SplitComma(t.Value<string>()));
@@ -115,7 +116,7 @@ namespace NeoDebug
                 var range = token.Value<string>("range").Split('-');
                 Debug.Assert(range.Length == 2);
 
-                return new MethodDebugInfo()
+                return new DebugInfo.Method()
                 {
                     Id = token.Value<string>("id"),
                     Name = name,
@@ -143,10 +144,10 @@ namespace NeoDebug
 
         private static DebugInfo ParseLegacy(JObject json)
         {
-            static EventDebugInfo ParseEvent(JToken token)
+            static DebugInfo.Event ParseEvent(JToken token)
             {
                 var @params = token["parameters"].Select(t => (t.Value<string>("name"), t.Value<string>("type")));
-                return new EventDebugInfo()
+                return new DebugInfo.Event()
                 {
                     Id = token.Value<string>("name"),
                     Name = token.Value<string>("display-name"),
@@ -155,9 +156,9 @@ namespace NeoDebug
                 };
             }
 
-            static SequencePoint ParseSequencePoint(JToken token)
+            static DebugInfo.SequencePoint ParseSequencePoint(JToken token)
             {
-                return new SequencePoint
+                return new DebugInfo.SequencePoint
                 {
                     Address = token.Value<int>("address"),
                     Document = token.Value<string>("document"),
@@ -166,13 +167,13 @@ namespace NeoDebug
                 };
             }
 
-            static MethodDebugInfo ParseMethod(JToken token)
+            static DebugInfo.Method ParseMethod(JToken token)
             {
                 var @params = token["parameters"].Select(t => (t.Value<string>("name"), t.Value<string>("type")));
                 var variables = token["variables"].Select(t => (t.Value<string>("name"), t.Value<string>("type")));
                 var sequencePoints = token["sequence-points"].Select(ParseSequencePoint);
 
-                return new MethodDebugInfo()
+                return new DebugInfo.Method()
                 {
                     Id = token.Value<string>("name"),
                     Name = token.Value<string>("display-name"),
@@ -197,29 +198,29 @@ namespace NeoDebug
             };
         }
 
-        private static DebugInfo Load(Stream stream)
+        private static async Task<DebugInfo> Load(Stream stream)
         {
             using var streamReader = new StreamReader(stream);
             using var jsonReader = new JsonTextReader(streamReader);
-            var root = JObject.Load(jsonReader);
+            var root = await JObject.LoadAsync(jsonReader).ConfigureAwait(false);
             return root.ContainsKey("documents") ? Parse(root) : ParseLegacy(root);
         }
 
-        public static DebugInfo Load(string avmFileName)
+        public static async Task<DebugInfo> Load(string avmFileName)
         {
             var debugJsonFileName = Path.ChangeExtension(avmFileName, ".avmdbgnfo");
             if (File.Exists(debugJsonFileName))
             {
                 using var avmDbgNfoFile = ZipFile.OpenRead(debugJsonFileName);
                 using var debugJsonStream = avmDbgNfoFile.Entries[0].Open();
-                return Load(debugJsonStream);
+                return await Load(debugJsonStream).ConfigureAwait(false);
             }
 
             debugJsonFileName = Path.ChangeExtension(avmFileName, ".debug.json");
             if (File.Exists(debugJsonFileName))
             {
                 using var debugJsonStream = File.OpenRead(debugJsonFileName);
-                return Load(debugJsonStream);
+                return await Load(debugJsonStream).ConfigureAwait(false);
             }
 
             throw new ArgumentException($"{nameof(avmFileName)} debug info file doesn't exist");
