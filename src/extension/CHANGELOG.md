@@ -15,6 +15,10 @@ may not exactly match a publicly released version.
 
 ## Unreleased
 
+### Added
+
+- Disassembly view
+
 ### Fixed
 
 - Adding item with the non-unique key to emulated storage [#20](https://github.com/neo-project/neo-debugger/issues/20)
