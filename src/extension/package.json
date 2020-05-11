@@ -77,6 +77,48 @@
 								"type": "string",
 								"description": "Absolute path to AVM file"
 							},
+							"stored-contracts": {
+								"type": "array",
+								"items": {
+									"oneOf": [
+										{
+											"type": "string"
+										},
+										{
+											"type": "object",
+											"required": [
+												"program"
+											],
+											"properties": {
+												"program": {
+													"type": "string"
+												},
+												"storage": {
+													"type": "array",
+													"items": {
+														"type": "object",
+														"required": [
+															"key",
+															"value"
+														],
+														"properties": {
+															"key": {
+																"type": "string"
+															},
+															"value": {
+																"type": "string"
+															},
+															"constant": {
+																"type": "boolean"
+															}
+														}
+													}
+												}
+											}
+										}
+									]
+								}
+							},
 							"args": {
 								"type": "array",
 								"description": "Command line arguments passed to the program.",
