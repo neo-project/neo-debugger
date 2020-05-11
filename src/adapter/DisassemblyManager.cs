@@ -120,6 +120,14 @@ namespace NeoDebug
             }
         }
 
+        public void AddRange(IEnumerable<Contract> contracts)
+        {
+            foreach (var c in contracts)
+            {
+                Add(c.Script, c.DebugInfo);
+            }
+        }
+
         public void Add(byte[] script, DebugInfo? debugInfo = null)
         {
             var digitCount = DigitCount(Instruction.ParseScript(script).Last().Position);

@@ -31,7 +31,7 @@ namespace NeoDebug
                 sendEvent);
 
             var returnTypes = ParseReturnTypes(config).ToList();
-            return new DebugSession(engine, contract, sendEvent, returnTypes, defaultDebugView);
+            return new DebugSession(engine, storedContracts.Append(contract), sendEvent, returnTypes, defaultDebugView);
 
             static byte[] BuildInvokeScript(UInt160 scriptHash, IEnumerable<ContractArgument> arguments)
             {
