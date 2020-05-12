@@ -21,7 +21,7 @@ namespace NeoDebug
         private readonly IReadOnlyList<string> returnTypes;
         private readonly Dictionary<int, IVariableContainer> variableContainers = new Dictionary<int, IVariableContainer>();
         private readonly DisassemblyManager disassemblyManager;
-        private readonly BreakpointManager breakpointManager = new BreakpointManager();
+        private readonly BreakpointManager breakpointManager;
         private bool disassemblyView = false;
 
         public enum DebugView
@@ -39,6 +39,7 @@ namespace NeoDebug
             this.returnTypes = returnTypes;
             this.disassemblyView = defaultDebugView == DebugView.Disassembly;
             this.disassemblyManager = new DisassemblyManager(engine.GetMethodName);
+            this.breakpointManager = new BreakpointManager();
 
             disassemblyManager.Add((byte[])engine.EntryContext.Script);
             disassemblyManager.AddRange(this.contracts.Values);
@@ -66,12 +67,6 @@ namespace NeoDebug
             }
         }
 
-        bool TryGetContract(ExecutionContext context, out Contract contract)
-        {
-            var scriptHash = new UInt160(context.ScriptHash);
-            return contracts.TryGetValue(scriptHash, out contract!);
-        }
-
         Contract? GetContract(ExecutionContext context)
         {
             var scriptHash = new UInt160(context.ScriptHash);
@@ -85,7 +80,7 @@ namespace NeoDebug
 
         public IEnumerable<Breakpoint> SetBreakpoints(Source source, IReadOnlyList<SourceBreakpoint> sourceBreakpoints)
         {
-            yield break;
+            return breakpointManager.SetBreakpoints(source, sourceBreakpoints);
             // if (UInt160.TryParse(source.Name, out var scriptHash))
             // {
             //     var breakpoints = new HashSet<int>();
@@ -113,63 +108,62 @@ namespace NeoDebug
             // else
             // {
             //     var sourcePath = Path.GetFullPath(source.Path);
-            //     var breakpoints = new HashSet<int>();
-
-            //     var sequencePoints = contract.DebugInfo.Methods
-            //         .SelectMany(m => m.SequencePoints)
-            //         .Where(sp => sourcePath.Equals(Path.GetFullPath(sp.Document), StringComparison.InvariantCultureIgnoreCase))
-            //         .ToArray();
-
-            //     for (int i = 0; i < sourceBreakpoints.Count; i++)
+            //     foreach (var contract in contracts.Values)
             //     {
-            //         var sourceBreakPoint = sourceBreakpoints[i];
-            //         var sequencePoint = Array.Find(sequencePoints, sp => sp.Start.line == sourceBreakPoint.Line);
+            //         var breakpoints = new HashSet<int>();
 
-            //         if (sequencePoint != null)
-            //         {
-            //             breakpoints.Add(sequencePoint.Address);
+            //         var sequencePoints = contract.DebugInfo.Methods
+            //             .SelectMany(m => m.SequencePoints)
+            //             .Where(sp => sourcePath.Equals( h(sp.Document), StringComparison.InvariantCultureIgnoreCase))
+            //             .ToArray();
 
-            //             yield return new Breakpoint()
-            //             {
-            //                 Verified = true,
-            //                 Column = sequencePoint.Start.column,
-            //                 EndColumn = sequencePoint.End.column,
-            //                 Line = sequencePoint.Start.line,
-            //                 EndLine = sequencePoint.End.line,
-            //                 Source = source
-            //             };
-            //         }
-            //         else
+            //         for (int i = 0; i < sourceBreakpoints.Count; i++)
             //         {
-            //             yield return new Breakpoint()
+            //             var sourceBreakPoint = sourceBreakpoints[i];
+            //             var sequencePoint = Array.Find(sequencePoints, sp => sp.Start.line == sourceBreakPoint.Line);
+
+            //             if (sequencePoint != null)
             //             {
-            //                 Verified = false,
-            //                 Column = sourceBreakPoint.Column,
-            //                 Line = sourceBreakPoint.Line,
-            //                 Source = source
-            //             };
+            //                 breakpoints.Add(sequencePoint.Address);
+
+            //                 yield return new Breakpoint()
+            //                 {
+            //                     Verified = true,
+            //                     Column = sequencePoint.Start.column,
+            //                     EndColumn = sequencePoint.End.column,
+            //                     Line = sequencePoint.Start.line,
+            //                     EndLine = sequencePoint.End.line,
+            //                     Source = source
+            //                 };
+            //             }
+            //             else
+            //             {
+            //                 yield return new Breakpoint()
+            //                 {
+            //                     Verified = false,
+            //                     Column = sourceBreakPoint.Column,
+            //                     Line = sourceBreakPoint.Line,
+            //                     Source = source
+            //                 };
+            //             }
             //         }
+
+            //         breakpointManager.SetBreakpoints(source.Name, breakpoints);
             //     }
-
-            //     breakpointManager.SetBreakpoints(source.Name, breakpoints);
             // }
         }
 
 
         const VMState HALT_OR_FAULT = VMState.HALT | VMState.FAULT;
 
-        bool CheckBreakpoint(IReadOnlyDictionary<UInt160, ImmutableHashSet<int>> breakpointMap)
+        bool CheckBreakpoint()
         {
             if ((engine.State & HALT_OR_FAULT) == 0)
             {
                 var context = engine.CurrentContext;
                 var scriptHash = new UInt160(context.ScriptHash);
 
-                if (breakpointMap.TryGetValue(scriptHash, out var breakpoints)
-                    && breakpoints.Contains(context.InstructionPointer))
-                {
-                    return true;
-                }
+                return breakpointManager.CheckBreakpoint(scriptHash, context.InstructionPointer);
             }
 
             return false;
@@ -209,12 +203,11 @@ namespace NeoDebug
 
         public void Continue()
         {
-            var breakpointMap = breakpointManager.GetBreakpoints(null!);
             while ((engine.State & HALT_OR_FAULT) == 0)
             {
                 engine.ExecuteInstruction();
 
-                if (CheckBreakpoint(breakpointMap))
+                if (CheckBreakpoint())
                 {
                     break;
                 }
@@ -225,7 +218,6 @@ namespace NeoDebug
 
         void Step(Func<int, int, bool> compare)
         {
-            var breakpointMap = breakpointManager.GetBreakpoints(null!);
             var c = engine.InvocationStack.Count;
             var stopReason = StoppedEvent.ReasonValue.Step;
             while ((engine.State & HALT_OR_FAULT) == 0)
@@ -242,14 +234,14 @@ namespace NeoDebug
                     break;
                 }
 
-                if (CheckBreakpoint(breakpointMap))
+                if (CheckBreakpoint())
                 {
                     stopReason = StoppedEvent.ReasonValue.Breakpoint;
                     break;
                 }
 
                 var contract = GetContract(engine.CurrentContext);
-                if (compare(engine.InvocationStack.Count, c) 
+                if (compare(engine.InvocationStack.Count, c)
                     && (contract?.CheckSequencePoint(engine.CurrentContext) ?? false))
                 {
                     break;
