@@ -156,22 +156,22 @@ namespace NeoDebug.Models
                 };
             }
 
-            static DebugInfo.SequencePoint ParseSequencePoint(JToken token)
+            static DebugInfo.SequencePoint ParseSequencePoint(JToken token, DocumentResolver documentResolver)
             {
                 return new DebugInfo.SequencePoint
                 {
                     Address = token.Value<int>("address"),
-                    Document = token.Value<string>("document"),
+                    Document = documentResolver.ResolveDocument(token.Value<string>("document")),
                     Start = (token.Value<int>("start-line"), token.Value<int>("start-column")),
                     End = (token.Value<int>("end-line"), token.Value<int>("end-column")),
                 };
             }
 
-            static DebugInfo.Method ParseMethod(JToken token)
+            static DebugInfo.Method ParseMethod(JToken token, DocumentResolver documentResolver)
             {
                 var @params = token["parameters"].Select(t => (t.Value<string>("name"), t.Value<string>("type")));
                 var variables = token["variables"].Select(t => (t.Value<string>("name"), t.Value<string>("type")));
-                var sequencePoints = token["sequence-points"].Select(ParseSequencePoint);
+                var sequencePoints = token["sequence-points"].Select(sp => ParseSequencePoint(sp, documentResolver));
 
                 return new DebugInfo.Method()
                 {
@@ -187,8 +187,9 @@ namespace NeoDebug.Models
                 };
             }
 
+            var documentResolver = new DocumentResolver();
             var events = json["events"].Select(ParseEvent).ToList();
-            var methods = json["methods"].Select(ParseMethod).ToList();
+            var methods = json["methods"].Select(m => ParseMethod(m, documentResolver)).ToList();
 
             return new DebugInfo
             {
