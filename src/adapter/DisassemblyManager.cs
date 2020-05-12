@@ -165,11 +165,15 @@ namespace NeoDebug
 
         public (Source source, int line) GetSource(byte[] scriptHash, int instructionPointer)
         {
-            var hashCode = (new UInt160(scriptHash)).GetHashCode();
+            var _scriptHash = new UInt160(scriptHash); 
+            var hashCode = _scriptHash.GetHashCode();
+            var name = _scriptHash.ToString();
             var source = new Source()
             {
                 SourceReference = hashCode,
-                Name = scriptHash.ToHexString(),
+                Name = name,
+                Path = name,
+                AdapterData = name,
             };
 
             return (source, sourceMap[hashCode][instructionPointer]);
