@@ -20,7 +20,7 @@
   <PropertyGroup Condition=" '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))' ">
     <!-- UseAppHost to enable loading librocksdb.dylib dependencies on MacOS
          https://docs.microsoft.com/en-us/dotnet/core/install/macos-notarization-issues#apphost-is-disabled-by-default  -->
-    <UseAppHost>true</UseAppHost>
+    <!-- <UseAppHost>true</UseAppHost> -->
   </PropertyGroup>
 
   <ItemGroup>
