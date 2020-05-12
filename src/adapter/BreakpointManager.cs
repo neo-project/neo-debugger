@@ -1,4 +1,5 @@
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using NeoDebug.Models;
 using NeoFx;
 using System;
 using System.Collections.Generic;
@@ -9,12 +10,14 @@ namespace NeoDebug
 {
     class BreakpointManager
     {
+        private readonly ImmutableArray<Contract> contracts;
         private readonly DisassemblyManager disassemblyManager;
-        private readonly Dictionary<string, ImmutableHashSet<int>> sourceBreakpoints;
-
-        public BreakpointManager()
+        private readonly Dictionary<(string path, UInt160 scriptHash), ImmutableHashSet<int>> breakpoints = new Dictionary<(string, UInt160), ImmutableHashSet<int>>();
+        
+        public BreakpointManager(IEnumerable<Contract> contracts, DisassemblyManager disassemblyManager)
         {
-            sourceBreakpoints = new Dictionary<string, ImmutableHashSet<int>>();
+            this.contracts = contracts.ToImmutableArray();
+            this.disassemblyManager = disassemblyManager;
         }
 
         public IEnumerable<Breakpoint> SetBreakpoints(Source source, IReadOnlyList<SourceBreakpoint> sourceBreakpoints)
@@ -24,13 +27,7 @@ namespace NeoDebug
                 return SetDisassemblyBreakpoints(scriptHash, source, sourceBreakpoints);
             }
 
-            return sourceBreakpoints.Select(sbp => new Breakpoint
-            {
-                Verified = false,
-                Column = sbp.Column,
-                Line = sbp.Line,
-                Source = source
-            });
+            return SetSourceBreakpoints(source, sourceBreakpoints);
         }
 
         IEnumerable<Breakpoint> SetDisassemblyBreakpoints(UInt160 scriptHash, Source source, IReadOnlyList<SourceBreakpoint> sourceBreakpoints)
@@ -55,19 +52,64 @@ namespace NeoDebug
                 };
             }
 
-            this.sourceBreakpoints[source.Name] = breakpoints.ToImmutableHashSet();
+            this.breakpoints[(string.Empty, scriptHash)] = breakpoints.ToImmutableHashSet();
         }
 
+        IEnumerable<Breakpoint> SetSourceBreakpoints(Source source, IReadOnlyList<SourceBreakpoint> sourceBreakpoints)
+        {
+            for (int i = 0; i < contracts.Length; i++)
+            {
+                var breakpoints = new HashSet<int>();
+                var contract = contracts[i];
+                var sequencePoints = contract.DebugInfo.Methods.SelectMany(m => m.SequencePoints)
+                    .Where(sp => sp.Document.Equals(source.Path, StringComparison.InvariantCultureIgnoreCase))
+                    .ToArray();
+
+                for (int j = 0; j < sourceBreakpoints.Count; j++)
+                {
+                    var sourceBreakPoint = sourceBreakpoints[j];
+                    var sequencePoint = Array.Find(sequencePoints, sp => sp.Start.line == sourceBreakPoint.Line);
+
+                    if (sequencePoint != null)
+                    {
+                        breakpoints.Add(sequencePoint.Address);
+
+                        yield return new Breakpoint()
+                        {
+                            Verified = true,
+                            Column = sequencePoint.Start.column,
+                            EndColumn = sequencePoint.End.column,
+                            Line = sequencePoint.Start.line,
+                            EndLine = sequencePoint.End.line,
+                            Source = source
+
+                        };
+                    }
+                    else
+                    {
+                        yield return new Breakpoint()
+                        {
+                            Verified = false,
+                            Column = sourceBreakPoint.Column,
+                            Line = sourceBreakPoint.Line,
+                            Source = source
+                        };
+                    }
+                }
+
+                this.breakpoints[(source.Path, contract.ScriptHash)] = breakpoints.ToImmutableHashSet();
+            }
+        }
 
         public bool CheckBreakpoint(UInt160 scriptHash, int instructionPointer)
         {
-            // Dictionary<UInt160, ImmutableHashSet<int>> breakpointMap = null!;
-
-            // if (breakpointMap.TryGetValue(scriptHash, out var breakpoints)
-            //     && breakpoints.Contains(instructionPointer))
-            // {
-            //     return true;
-            // }
+            foreach (var kvp in breakpoints)
+            {
+                if (kvp.Key.scriptHash.Equals(scriptHash))
+                {
+                    return kvp.Value.Contains(instructionPointer);
+                }
+            }
 
             return false;
         }
