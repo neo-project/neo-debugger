@@ -16,7 +16,12 @@ namespace NeoDebug.Models
     {
         class DocumentResolver
         {
-            Dictionary<string, string> folderMap = new Dictionary<string, string>();
+            Dictionary<string, string> folderMap;
+
+            public DocumentResolver(IReadOnlyDictionary<string, string> sourceFileMap)
+            {
+                folderMap = sourceFileMap.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+            }
 
             public string ResolveDocument(JToken token)
             {
@@ -73,7 +78,7 @@ namespace NeoDebug.Models
 
         static Lazy<Regex> spRegex = new Lazy<Regex>(() => new Regex(@"^(\d+)\[(\d+)\](\d+)\:(\d+)\-(\d+)\:(\d+)$"));
 
-        private static DebugInfo Parse(JObject json)
+        private static DebugInfo Parse(JObject json, DocumentResolver documentResolver)
         {
             static DebugInfo.Event ParseEvent(JToken token)
             {
@@ -129,7 +134,6 @@ namespace NeoDebug.Models
                 };
             }
 
-            var documentResolver = new DocumentResolver();
             var documents = json["documents"].Select(documentResolver.ResolveDocument).ToList();
             var events = json["events"].Select(ParseEvent).ToList();
             var methods = json["methods"].Select(t => ParseMethod(t, documents)).ToList();
@@ -142,7 +146,7 @@ namespace NeoDebug.Models
             };
         }
 
-        private static DebugInfo ParseLegacy(JObject json)
+        private static DebugInfo ParseLegacy(JObject json, DocumentResolver documentResolver)
         {
             static DebugInfo.Event ParseEvent(JToken token)
             {
@@ -187,7 +191,6 @@ namespace NeoDebug.Models
                 };
             }
 
-            var documentResolver = new DocumentResolver();
             var events = json["events"].Select(ParseEvent).ToList();
             var methods = json["methods"].Select(m => ParseMethod(m, documentResolver)).ToList();
 
@@ -199,29 +202,30 @@ namespace NeoDebug.Models
             };
         }
 
-        private static async Task<DebugInfo> Load(Stream stream)
+        private static async Task<DebugInfo> Load(Stream stream, IReadOnlyDictionary<string, string> sourceFileMap)
         {
+            var documentResolver = new DocumentResolver(sourceFileMap);
             using var streamReader = new StreamReader(stream);
             using var jsonReader = new JsonTextReader(streamReader);
             var root = await JObject.LoadAsync(jsonReader).ConfigureAwait(false);
-            return root.ContainsKey("documents") ? Parse(root) : ParseLegacy(root);
+            return root.ContainsKey("documents") ? Parse(root, documentResolver) : ParseLegacy(root, documentResolver);
         }
 
-        public static async Task<DebugInfo> Load(string avmFileName)
+        public static async Task<DebugInfo> Load(string avmFileName, IReadOnlyDictionary<string, string> sourceFileMap)
         {
             var debugJsonFileName = Path.ChangeExtension(avmFileName, ".avmdbgnfo");
             if (File.Exists(debugJsonFileName))
             {
                 using var avmDbgNfoFile = ZipFile.OpenRead(debugJsonFileName);
                 using var debugJsonStream = avmDbgNfoFile.Entries[0].Open();
-                return await Load(debugJsonStream).ConfigureAwait(false);
+                return await Load(debugJsonStream, sourceFileMap).ConfigureAwait(false);
             }
 
             debugJsonFileName = Path.ChangeExtension(avmFileName, ".debug.json");
             if (File.Exists(debugJsonFileName))
             {
                 using var debugJsonStream = File.OpenRead(debugJsonFileName);
-                return await Load(debugJsonStream).ConfigureAwait(false);
+                return await Load(debugJsonStream, sourceFileMap).ConfigureAwait(false);
             }
 
             throw new ArgumentException($"{nameof(avmFileName)} debug info file doesn't exist");

@@ -1,6 +1,7 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Numerics;
 using System.Text;
@@ -19,9 +20,10 @@ namespace NeoDebug
         public static async Task<DebugSession> CreateDebugSession(LaunchArguments arguments, Action<DebugEvent> sendEvent, DebugSession.DebugView defaultDebugView)
         {
             var config = arguments.ConfigurationProperties;
-            var contract = await Contract.Load(config["program"].Value<string>()).ConfigureAwait(false);
+            var sourceFileMap = ParseSourceFileMap(config);
+            var contract = await Contract.Load(config["program"].Value<string>(), sourceFileMap).ConfigureAwait(false);
             var storages = ParseStorage(contract.ScriptHash, config);
-            var (storedContracts, storedContractStorages) = await ParseStoredContracts(config);
+            var (storedContracts, storedContractStorages) = await ParseStoredContracts(config, sourceFileMap);
 
             var invokeScript = BuildInvokeScript(contract.ScriptHash, ParseArguments(contract.EntryPoint, config));
             var engine = CreateExecutionEngine(invokeScript, 
@@ -274,7 +276,7 @@ namespace NeoDebug
         }
 
         static async Task<(List<Contract> contracts, IEnumerable<(StorageKey key, StorageItem item)> storages)>
-            ParseStoredContracts(Dictionary<string, JToken> config)
+            ParseStoredContracts(Dictionary<string, JToken> config, IReadOnlyDictionary<string, string> sourceFileMap)
         {
             var contracts = new List<Contract>();
             var storages = Enumerable.Empty<(StorageKey, StorageItem)>();
@@ -285,12 +287,12 @@ namespace NeoDebug
                 {
                     if (storedContract.Type == JTokenType.String)
                     {
-                        var contract = await Contract.Load(storedContract.Value<string>());
+                        var contract = await Contract.Load(storedContract.Value<string>(), sourceFileMap).ConfigureAwait(false);
                         contracts.Add(contract);
                     }
                     else if (storedContract.Type == JTokenType.Object)
                     {
-                        var contract = await Contract.Load(storedContract.Value<string>("program"));
+                        var contract = await Contract.Load(storedContract.Value<string>("program"), sourceFileMap).ConfigureAwait(false);
                         contracts.Add(contract);
 
                         var storage = ParseStorage(contract.ScriptHash, storedContract["storage"]);
@@ -304,6 +306,18 @@ namespace NeoDebug
             }
 
             return (contracts, storages); 
+        }
+
+        static IReadOnlyDictionary<string, string> ParseSourceFileMap(Dictionary<string, JToken> config)
+        {
+            if (config.TryGetValue("sourceFileMap", out var token)
+                && token.Type == JTokenType.Object)
+            {
+                var json = (IEnumerable<KeyValuePair<string, JToken?>>)token;
+                return json.ToDictionary(kvp => kvp.Key, kvp => kvp.Value?.Value<string>() ?? string.Empty);
+            }
+
+            return ImmutableDictionary<string, string>.Empty;
         }
 
         static (TriggerType trigger, WitnessChecker witnessChecker) ParseRuntime(Dictionary<string, JToken> config)
