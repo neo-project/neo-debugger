@@ -77,26 +77,38 @@
 								"type": "string",
 								"description": "Absolute path to AVM file"
 							},
+							"sourceFileMap": {
+								"type": "object",
+								"description": "Optional source file mappings passed to the debug engine. Example: '{ \"C:\\foo\":\"/home/user/foo\" }'",
+								"additionalProperties": {
+									"type": "string"
+								}
+							},
 							"stored-contracts": {
 								"type": "array",
+								"description": "Optional additional contracts to load for dynamic invoke scenarios",
 								"items": {
 									"oneOf": [
 										{
-											"type": "string"
+											"type": "string",
+											"description": "Absolute path to AVM file"
 										},
 										{
 											"type": "object",
+											"description": "Additional contract with emulated storage",
 											"required": [
 												"program"
 											],
 											"properties": {
 												"program": {
-													"type": "string"
+													"type": "string",
+													"description": "Absolute path to AVM file"
 												},
 												"storage": {
 													"type": "array",
 													"items": {
 														"type": "object",
+														"description": "Key/value pairs used to populate debugger's emulated storage",
 														"required": [
 															"key",
 															"value"
@@ -125,10 +137,12 @@
 								"default": []
 							},
 							"checkpoint": {
-								"type": "string"
+								"type": "string",
+								"description": "Optional neo-express checkpoint file used for contract execution"
 							},
 							"utxo": {
 								"type": "object",
+								"description": "UTXO assets (aka NEO and GAS) to attach to the transaction being debugged",
 								"properties": {
 									"inputs": {
 										"type": "array",
@@ -171,6 +185,7 @@
 							},
 							"storage": {
 								"type": "array",
+								"description": "Key/value pairs used to populate debugger's emulated storage",
 								"items": {
 									"type": "object",
 									"required": [
@@ -179,7 +194,7 @@
 									],
 									"properties": {
 										"key": {
-											"type": "string"
+											"type": "string"											
 										},
 										"value": {
 											"type": "string"
@@ -193,6 +208,7 @@
 							},
 							"return-types": {
 								"type": "array",
+								"description": "Specifies the expected return type of the contract entry-point.",
 								"items": {
 									"type": "string",
 									"enum": [
@@ -206,9 +222,11 @@
 							},
 							"runtime": {
 								"type": "object",
+								"description": "Specifies behavior of Runtime.Trigger and Runtime.CheckWitness members.",
 								"properties": {
 									"trigger": {
 										"type": "string",
+										"description": "Rutime.Trigger return value",
 										"enum": [
 											"verification",
 											"application"
@@ -218,10 +236,12 @@
 										"oneOf": [
 											{
 												"type": "array",
+												"description": "Witnesses to check against",
 												"items": "string"
 											},
 											{
 												"type": "object",
+												"description": "Runtime.CheckWitness return value (no actual checking performed)",
 												"required": [
 													"check-result"
 												],
