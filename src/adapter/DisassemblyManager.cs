@@ -20,19 +20,6 @@ namespace NeoDebug
             this.methodNameResolver = methodNameResolver;
         }
 
-        void WriteInstruction(in Instruction instr, StringBuilder sb, int digitCount)
-        {
-            instr.Write(sb, methodNameResolver, digitCount);
-        }
-
-        public void AddRange(IEnumerable<Contract> contracts)
-        {
-            foreach (var c in contracts)
-            {
-                Add(c.Script, c.DebugInfo);
-            }
-        }
-
         public void Add(byte[] script, DebugInfo? debugInfo = null)
         {
             var digitCount = Utility.DigitCount(Instruction.ParseScript(script).Last().Position);
@@ -45,7 +32,7 @@ namespace NeoDebug
                 foreach (var instruction in Instruction.ParseScript(script))
                 {
                     ipMap.Add(instruction.Position, line++);
-                    WriteInstruction(instruction, sb, digitCount);
+                    instruction.Write(sb, methodNameResolver, digitCount);
                 }
             }
             else
@@ -64,7 +51,7 @@ namespace NeoDebug
                     foreach (var instruction in methodInstructions)
                     {
                         ipMap.Add(instruction.Position, line++);
-                        WriteInstruction(instruction, sb, digitCount);
+                        instruction.Write(sb, methodNameResolver, digitCount);
                     }
                     sb.Append($"\n# End Method {m.Namespace}.{m.Name}");
                     line++;

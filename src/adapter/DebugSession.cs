@@ -41,7 +41,10 @@ namespace NeoDebug
             this.disassemblyManager = new DisassemblyManager(engine.GetMethodName);
 
             disassemblyManager.Add((byte[])engine.EntryContext.Script);
-            disassemblyManager.AddRange(this.contracts.Values);
+            foreach (var c in contracts)
+            {
+                disassemblyManager.Add(c.Script, c.DebugInfo);
+            }
 
             if (!disassemblyView)
                 StepIn();

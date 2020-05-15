@@ -146,15 +146,8 @@ namespace NeoDebug
             methodNames.Add(value, methodName);
         }
 
-        public string GetMethodName(uint methodHash)
-        {
-            if (methodNames.TryGetValue(methodHash, out var methodName))
-            {
-                return methodName;
-            }
-
-            return string.Empty;
-        }
+        public string GetMethodName(uint methodHash) 
+            => methodNames.GetValueOrDefault(methodHash, string.Empty)!;
 
         bool IInteropService.Invoke(byte[] method, ExecutionEngine engine)
         {
