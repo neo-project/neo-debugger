@@ -1,6 +1,7 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Numerics;
 using System.Text;
@@ -19,37 +20,20 @@ namespace NeoDebug
         public static async Task<DebugSession> CreateDebugSession(LaunchArguments arguments, Action<DebugEvent> sendEvent, DebugSession.DebugView defaultDebugView)
         {
             var config = arguments.ConfigurationProperties;
-            var contract = await Contract.Load(config["program"].Value<string>()).ConfigureAwait(false);
+            var sourceFileMap = ParseSourceFileMap(config);
+            var contract = await Contract.Load(config["program"].Value<string>(), sourceFileMap).ConfigureAwait(false);
+            var storages = ParseStorage(contract.ScriptHash, config);
+            var (storedContracts, storedContractStorages) = await ParseStoredContracts(config, sourceFileMap);
+
+            var invokeScript = BuildInvokeScript(contract.ScriptHash, ParseArguments(contract.EntryPoint, config));
+            var engine = CreateExecutionEngine(invokeScript, 
+                storedContracts.Append(contract),
+                storedContractStorages.Concat(storages),
+                config, 
+                sendEvent);
 
             var returnTypes = ParseReturnTypes(config).ToList();
-            var engine = CreateExecutionEngine(contract, config, sendEvent);
-
-            return new DebugSession(engine, contract, sendEvent, returnTypes, defaultDebugView);
-        }
-
-        static DebugExecutionEngine CreateExecutionEngine(Contract contract, Dictionary<string, JToken> config, Action<OutputEvent> sendOutput)
-        {
-            var contractArgs = ParseArguments(contract.EntryPoint, config);
-            var invokeScript = BuildInvokeScript(contract.ScriptHash, contractArgs);
-
-            var blockchain = CreateBlockchainStorage(config);
-            var (inputs, outputs) = ParseUtxo(blockchain, config);
-            var tx = new InvocationTransaction(invokeScript, Fixed8.Zero, 1, default,
-                inputs.ToArray(), outputs.ToArray(), default);
-            var container = new ModelAdapters.TransactionAdapter(tx);
-
-            var table = new ScriptTable();
-            table.Add(contract.Script);
-
-            var events = contract.DebugInfo.Events.Select(i => (contract.ScriptHash, i));
-            var emulatedStorage = new EmulatedStorage(blockchain, ParseStorage(contract.ScriptHash, config));
-            var (trigger, witnessChecker) = ParseRuntime(config);
-
-            var interopService = new InteropService(blockchain, emulatedStorage, trigger, witnessChecker, sendOutput, events);
-
-            var engine = new DebugExecutionEngine(container, table, interopService);
-            engine.LoadScript(invokeScript);
-            return engine;
+            return new DebugSession(engine, storedContracts.Append(contract), sendEvent, returnTypes, defaultDebugView);
 
             static byte[] BuildInvokeScript(UInt160 scriptHash, IEnumerable<ContractArgument> arguments)
             {
@@ -62,6 +46,35 @@ namespace NeoDebug
                 builder.EmitAppCall(scriptHash);
                 return builder.ToArray();
             }
+        }
+
+        static DebugExecutionEngine CreateExecutionEngine(byte[] invokeScript,
+                                                          IEnumerable<Contract> contracts,
+                                                          IEnumerable<(StorageKey, StorageItem)> storages,
+                                                          Dictionary<string, JToken> config,
+                                                          Action<OutputEvent> sendOutput)
+        {
+            var blockchain = CreateBlockchainStorage(config);
+            var (inputs, outputs) = ParseUtxo(blockchain, config);
+            var tx = new InvocationTransaction(invokeScript, Fixed8.Zero, 1, default,
+                inputs.ToArray(), outputs.ToArray(), default);
+            var container = new ModelAdapters.TransactionAdapter(tx);
+
+            var table = new ScriptTable();
+            foreach (var contract in contracts)
+            {
+                table.Add(contract.Script);
+            }
+
+            var events = contracts.SelectMany(c => c.DebugInfo.Events.Select(e => (c.ScriptHash, e)));
+            var emulatedStorage = new EmulatedStorage(blockchain, storages);
+            var (trigger, witnessChecker) = ParseRuntime(config);
+
+            var interopService = new InteropService(blockchain, emulatedStorage, trigger, witnessChecker, sendOutput, events);
+
+            var engine = new DebugExecutionEngine(container, table, interopService);
+            engine.LoadScript(invokeScript);
+            return engine;
         }
 
         static IBlockchainStorage? CreateBlockchainStorage(Dictionary<string, JToken> config)
@@ -227,30 +240,29 @@ namespace NeoDebug
             return (Enumerable.Empty<CoinReference>(), Enumerable.Empty<TransactionOutput>());
         }
 
-        static IEnumerable<(StorageKey key, StorageItem item)>
-            ParseStorage(UInt160 scriptHash, Dictionary<string, JToken> config)
-        {
-            return ParseStorage(config)
-                .Select(s =>
-                {
-                    var key = new StorageKey(scriptHash, s.key);
-                    var value = new StorageItem(s.value, s.constant);
-                    return (key, value);
-                });
-        }
-
-        static IEnumerable<(byte[] key, byte[] value, bool constant)>
-            ParseStorage(Dictionary<string, JToken> config)
+        static IEnumerable<(StorageKey key, StorageItem item)> ParseStorage(UInt160 scriptHash, Dictionary<string, JToken> config)
         {
             if (config.TryGetValue("storage", out var token))
             {
-                return token.Select(t =>
-                    (ConvertString(t["key"]),
-                    ConvertString(t["value"]),
-                    t.Value<bool?>("constant") ?? false));
+                return ParseStorage(scriptHash, token);
             }
 
-            return Enumerable.Empty<(byte[], byte[], bool)>();
+            return Enumerable.Empty<(StorageKey key, StorageItem item)>();
+        }
+
+        static IEnumerable<(StorageKey key, StorageItem item)> ParseStorage(UInt160 scriptHash, JToken? token)
+        {
+            if (token == null)
+            {
+                return Enumerable.Empty<(StorageKey, StorageItem)>();
+            }
+
+            return token.Select(t => {
+                var key = ConvertString(t["key"]);
+                var value = ConvertString(t["value"]);
+                bool constant = t.Value<bool?>() ?? false;
+                return (new StorageKey(scriptHash, key), new StorageItem(value, constant));
+            });
 
             static byte[] ConvertString(JToken? token)
             {
@@ -261,6 +273,51 @@ namespace NeoDebug
                 }
                 return Encoding.UTF8.GetBytes(value);
             }
+        }
+
+        static async Task<(List<Contract> contracts, IEnumerable<(StorageKey key, StorageItem item)> storages)>
+            ParseStoredContracts(Dictionary<string, JToken> config, IReadOnlyDictionary<string, string> sourceFileMap)
+        {
+            var contracts = new List<Contract>();
+            var storages = Enumerable.Empty<(StorageKey, StorageItem)>();
+
+            if (config.TryGetValue("stored-contracts", out var storedContracts))
+            {
+                foreach (var storedContract in storedContracts)
+                {
+                    if (storedContract.Type == JTokenType.String)
+                    {
+                        var contract = await Contract.Load(storedContract.Value<string>(), sourceFileMap).ConfigureAwait(false);
+                        contracts.Add(contract);
+                    }
+                    else if (storedContract.Type == JTokenType.Object)
+                    {
+                        var contract = await Contract.Load(storedContract.Value<string>("program"), sourceFileMap).ConfigureAwait(false);
+                        contracts.Add(contract);
+
+                        var storage = ParseStorage(contract.ScriptHash, storedContract["storage"]);
+                        storages = storages.Concat(storage);
+                    }
+                    else 
+                    {
+                        throw new Exception("invalid stored-contract value");
+                    }
+                }
+            }
+
+            return (contracts, storages); 
+        }
+
+        static IReadOnlyDictionary<string, string> ParseSourceFileMap(Dictionary<string, JToken> config)
+        {
+            if (config.TryGetValue("sourceFileMap", out var token)
+                && token.Type == JTokenType.Object)
+            {
+                var json = (IEnumerable<KeyValuePair<string, JToken?>>)token;
+                return json.ToDictionary(kvp => kvp.Key, kvp => kvp.Value?.Value<string>() ?? string.Empty);
+            }
+
+            return ImmutableDictionary<string, string>.Empty;
         }
 
         static (TriggerType trigger, WitnessChecker witnessChecker) ParseRuntime(Dictionary<string, JToken> config)

@@ -18,10 +18,15 @@ may not exactly match a publicly released version.
 ### Added
 
 - Disassembly view
+- Cross Contract Support
+- Specify folder mappings to support debugging contracts compiled on machines
+  with different folder layouts
 
 ### Changed
 
 - Folded library project into adapter project.
+- Passing --debug to the debug adapter now pauses until debugger attached instead
+  of launching the JIT Debugger. JIT Debugger approach only works on Windows.
 
 ### Fixed
 

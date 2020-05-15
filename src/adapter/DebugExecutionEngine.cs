@@ -12,6 +12,7 @@ using System.Linq;
 
 namespace NeoDebug
 {
+
     class DebugExecutionEngine : ExecutionEngine
     {
         private readonly InteropService interopService;
@@ -24,14 +25,8 @@ namespace NeoDebug
 
         public void ExecuteInstruction() => ExecuteNext();
 
-        public IVariableContainer GetStorageContainer(IVariableContainerSession session, byte[] scriptHash)
-            => GetStorageContainer(session, new UInt160(scriptHash));
-
         public IVariableContainer GetStorageContainer(IVariableContainerSession session, in UInt160 scriptHash)
             => interopService.GetStorageContainer(session, scriptHash);
-
-        public EvaluateResponse EvaluateStorageExpression(IVariableContainerSession session, byte[] scriptHash, EvaluateArguments args)
-            => interopService.EvaluateStorageExpression(session, new UInt160(scriptHash), args);
 
         public EvaluateResponse EvaluateStorageExpression(IVariableContainerSession session, in UInt160 scriptHash, EvaluateArguments args)
             => interopService.EvaluateStorageExpression(session, scriptHash, args);
