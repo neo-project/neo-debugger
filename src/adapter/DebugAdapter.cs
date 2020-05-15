@@ -62,18 +62,26 @@ namespace NeoDebug
             };
         }
 
-        protected override async void HandleLaunchRequestAsync(IRequestResponder<LaunchArguments> responder)
+        protected override LaunchResponse HandleLaunchRequest(LaunchArguments arguments)
         {
+            // since CreateDebugSession is an async method, we should be using HandleLaunchRequestAsync.
+            // However, using HandleLaunchRequestAsync causes VSCode to send setBreakpoints and
+            // threads request before receiving the launch response. 
+
             try
             {
-                session = await LaunchConfigurationParser.CreateDebugSession(responder.Arguments, Protocol.SendEvent, defaultDebugView)
-                    .ConfigureAwait(false);
-                responder.SetResponse(new LaunchResponse());
+                if (session != null) throw new InvalidOperationException();
+
+                session = LaunchConfigurationParser.CreateDebugSession(arguments, Protocol.SendEvent, defaultDebugView)
+                    .GetAwaiter().GetResult();
+                session.Start();
+
+                return new LaunchResponse();
             }
             catch (Exception ex)
             {
                 Log(ex.Message, LogCategory.DebugAdapterOutput);
-                responder.SetError(new ProtocolException(ex.Message, ex));
+                throw new ProtocolException(ex.Message, ex);
             }
         }
 

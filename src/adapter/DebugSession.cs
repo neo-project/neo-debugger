@@ -45,11 +45,18 @@ namespace NeoDebug
             {
                 disassemblyManager.Add(c.Script, c.DebugInfo);
             }
+        }
 
-            if (!disassemblyView)
+        public void Start()
+        {
+            if (disassemblyView)
+            {
+                FireStoppedEvent(StoppedEvent.ReasonValue.Entry);
+            }
+            else
+            {
                 StepIn();
-
-            FireStoppedEvent(StoppedEvent.ReasonValue.Entry);
+            }
         }
 
         public void SetDebugView(DebugView debugView)
