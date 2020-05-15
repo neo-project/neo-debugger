@@ -1,361 +1,361 @@
 {
-	"name": "neo-contract-debug",
-	"publisher": "ngd-seattle",
-	"version": "0.0.0",
-	"displayName": "Neo Smart Contract Debugger",
-	"description": "Debugger Extension for Neo Smart Contracts",
-	"icon": "neo-logo-256.png",
-	"galleryBanner": {
-		"color": "#242424",
-		"theme": "dark"
-	},
-	"author": "Neo Global Development Seattle",
-	"engines": {
-		"vscode": "^1.42.0"
-	},
-	"categories": [
-		"Debuggers"
-	],
-	"bugs": {
-		"url": "https://github.com/neo-project/neo-debugger/issues"
-	},
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/neo-project/neo-debugger.git"
-	},
-	"keywords": [
-		"Neo",
-		"Blockchain",
-		"Smart Contract"
-	],
-	"activationEvents": [
-		"onDebug"
-	],
-	"main": "./out/extension.js",
-	"contributes": {
-		"configuration": {
-			"type": "object",
-			"title": "Neo Debugger",
-			"properties": {
-				"neo-debugger.log": {
-					"type": "boolean",
-					"default": false,
-					"description": "Enable debug adapter logging to %LOCALAPPDATA%/Neo-Debugger/logs"
-				},
-				"neo-debugger.debug": {
-					"type": "boolean",
-					"default": false,
-					"description": "Pass the --debug flag when launching the Neo Debugger server"
-				},
-				"neo-debugger.default-debug-view": {
-					"type": "string",
-					"enum": [
-						"source",
-						"disassembly"
-					],
-					"default": "source",
-					"description": "Specify the default debug view"
-				},
-				"neo-debugger.debug-adapter": {
-					"type": "array",
-					"items": "string",
-					"description": "Path to the Neo Debugger server"
-				}
-			}
-		},
-		"debuggers": [
-			{
-				"type": "neo-contract",
-				"label": "Neo Contract",
-				"configurationAttributes": {
-					"launch": {
-						"required": [
-							"program"
-						],
-						"properties": {
-							"program": {
-								"type": "string",
-								"description": "Absolute path to AVM file"
-							},
-							"sourceFileMap": {
-								"type": "object",
-								"description": "Optional source file mappings passed to the debug engine. Example: '{ \"C:\\foo\":\"/home/user/foo\" }'",
-								"additionalProperties": {
-									"type": "string"
-								}
-							},
-							"stored-contracts": {
-								"type": "array",
-								"description": "Optional additional contracts to load for dynamic invoke scenarios",
-								"items": {
-									"oneOf": [
-										{
-											"type": "string",
-											"description": "Absolute path to AVM file"
-										},
-										{
-											"type": "object",
-											"description": "Additional contract with emulated storage",
-											"required": [
-												"program"
-											],
-											"properties": {
-												"program": {
-													"type": "string",
-													"description": "Absolute path to AVM file"
-												},
-												"storage": {
-													"type": "array",
-													"items": {
-														"type": "object",
-														"description": "Key/value pairs used to populate debugger's emulated storage",
-														"required": [
-															"key",
-															"value"
-														],
-														"properties": {
-															"key": {
-																"type": "string"
-															},
-															"value": {
-																"type": "string"
-															},
-															"constant": {
-																"type": "boolean"
-															}
-														}
-													}
-												}
-											}
-										}
-									]
-								}
-							},
-							"args": {
-								"type": "array",
-								"description": "Command line arguments passed to the program.",
-								"default": []
-							},
-							"checkpoint": {
-								"type": "string",
-								"description": "Optional neo-express checkpoint file used for contract execution"
-							},
-							"utxo": {
-								"type": "object",
-								"description": "UTXO assets (aka NEO and GAS) to attach to the transaction being debugged",
-								"properties": {
-									"inputs": {
-										"type": "array",
-										"required": [
-											"txid",
-											"n"
-										],
-										"properties": {
-											"txid": {
-												"type": "string"
-											},
-											"n": {
-												"type": "number"
-											},
-											"value": {
-												"type": "number"
-											}
-										}
-									},
-									"outputs": {
-										"type": "array",
-										"required": [
-											"asset",
-											"value",
-											"address"
-										],
-										"properties": {
-											"asset": {
-												"type": "string"
-											},
-											"value": {
-												"type": "number"
-											},
-											"address": {
-												"type": "string"
-											}
-										}
-									}
-								}
-							},
-							"storage": {
-								"type": "array",
-								"description": "Key/value pairs used to populate debugger's emulated storage",
-								"items": {
-									"type": "object",
-									"required": [
-										"key",
-										"value"
-									],
-									"properties": {
-										"key": {
-											"type": "string"											
-										},
-										"value": {
-											"type": "string"
-										},
-										"constant": {
-											"type": "boolean"
-										}
-									}
-								},
-								"default": []
-							},
-							"return-types": {
-								"type": "array",
-								"description": "Specifies the expected return type of the contract entry-point.",
-								"items": {
-									"type": "string",
-									"enum": [
-										"int",
-										"bool",
-										"string",
-										"hex",
-										"byte[]"
-									]
-								}
-							},
-							"runtime": {
-								"type": "object",
-								"description": "Specifies behavior of Runtime.Trigger and Runtime.CheckWitness members.",
-								"properties": {
-									"trigger": {
-										"type": "string",
-										"description": "Rutime.Trigger return value",
-										"enum": [
-											"verification",
-											"application"
-										]
-									},
-									"witnesses": {
-										"oneOf": [
-											{
-												"type": "array",
-												"description": "Witnesses to check against",
-												"items": "string"
-											},
-											{
-												"type": "object",
-												"description": "Runtime.CheckWitness return value (no actual checking performed)",
-												"required": [
-													"check-result"
-												],
-												"properties": {
-													"check-result": {
-														"type": "boolean"
-													}
-												}
-											}
-										]
-									}
-								}
-							}
-						}
-					}
-				},
-				"configurationSnippets": [
-					{
-						"label": "Neo Contract: Launch",
-						"description": "A new configuration for debugging a Neo Smart Contract",
-						"body": {
-							"name": "Neo Contract",
-							"type": "neo-contract",
-							"request": "launch",
-							"program": "${workspaceFolder}",
-							"args": [],
-							"storage": [],
-							"runtime": {
-								"witnesses": {
-									"check-result": true
-								}
-							}
-						}
-					}
-				]
-			}
-		],
-		"languages": [
-			{
-				"id": "neovm.disassembly",
-				"aliases": [
-					"Disassembly"
-				],
-				"extensions": [
-					".neovm"
-				]
-			}
-		],
-		"commands": [
-			{
-				"category": "Neo Debugger",
-				"title": "Display source view",
-				"command": "neo-debugger.displaySourceView"
-			},
-			{
-				"category": "Neo Debugger",
-				"title": "Display disassembly view",
-				"command": "neo-debugger.displayDisassemblyView"
-			},
-			{
-				"category": "Neo Debugger",
-				"title": "Toggle Debug view",
-				"command": "neo-debugger.toggleDebugView",
-				"icon": {
-					"light": "resources/light/tools.svg",
-					"dark": "resources/dark/tools.svg"
-				}
-			}
-		],
-		"menus": {
-			"debug/toolBar": [
-				{
-					"command": "neo-debugger.toggleDebugView"
-				}
-			]
-		},
-		"grammars": [
-			{
-				"language": "neovm.disassembly",
-				"scopeName": "source.disassembly",
-				"path": "./syntaxes/disassembly.json"
-			}
-		],
-		"breakpoints": [
-			{
-				"language": "neovm.disassembly"
-			}
-		]
-	},
-	"scripts": {
-		"vscode:prepublish": "npm run compile",
-		"compile": "tsc -p ./",
-		"watch": "tsc -watch -p ./",
-		"pretest": "npm run compile",
-		"test": "node ./out/test/runTest.js",
-		"setversion": "gulp setversion",
-		"package": "gulp setversion &&  vsce package",
-		"package-local": "dotnet pack ../adapter --output . && npm run package"
-	},
-	"dependencies": {
-		"glob": "^7.1.6"
-	},
-	"devDependencies": {
-		"@types/glob": "^7.1.1",
-		"@types/gulp": "^4.0.6",
-		"@types/mocha": "^7.0.2",
-		"@types/node": "^12.8.1",
-		"@types/vscode": "^1.42.0",
-		"gulp": "4.0.2",
-		"mocha": "^7.1.2",
-		"nerdbank-gitversioning": "^3.1.91",
-		"tslint": "^6.0.0",
-		"typescript": "^3.8.3",
-		"vsce": "^1.75.0",
-		"vscode-test": "^1.3.0"
-	}
+    "name": "neo-contract-debug",
+    "publisher": "ngd-seattle",
+    "version": "0.0.0",
+    "displayName": "Neo Smart Contract Debugger",
+    "description": "Debugger Extension for Neo Smart Contracts",
+    "icon": "neo-logo-256.png",
+    "galleryBanner": {
+        "color": "#242424",
+        "theme": "dark"
+    },
+    "author": "Neo Global Development Seattle",
+    "engines": {
+        "vscode": "^1.42.0"
+    },
+    "categories": [
+        "Debuggers"
+    ],
+    "bugs": {
+        "url": "https://github.com/neo-project/neo-debugger/issues"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/neo-project/neo-debugger.git"
+    },
+    "keywords": [
+        "Neo",
+        "Blockchain",
+        "Smart Contract"
+    ],
+    "activationEvents": [
+        "onDebug"
+    ],
+    "main": "./out/extension.js",
+    "contributes": {
+        "configuration": {
+            "type": "object",
+            "title": "Neo Debugger",
+            "properties": {
+                "neo-debugger.log": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable debug adapter logging to %LOCALAPPDATA%/Neo-Debugger/logs"
+                },
+                "neo-debugger.debug": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Pass the --debug flag when launching the Neo Debugger server"
+                },
+                "neo-debugger.default-debug-view": {
+                    "type": "string",
+                    "enum": [
+                        "source",
+                        "disassembly"
+                    ],
+                    "default": "source",
+                    "description": "Specify the default debug view"
+                },
+                "neo-debugger.debug-adapter": {
+                    "type": "array",
+                    "items": "string",
+                    "description": "Path to the Neo Debugger server"
+                }
+            }
+        },
+        "debuggers": [
+            {
+                "type": "neo-contract",
+                "label": "Neo Contract",
+                "configurationAttributes": {
+                    "launch": {
+                        "required": [
+                            "program"
+                        ],
+                        "properties": {
+                            "program": {
+                                "type": "string",
+                                "description": "Absolute path to AVM file"
+                            },
+                            "sourceFileMap": {
+                                "type": "object",
+                                "description": "Optional source file mappings passed to the debug engine. Example: '{ \"C:\\foo\":\"/home/user/foo\" }'",
+                                "additionalProperties": {
+                                    "type": "string"
+                                }
+                            },
+                            "stored-contracts": {
+                                "type": "array",
+                                "description": "Optional additional contracts to load for dynamic invoke scenarios",
+                                "items": {
+                                    "oneOf": [
+                                        {
+                                            "type": "string",
+                                            "description": "Absolute path to AVM file"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "description": "Additional contract with emulated storage",
+                                            "required": [
+                                                "program"
+                                            ],
+                                            "properties": {
+                                                "program": {
+                                                    "type": "string",
+                                                    "description": "Absolute path to AVM file"
+                                                },
+                                                "storage": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "description": "Key/value pairs used to populate debugger's emulated storage",
+                                                        "required": [
+                                                            "key",
+                                                            "value"
+                                                        ],
+                                                        "properties": {
+                                                            "key": {
+                                                                "type": "string"
+                                                            },
+                                                            "value": {
+                                                                "type": "string"
+                                                            },
+                                                            "constant": {
+                                                                "type": "boolean"
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            "args": {
+                                "type": "array",
+                                "description": "Command line arguments passed to the program.",
+                                "default": []
+                            },
+                            "checkpoint": {
+                                "type": "string",
+                                "description": "Optional neo-express checkpoint file used for contract execution"
+                            },
+                            "utxo": {
+                                "type": "object",
+                                "description": "UTXO assets (aka NEO and GAS) to attach to the transaction being debugged",
+                                "properties": {
+                                    "inputs": {
+                                        "type": "array",
+                                        "required": [
+                                            "txid",
+                                            "n"
+                                        ],
+                                        "properties": {
+                                            "txid": {
+                                                "type": "string"
+                                            },
+                                            "n": {
+                                                "type": "number"
+                                            },
+                                            "value": {
+                                                "type": "number"
+                                            }
+                                        }
+                                    },
+                                    "outputs": {
+                                        "type": "array",
+                                        "required": [
+                                            "asset",
+                                            "value",
+                                            "address"
+                                        ],
+                                        "properties": {
+                                            "asset": {
+                                                "type": "string"
+                                            },
+                                            "value": {
+                                                "type": "number"
+                                            },
+                                            "address": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "storage": {
+                                "type": "array",
+                                "description": "Key/value pairs used to populate debugger's emulated storage",
+                                "items": {
+                                    "type": "object",
+                                    "required": [
+                                        "key",
+                                        "value"
+                                    ],
+                                    "properties": {
+                                        "key": {
+                                            "type": "string"
+                                        },
+                                        "value": {
+                                            "type": "string"
+                                        },
+                                        "constant": {
+                                            "type": "boolean"
+                                        }
+                                    }
+                                },
+                                "default": []
+                            },
+                            "return-types": {
+                                "type": "array",
+                                "description": "Specifies the expected return type of the contract entry-point.",
+                                "items": {
+                                    "type": "string",
+                                    "enum": [
+                                        "int",
+                                        "bool",
+                                        "string",
+                                        "hex",
+                                        "byte[]"
+                                    ]
+                                }
+                            },
+                            "runtime": {
+                                "type": "object",
+                                "description": "Specifies behavior of Runtime.Trigger and Runtime.CheckWitness members.",
+                                "properties": {
+                                    "trigger": {
+                                        "type": "string",
+                                        "description": "Rutime.Trigger return value",
+                                        "enum": [
+                                            "verification",
+                                            "application"
+                                        ]
+                                    },
+                                    "witnesses": {
+                                        "oneOf": [
+                                            {
+                                                "type": "array",
+                                                "description": "Witnesses to check against",
+                                                "items": "string"
+                                            },
+                                            {
+                                                "type": "object",
+                                                "description": "Runtime.CheckWitness return value (no actual checking performed)",
+                                                "required": [
+                                                    "check-result"
+                                                ],
+                                                "properties": {
+                                                    "check-result": {
+                                                        "type": "boolean"
+                                                    }
+                                                }
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "configurationSnippets": [
+                    {
+                        "label": "Neo Contract: Launch",
+                        "description": "A new configuration for debugging a Neo Smart Contract",
+                        "body": {
+                            "name": "Neo Contract",
+                            "type": "neo-contract",
+                            "request": "launch",
+                            "program": "${workspaceFolder}",
+                            "args": [],
+                            "storage": [],
+                            "runtime": {
+                                "witnesses": {
+                                    "check-result": true
+                                }
+                            }
+                        }
+                    }
+                ]
+            }
+        ],
+        "languages": [
+            {
+                "id": "neovm.disassembly",
+                "aliases": [
+                    "Disassembly"
+                ],
+                "extensions": [
+                    ".neovm"
+                ]
+            }
+        ],
+        "commands": [
+            {
+                "category": "Neo Debugger",
+                "title": "Display source view",
+                "command": "neo-debugger.displaySourceView"
+            },
+            {
+                "category": "Neo Debugger",
+                "title": "Display disassembly view",
+                "command": "neo-debugger.displayDisassemblyView"
+            },
+            {
+                "category": "Neo Debugger",
+                "title": "Toggle Debug view",
+                "command": "neo-debugger.toggleDebugView",
+                "icon": {
+                    "light": "resources/light/tools.svg",
+                    "dark": "resources/dark/tools.svg"
+                }
+            }
+        ],
+        "menus": {
+            "debug/toolBar": [
+                {
+                    "command": "neo-debugger.toggleDebugView"
+                }
+            ]
+        },
+        "grammars": [
+            {
+                "language": "neovm.disassembly",
+                "scopeName": "source.disassembly",
+                "path": "./syntaxes/disassembly.json"
+            }
+        ],
+        "breakpoints": [
+            {
+                "language": "neovm.disassembly"
+            }
+        ]
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "pretest": "npm run compile",
+        "test": "node ./out/test/runTest.js",
+        "setversion": "gulp setversion",
+        "package": "gulp setversion &&  vsce package",
+        "package-local": "dotnet pack ../adapter --output . && npm run package"
+    },
+    "dependencies": {
+        "glob": "^7.1.6"
+    },
+    "devDependencies": {
+        "@types/glob": "^7.1.1",
+        "@types/gulp": "^4.0.6",
+        "@types/mocha": "^7.0.2",
+        "@types/node": "^12.8.1",
+        "@types/vscode": "^1.42.0",
+        "gulp": "4.0.2",
+        "mocha": "^7.1.2",
+        "nerdbank-gitversioning": "^3.1.91",
+        "tslint": "^6.0.0",
+        "typescript": "^3.8.3",
+        "vsce": "^1.75.0",
+        "vscode-test": "^1.3.0"
+    }
 }
