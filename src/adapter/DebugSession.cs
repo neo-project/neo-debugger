@@ -20,8 +20,8 @@ namespace NeoDebug
         private readonly Action<DebugEvent> sendEvent;
         private readonly IReadOnlyList<string> returnTypes;
         private readonly Dictionary<int, IVariableContainer> variableContainers = new Dictionary<int, IVariableContainer>();
+        private readonly Dictionary<(string path, UInt160 scriptHash), ImmutableHashSet<int>> breakpoints = new Dictionary<(string, UInt160), ImmutableHashSet<int>>();
         private readonly DisassemblyManager disassemblyManager;
-        private readonly BreakpointManager breakpointManager;
         private bool disassemblyView = false;
 
         public enum DebugView
@@ -39,7 +39,6 @@ namespace NeoDebug
             this.returnTypes = returnTypes;
             this.disassemblyView = defaultDebugView == DebugView.Disassembly;
             this.disassemblyManager = new DisassemblyManager(engine.GetMethodName);
-            this.breakpointManager = new BreakpointManager(contracts, disassemblyManager);
 
             disassemblyManager.Add((byte[])engine.EntryContext.Script);
             disassemblyManager.AddRange(this.contracts.Values);
@@ -80,10 +79,98 @@ namespace NeoDebug
 
         public IEnumerable<Breakpoint> SetBreakpoints(Source source, IReadOnlyList<SourceBreakpoint> sourceBreakpoints)
         {
-            return breakpointManager.SetBreakpoints(source, sourceBreakpoints);
+            if (UInt160.TryParse(source.Name, out var scriptHash))
+            {
+                return SetDisassemblyBreakpoints(scriptHash);
+            }
+
+            return SetSourceBreakpoints();
+
+            IEnumerable<Breakpoint> SetDisassemblyBreakpoints(UInt160 scriptHash)
+            {
+                var breakpoints = new HashSet<int>();
+                for (int i = 0; i < sourceBreakpoints.Count; i++)
+                {
+                    var sourceBreakPoint = sourceBreakpoints[i];
+                    var ip = disassemblyManager.GetInstructionPointer(scriptHash, sourceBreakPoint.Line);
+
+                    if (ip >= 0)
+                    {
+                        breakpoints.Add(ip);
+                    }
+
+                    yield return new Breakpoint()
+                    {
+                        Verified = ip >= 0,
+                        Column = sourceBreakPoint.Column,
+                        Line = sourceBreakPoint.Line,
+                        Source = source
+                    };
+                }
+
+                this.breakpoints[(string.Empty, scriptHash)] = breakpoints.ToImmutableHashSet();
+            }
+
+            IEnumerable<Breakpoint> SetSourceBreakpoints()
+            {
+                foreach (var contract in contracts.Values)
+                {
+                    var breakpoints = new HashSet<int>();
+                    var sequencePoints = contract.DebugInfo.Methods.SelectMany(m => m.SequencePoints)
+                        .Where(sp => sp.Document.Equals(source.Path, StringComparison.InvariantCultureIgnoreCase))
+                        .ToArray();
+
+                    for (int j = 0; j < sourceBreakpoints.Count; j++)
+                    {
+                        var sourceBreakPoint = sourceBreakpoints[j];
+                        var sequencePoint = Array.Find(sequencePoints, sp => sp.Start.line == sourceBreakPoint.Line);
+
+                        if (sequencePoint != null)
+                        {
+                            breakpoints.Add(sequencePoint.Address);
+
+                            yield return new Breakpoint()
+                            {
+                                Verified = true,
+                                Column = sequencePoint.Start.column,
+                                EndColumn = sequencePoint.End.column,
+                                Line = sequencePoint.Start.line,
+                                EndLine = sequencePoint.End.line,
+                                Source = source
+
+                            };
+                        }
+                        else
+                        {
+                            yield return new Breakpoint()
+                            {
+                                Verified = false,
+                                Column = sourceBreakPoint.Column,
+                                Line = sourceBreakPoint.Line,
+                                Source = source
+                            };
+                        }
+                    }
+
+                    this.breakpoints[(source.Path, contract.ScriptHash)] = breakpoints.ToImmutableHashSet();
+                }
+            }
         }
 
         const VMState HALT_OR_FAULT = VMState.HALT | VMState.FAULT;
+
+        bool CheckBreakpoint(UInt160 scriptHash, int instructionPointer)
+        {
+            foreach (var kvp in breakpoints)
+            {
+                if (kvp.Key.scriptHash.Equals(scriptHash))
+                {
+                    return kvp.Value.Contains(instructionPointer);
+                }
+            }
+
+            return false;
+        }
 
         bool CheckBreakpoint()
         {
@@ -92,7 +179,7 @@ namespace NeoDebug
                 var context = engine.CurrentContext;
                 var scriptHash = new UInt160(context.ScriptHash);
 
-                return breakpointManager.CheckBreakpoint(scriptHash, context.InstructionPointer);
+                return CheckBreakpoint(scriptHash, context.InstructionPointer);
             }
 
             return false;
