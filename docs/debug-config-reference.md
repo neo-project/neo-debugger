@@ -9,13 +9,31 @@ This document provides information on these settings.
 > and/or missing functionality as you use it. Please let us know of any issues
 > you find or enhancements you would like to see via our [GitHub repo](https://github.com/neo-project/neo-debugger).
 
+## program
+
+Absolute path to AVM file being debugged.
+
+Examples:
+
+```json
+"program": "${workspaceFolder}\\bin\\Debug\\netstandard2.0\\publish\\domain.avm",
+```
+
+JSON Schema:
+
+```json
+"program": {
+    "type": "string"
+},
+```
+
 ## args
 
 Command line arguments passed to the contract entrypoint. JSON strings that are
 prefixed with `'0x'` are treated as a hex-encoded byte array. JSON strings that
 are prefixed with `'@'` are treated a base-58 encoded address.
 
-### Examples
+Examples:
 
 ```json
 "args": ["register", ["neo.org", "Harry Pierson"]],
@@ -27,50 +45,12 @@ are prefixed with `'@'` are treated a base-58 encoded address.
 "args": ["balanceOf", ["@AXwFY3qdGm6sYn8p59E7ckKWsZwdJyrHdn"]],
 ```
 
-### JSON Schema
+JSON Schema:
 
 ```json
 "args": {
     "type": "array",
     "default": []
-},
-```
-
-## checkpoint
-
-Path to a [Neo-Express](https://github.com/neo-project/neo-express)
-[checkpoint](https://github.com/neo-project/neo-express/blob/master/docs/command-reference.md#neo-express-checkpoint)
-to use for blockchain data.
-
-### Examples
-
-```json
-"checkpoint": "${workspaceFolder}\\checkpoints\\3-mint-tokens-invoked.neo-express-checkpoint",
-```
-
-### JSON Schema
-
-```json
-"checkpoint": {
-    "type": "string"
-},
-```
-
-## program
-
-Absolute path to AVM file being debugged.
-
-### Examples
-
-```json
-"program": "${workspaceFolder}\\bin\\Debug\\netstandard2.0\\publish\\domain.avm",
-```
-
-### JSON Schema
-
-```json
-"program": {
-    "type": "string"
 },
 ```
 
@@ -84,7 +64,7 @@ Note, it is possible for Neo smart contracts to have multiple return values.
 Smart contracts compiled from C# always have a single return value, but the
 configuration property name is plural and the value must be an array.
 
-### Examples
+Examples:
 
 ```json
 "return-types": ["bool"],
@@ -92,7 +72,7 @@ configuration property name is plural and the value must be an array.
 "return-types": ["string"],
 ```
 
-### JSON Schema
+JSON Schema:
 
 ```json
 "return-types": {
@@ -110,6 +90,187 @@ configuration property name is plural and the value must be an array.
 },
 ```
 
+## checkpoint
+
+Path to a [Neo-Express](https://github.com/neo-project/neo-express)
+[checkpoint](https://github.com/neo-project/neo-express/blob/master/docs/command-reference.md#neo-express-checkpoint)
+to use for blockchain data.
+
+Examples:
+
+```json
+"checkpoint": "${workspaceFolder}\\checkpoints\\3-mint-tokens-invoked.neo-express-checkpoint",
+```
+
+JSON Schema:
+
+```json
+"checkpoint": {
+    "type": "string"
+},
+```
+
+## storage
+
+Key/value pairs used to populate debugger's emulated storage. Similar to other
+launch configuration settings, strings prefixed with `'0x'` are treated as hex-encoded
+byte arrays.
+
+If a specified key already exists in the checkpoint file, the value specified in
+the launch configuration takes precedence.
+
+JSON for the `storage` configuration setting can be generated via the Neo-Express
+[`contract storage` command](https://github.com/neo-project/neo-express/blob/master/docs/command-reference.md#neo-express-contract-storage)
+by using the `--json` argument.
+
+Examples:
+
+```json
+"storage": [
+    {
+        "key": "neo.org",
+        "value": "Neo Foundation"
+    }
+],
+
+"storage": [
+    {
+        "key": "0x8a6f1e4f13022b26e56e957cb8251b082f0748b1007465737361",
+        "value": "0x174876e800"
+    },
+    {
+        "key": "0x796c707075536c61746f740074636172746e6f63",
+        "value": "0x174876e800"
+    },
+    {
+        "key": "0xd2cbfbe9bec47318113e4d41c95174023851df74d7cb2a9e4049d5c84d2b2a6d006f666e497874",
+        "value": "0x174876e80005028a6f1e4f13022b26e56e957cb8251b082f0748b1140000000380"
+    },
+],
+```
+
+JSON Schema:
+
+```json
+"storage": {
+    "type": "array",
+    "items": {
+        "type": "object",
+        "required": [
+            "key",
+            "value"
+        ],
+        "properties": {
+            "key": {
+                "type": "string"
+            },
+            "value": {
+                "type": "string"
+            },
+            "constant": {
+                "type": "boolean"
+            }
+        }
+    },
+    "default": []
+},
+```
+
+## sourceFileMap
+
+Optional source file mappings passed to the debug engine
+
+Example:
+
+``` json
+"sourceFileMap": {
+    "C:\foo": "/home/user/foo"
+}
+```
+
+JSON Schema:
+
+``` json
+"sourceFileMap": {
+    "type": "object",
+    "additionalProperties": {
+        "type": "string"
+    }
+},
+```
+
+## stored-contracts
+
+Optional additional contracts to load for dynamic invoke scenarios. Stored contracts
+can include optional emulated storage key/value pairs as described above.
+
+Example:
+
+``` json
+"stored-contracts": [
+    "${workspaceFolder}/Second/bin/Debug/netstandard2.0/Second.avm",
+    {
+        "program": "${workspaceFolder}/Third/bin/Debug/netstandard2.0/Third.avm",
+        "storage": [
+            {
+                "key": "neo.org",
+                "value": "Neo Foundation"
+            }
+        ],
+    }
+],
+```
+
+JSON Schema:
+
+``` json
+"stored-contracts": {
+    "type": "array",
+    "description": "",
+    "items": {
+        "oneOf": [
+            {
+                "type": "string",
+                "description": "Absolute path to AVM file"
+            },
+            {
+                "type": "object",
+                "required": [
+                    "program"
+                ],
+                "properties": {
+                    "program": {
+                        "type": "string",
+                    },
+                    "storage": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "key",
+                                "value"
+                            ],
+                            "properties": {
+                                "key": {
+                                    "type": "string"
+                                },
+                                "value": {
+                                    "type": "string"
+                                },
+                                "constant": {
+                                    "type": "boolean"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        ]
+    }
+}
+
+```
+
 ## runtime
 
 Specifies behavior of `Runtime.Trigger` and `Runtime.CheckWitness` members.
@@ -124,7 +285,7 @@ hex-encoded byte arrays to compare the method parameter to or an object
 with a `check-result` property containing a hard-coded boolean value to
 return, regardless of the parameter passed to `Runtime.CheckWitness`.
 
-### Examples
+Examples:
 
 ```json
 "runtime": {
@@ -134,7 +295,7 @@ return, regardless of the parameter passed to `Runtime.CheckWitness`.
 }
 ```
 
-### JSON Schema
+JSON Schema:
 
 ```json
 "runtime": {
@@ -168,72 +329,6 @@ return, regardless of the parameter passed to `Runtime.CheckWitness`.
 }
 ```
 
-## storage
-
-Key/value pairs used to populate debugger's emulated storage. Similar to other
-launch configuration settings, strings prefixed with `'0x'` are treated as hex-encoded
-byte arrays.
-
-If a specified key already exists in the checkpoint file, the value specified in
-the launch configuration takes precedence.
-
-JSON for the `storage` configuration setting can be generated via the Neo-Express
-[`contract storage` command](https://github.com/neo-project/neo-express/blob/master/docs/command-reference.md#neo-express-contract-storage)
-by using the `--json` argument.
-
-### Examples
-
-```json
-"storage": [
-    {
-        "key": "neo.org",
-        "value": "Neo Foundation"
-    }
-],
-
-"storage": [
-    {
-        "key": "0x8a6f1e4f13022b26e56e957cb8251b082f0748b1007465737361",
-        "value": "0x174876e800"
-    },
-    {
-        "key": "0x796c707075536c61746f740074636172746e6f63",
-        "value": "0x174876e800"
-    },
-    {
-        "key": "0xd2cbfbe9bec47318113e4d41c95174023851df74d7cb2a9e4049d5c84d2b2a6d006f666e497874",
-        "value": "0x174876e80005028a6f1e4f13022b26e56e957cb8251b082f0748b1140000000380"
-    },
-],
-```
-
-### JSON Schema
-
-```json
-"storage": {
-    "type": "array",
-    "items": {
-        "type": "object",
-        "required": [
-            "key",
-            "value"
-        ],
-        "properties": {
-            "key": {
-                "type": "string"
-            },
-            "value": {
-                "type": "string"
-            },
-            "constant": {
-                "type": "boolean"
-            }
-        }
-    },
-    "default": []
-},
-```
-
 ## utxo
 
 UTXO assets (aka NEO and GAS) to attach to the transaction being debugged. Objects
@@ -244,7 +339,7 @@ RPC endpoint. You can retrieve unspents information from Neo-Express via the
 The input.value property is permitted for compatibility with `getunspents` JSON
 response format but is not used by the debugger.
 
-### Examples
+Examples:
 
 ```json
 "utxo": {
@@ -264,7 +359,7 @@ response format but is not used by the debugger.
 },
 ```
 
-### JSON Schema
+JSON Schema:
 
 ```json
 "utxo": {
