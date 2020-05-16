@@ -65,7 +65,7 @@ namespace NeoDebug
 
         public (Source source, int line) GetSource(byte[] scriptHash, int instructionPointer)
         {
-            var _scriptHash = new UInt160(scriptHash); 
+            var _scriptHash = new UInt160(scriptHash);
             var hashCode = _scriptHash.GetHashCode();
             var name = _scriptHash.ToString();
             var source = new Source()

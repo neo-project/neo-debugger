@@ -346,7 +346,6 @@
     },
     "devDependencies": {
         "@types/glob": "^7.1.1",
-        "@types/gulp": "^4.0.6",
         "@types/mocha": "^7.0.2",
         "@types/node": "^12.8.1",
         "@types/vscode": "^1.42.0",

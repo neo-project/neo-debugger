@@ -26,10 +26,10 @@ namespace NeoDebug
             var (storedContracts, storedContractStorages) = await ParseStoredContracts(config, sourceFileMap);
 
             var invokeScript = BuildInvokeScript(contract.ScriptHash, ParseArguments(contract.EntryPoint, config));
-            var engine = CreateExecutionEngine(invokeScript, 
+            var engine = CreateExecutionEngine(invokeScript,
                 storedContracts.Append(contract),
                 storedContractStorages.Concat(storages),
-                config, 
+                config,
                 sendEvent);
 
             var returnTypes = ParseReturnTypes(config).ToList();
@@ -257,7 +257,8 @@ namespace NeoDebug
                 return Enumerable.Empty<(StorageKey, StorageItem)>();
             }
 
-            return token.Select(t => {
+            return token.Select(t =>
+            {
                 var key = ConvertString(t["key"]);
                 var value = ConvertString(t["value"]);
                 bool constant = t.Value<bool?>() ?? false;
@@ -298,14 +299,14 @@ namespace NeoDebug
                         var storage = ParseStorage(contract.ScriptHash, storedContract["storage"]);
                         storages = storages.Concat(storage);
                     }
-                    else 
+                    else
                     {
                         throw new Exception("invalid stored-contract value");
                     }
                 }
             }
 
-            return (contracts, storages); 
+            return (contracts, storages);
         }
 
         static IReadOnlyDictionary<string, string> ParseSourceFileMap(Dictionary<string, JToken> config)
