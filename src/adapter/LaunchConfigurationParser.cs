@@ -261,7 +261,7 @@ namespace NeoDebug
             {
                 var key = ConvertString(t["key"]);
                 var value = ConvertString(t["value"]);
-                bool constant = t.Value<bool?>() ?? false;
+                bool constant = t.Value<bool?>("constant") ?? false;
                 return (new StorageKey(scriptHash, key), new StorageItem(value, constant));
             });
 
