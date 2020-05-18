@@ -2,6 +2,7 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Linq;
 using System.Numerics;
 using System.Text;
@@ -103,7 +104,7 @@ namespace NeoDebug
             var args = GetArgsConfig();
             for (int i = 0; i < method.Parameters.Count; i++)
             {
-                yield return ConvertArgument(
+                yield return ParseArgument(
                     method.Parameters[i],
                     i < args.Count ? args[i] : null);
             }
@@ -124,28 +125,25 @@ namespace NeoDebug
             }
         }
 
-        static ContractArgument ConvertArgument(JToken arg)
+        static ContractArgument ParseArgument((string name, string type) param, JToken? arg)
         {
-            switch (arg.Type)
+            if (param.type.Length == 0)
+                return ParseArgument(arg);
+
+            var type = param.type switch
             {
-                case JTokenType.Integer:
-                    return new ContractArgument(ContractParameterType.Integer, new BigInteger(arg.Value<int>()));
-                case JTokenType.String:
-                    var value = arg.Value<string>();
-                    if (value.TryParseBigInteger(out var bigInteger))
-                    {
-                        return new ContractArgument(ContractParameterType.Integer, bigInteger);
-                    }
-                    else
-                    {
-                        return new ContractArgument(ContractParameterType.String, value);
-                    }
-                default:
-                    throw new NotImplementedException($"DebugAdapter.ConvertArgument {arg.Type}");
-            }
+                "Integer" => ContractParameterType.Integer,
+                "String" => ContractParameterType.String,
+                "Array" => ContractParameterType.Array,
+                "Boolean" => ContractParameterType.Boolean,
+                "ByteArray" => ContractParameterType.ByteArray,
+                _ => throw new NotImplementedException(),
+            };
+
+            return new ContractArgument(type, ParseArgumentValue(type, arg));
         }
 
-        static object ConvertArgumentToObject(ContractParameterType paramType, JToken? arg)
+        static object ParseArgumentValue(ContractParameterType paramType, JToken? arg)
         {
             if (arg == null)
             {
@@ -169,7 +167,7 @@ namespace NeoDebug
                 case ContractParameterType.String:
                     return arg.ToString();
                 case ContractParameterType.Array:
-                    return arg.Select(ConvertArgument).ToArray();
+                    return arg.Select(ParseArgument).ToArray();
                 case ContractParameterType.ByteArray:
                     {
                         var value = arg.ToString();
@@ -188,20 +186,82 @@ namespace NeoDebug
             throw new NotImplementedException($"DebugAdapter.ConvertArgument {paramType} {arg}");
         }
 
-        static ContractArgument ConvertArgument((string name, string type) param, JToken? arg)
+        static ContractArgument ParseArgument(JToken? arg)
         {
-            var type = param.type switch
+            if (arg == null)
             {
-                "Integer" => ContractParameterType.Integer,
-                "String" => ContractParameterType.String,
-                "Array" => ContractParameterType.Array,
-                "Boolean" => ContractParameterType.Boolean,
-                "ByteArray" => ContractParameterType.ByteArray,
-                "" => ContractParameterType.ByteArray,
-                _ => throw new NotImplementedException(),
+                return new ContractArgument(ContractParameterType.ByteArray, BigInteger.Zero);
+            }
+
+            return arg.Type switch
+            {
+                JTokenType.Boolean => new ContractArgument(ContractParameterType.Boolean, arg.Value<bool>()),
+                JTokenType.Integer => new ContractArgument(ContractParameterType.Integer, new BigInteger(arg.Value<int>())),
+                JTokenType.Array => new ContractArgument(ContractParameterType.Array, arg.Select(ParseArgument).ToArray()),
+                JTokenType.String => ParseArgumentString(arg.Value<string>()),
+                JTokenType.Object => ParseArgumentObject((JObject)arg),
+                _ => throw new ArgumentException(nameof(arg))
+            };
+        }
+
+        static ContractArgument ParseArgumentString(string value)
+        {
+            if (value.TryParseBigInteger(out var bigInteger))
+            {
+                return new ContractArgument(ContractParameterType.ByteArray, bigInteger);
+            }
+
+            return new ContractArgument(ContractParameterType.String, value);
+        }
+
+        static ContractArgument ParseArgumentObject(JObject arg)
+        {
+            var type = Enum.Parse<ContractParameterType>(arg.Value<string>("type"));
+            object value = type switch
+            {
+                ContractParameterType.ByteArray => BigInteger.Parse(arg.Value<string>("value")).ToByteArray(),
+                ContractParameterType.Signature => BigInteger.Parse(arg.Value<string>("value")).ToByteArray(),
+                ContractParameterType.Boolean => arg.Value<bool>("value"),
+                ContractParameterType.Integer => BigInteger.Parse(arg.Value<string>("value")),
+                ContractParameterType.Hash160 => UInt160ToArray(arg.Value<string>("value")),
+                ContractParameterType.Hash256 => UInt256ToArray(arg.Value<string>("value")),
+                // ContractParameterType.PublicKey => ECPoint.Parse(json.Value<string>("value"), ECCurve.Secp256r1),
+                ContractParameterType.String => arg.Value<string>("value"),
+                ContractParameterType.Array => arg["value"].Select(ParseArgument).ToArray(),
+                ContractParameterType.Map => arg["value"].Select(ParseMapElement).ToArray(),
+                _ => throw new ArgumentException(nameof(arg) + $" {type}"),
             };
 
-            return new ContractArgument(type, ConvertArgumentToObject(type, arg));
+            return new ContractArgument(type, value);
+
+            static byte[] UInt160ToArray(string value)
+            {
+                if (UInt160.TryParse(value, out var result)
+                    && result.TryToArray(out var array))
+                {
+                    return array;
+                }
+
+                throw new ArgumentException(nameof(value));
+            }
+
+            static byte[] UInt256ToArray(string value)
+            {
+                if (UInt256.TryParse(value, out var result)
+                    && result.TryToArray(out var array))
+                {
+                    return array;
+                }
+
+                throw new ArgumentException(nameof(value));
+            }
+
+            static KeyValuePair<ContractArgument, ContractArgument> ParseMapElement(JToken json)
+            {
+                var key = ParseArgument(json["key"] ?? throw new ArgumentException(nameof(json)));
+                var value = ParseArgument(json["value"] ?? throw new ArgumentException(nameof(json)));
+                return KeyValuePair.Create(key, value);
+            }
         }
 
         static (IEnumerable<CoinReference> inputs, IEnumerable<TransactionOutput> outputs)
