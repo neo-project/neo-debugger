@@ -35,13 +35,13 @@ namespace NeoDebug.VariableContainers
                     var parameter = method?.GetLocals().ElementAtOrDefault(i);
                     if (parameter.HasValue)
                     {
-                        var variable = variables[i].GetVariable(session, parameter.Value.name, parameter.Value.type);
+                        var variable = variables[i].GetVariable(session, parameter.Value.name ?? $"<variable {i}>", parameter.Value.type);
                         variable.EvaluateName = parameter.Value.name;
                         yield return variable;
                     }
                     else
                     {
-                        yield return variables[i].GetVariable(session, "<variable {i}>");
+                        yield return variables[i].GetVariable(session, $"<variable {i}>");
                     }
                 }
             }
