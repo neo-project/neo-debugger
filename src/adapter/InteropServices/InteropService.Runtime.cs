@@ -2,6 +2,8 @@
 using Neo.VM;
 using NeoDebug.Models;
 using NeoFx;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -71,55 +73,63 @@ namespace NeoDebug
 
         private bool Runtime_Log(ExecutionEngine engine)
         {
-            string message = Encoding.UTF8.GetString(engine.CurrentContext.EvaluationStack.Pop().GetByteArray());
+            var scriptHash = new UInt160(engine.CurrentContext.ScriptHash);
+            var message = Encoding.UTF8.GetString(engine.CurrentContext.EvaluationStack.Pop().GetByteArray());
             sendOutput(new OutputEvent()
             {
-                Output = $"Runtime.Log: {message}\n",
+                Output = $"Runtime.Log: {scriptHash} {message}\n",
             });
             return true;
         }
 
         private bool Runtime_Notify(ExecutionEngine engine)
         {
-            static string StackItemToString(StackItem item, string? typeHint = null)
+            var output = GetOutput(new UInt160(engine.CurrentContext.ScriptHash),
+                                   engine.CurrentContext.EvaluationStack.Pop());
+            sendOutput(new OutputEvent()
+            {
+                Output = output,
+            });
+            return true;
+
+            string GetOutput(UInt160 scriptHash, StackItem state)
+            {
+                if (state is Neo.VM.Types.Array array && array.Count >= 1)
+                {
+                    var name = Encoding.UTF8.GetString(array[0].GetByteArray());
+                    if (events.TryGetValue((scriptHash, name), out var @event))
+                    {
+                        var @params = new JArray();
+                        for (int i = 1; i < array.Count; i++)
+                        {
+                            var paramType = @event.Parameters.ElementAtOrDefault(i - 1);
+                            @params.Add(StackItemToJson(array[i], paramType.Type));
+                        }
+
+                        return $"Runtime.Notify: {scriptHash} {name}\n{@params.ToString(Formatting.Indented)}\n";
+                    }
+                }
+
+                return $"Runtime.Notify: {scriptHash} \n{StackItemToJson(state, null).ToString(Formatting.Indented)}\n";
+            }
+
+            static JToken StackItemToJson(StackItem item, string? typeHint)
             {
                 return typeHint switch
                 {
                     "Boolean" => item.GetBoolean().ToString(),
                     "Integer" => item.GetBigInteger().ToString(),
                     "String" => item.GetString(),
-                    _ => item.GetBigInteger().ToHexString(),
+                    _ => item switch 
+                    {
+                        Neo.VM.Types.Boolean _ => item.GetBoolean().ToString(),
+                        Neo.VM.Types.ByteArray _ => $"{item.GetBigInteger().ToHexString()} ({item.GetString()})",
+                        Neo.VM.Types.Integer _ => item.GetBigInteger().ToString(),
+                        Neo.VM.Types.Array array => new JArray(array.Select(i => StackItemToJson(i, null))),
+                        _ => throw new NotSupportedException(item.GetType().Name),
+                    }
                 };
             }
-
-            IList<(string Name, string Type)> GetEventParamTypes(byte[] scriptHash, string _name)
-            {
-                var _scriptHash = new UInt160(scriptHash);
-                if (events.TryGetValue((_scriptHash, _name), out var @event))
-                {
-                    return @event.Parameters;
-                }
-
-                return new List<(string name, string type)>();
-            }
-
-            if (engine.CurrentContext.EvaluationStack.Pop() is Neo.VM.Types.Array state && state.Count >= 1)
-            {
-                var name = Encoding.UTF8.GetString(state[0].GetByteArray());
-                var paramTypes = GetEventParamTypes(engine.CurrentContext.ScriptHash, name);
-                var @params = new Newtonsoft.Json.Linq.JArray();
-                for (int i = 1; i < state.Count; i++)
-                {
-                    var paramType = i <= paramTypes.Count ? paramTypes[i - 1].Type : string.Empty;
-                    @params.Add(StackItemToString(state[i], paramType));
-                }
-
-                sendOutput(new OutputEvent()
-                {
-                    Output = $"Runtime.Notify: {name} {@params.ToString(Newtonsoft.Json.Formatting.None)}\n",
-                });
-            }
-            return true;
         }
 
         private bool Runtime_CheckWitness(ExecutionEngine engine)
