@@ -120,7 +120,7 @@ namespace NeoDebug
                     "Boolean" => item.GetBoolean().ToString(),
                     "Integer" => item.GetBigInteger().ToString(),
                     "String" => item.GetString(),
-                    _ => item switch 
+                    _ => item switch
                     {
                         Neo.VM.Types.Boolean _ => item.GetBoolean().ToString(),
                         Neo.VM.Types.ByteArray _ => $"{item.GetBigInteger().ToHexString()} ({item.GetString()})",
