@@ -1,13 +1,16 @@
+using System;
+using System.Linq;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
-using System;
-using System.IO;
-using System.Linq;
 
 namespace NeoDebug
 {
     public class DebugAdapter : DebugAdapterBase
     {
+        public delegate IDebugSession DebugSessionFactory(LaunchArguments launchArguments,
+                                                          Action<DebugEvent> debugEventSender,
+                                                          DebugView defaultDebugView);
+
         class DebugViewRequest : DebugRequest<DebugViewArguments>
         {
             public DebugViewRequest() : base("debugview")
@@ -21,14 +24,14 @@ namespace NeoDebug
             public string DebugView { get; set; } = string.Empty;
         }
 
-        private readonly Func<LaunchArguments, Action<DebugEvent>, DebugView, IDebugSession> sessionFactory;
+        private readonly DebugSessionFactory sessionFactory;
         private readonly Action<LogCategory, string> logger;
         private readonly DebugView defaultDebugView;
         private IDebugSession? session;
 
-        public DebugAdapter(Func<LaunchArguments, Action<DebugEvent>, DebugView, IDebugSession> sessionFactory,
-                            Stream @in,
-                            Stream @out,
+        public DebugAdapter(DebugSessionFactory sessionFactory,
+                            System.IO.Stream @in,
+                            System.IO.Stream @out,
                             Action<LogCategory, string>? logger,
                             DebugView defaultDebugView)
         {

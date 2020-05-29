@@ -1,5 +1,6 @@
 ﻿using McMaster.Extensions.CommandLineUtils;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
+using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using System;
 using System.IO;
 
@@ -54,17 +55,22 @@ namespace NeoDebug.Neo3
                 throw new ArgumentException(nameof(DefaultDebugView));
 
             var adapter = new DebugAdapter(
-                (a,b,c) => throw new NotImplementedException(),                
+                CreateDebugSession,
                 Console.OpenStandardInput(),
                 Console.OpenStandardOutput(),
-                (cat, msg) => LogMessage(msg, cat),
+                LogMessage,
                 defaultDebugView);
 
             adapter.Run();
         }
 
+        static IDebugSession CreateDebugSession(LaunchArguments launchArguments,
+            Action<DebugEvent> debugEventSender, DebugView defaultDebugView)
+        {
+            throw new NotImplementedException();
+        }
 
-        public void LogMessage(string message, LogCategory category = LogCategory.Trace)
+        void LogMessage(LogCategory category, string message)
         {
             if (Log)
             {
