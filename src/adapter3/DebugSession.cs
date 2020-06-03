@@ -7,7 +7,6 @@ using NeoDebug;
 
 namespace NeoDebug.Neo3
 {
-
     partial class DebugSession : IDebugSession, IDisposable
     {
         const VMState HALT_OR_FAULT = VMState.HALT | VMState.FAULT;
