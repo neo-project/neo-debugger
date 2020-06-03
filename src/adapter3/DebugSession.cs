@@ -1,16 +1,21 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
+using System.Linq;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.VM;
 using NeoDebug;
 
 namespace NeoDebug.Neo3
 {
-    class DebugSession : IDebugSession, IDisposable
+
+    partial class DebugSession : IDebugSession, IDisposable
     {
+        const VMState HALT_OR_FAULT = VMState.HALT | VMState.FAULT;
+
         private readonly DebugExecutionEngine engine;
         private readonly Action<DebugEvent> sendEvent;
+        private readonly DisassemblyManager disassemblyManager = new DisassemblyManager();
+        private readonly VariableManager variableManager = new VariableManager();
 
         public DebugSession(DebugExecutionEngine engine, Action<DebugEvent> sendEvent)
         {
@@ -33,42 +38,8 @@ namespace NeoDebug.Neo3
             yield return new Thread(1, "main thread");
         }
 
-        const VMState HALT_OR_FAULT = VMState.HALT | VMState.FAULT;
 
-        static IEnumerable<(int ip, Instruction instruction)> EnumerateInstructions(Neo.VM.Script script)
-        {
-            int ip = 0;
-            while (ip < script.Length)
-            {
-                var instruction = script.GetInstruction(ip);
-                yield return (ip, instruction);
-                ip = ip + instruction.Size;
-            }
-        }
 
-        private readonly Dictionary<int, ImmutableDictionary<int, int>> sourceMaps = new Dictionary<int, ImmutableDictionary<int, int>>();
-        private readonly Dictionary<int, string> sources = new Dictionary<int, string>();
-
-        int GetDisassemblyLine(Neo.VM.Script script, int ip)
-        {
-            var hash = script.GetHashCode();
-            var stringBuilder = new System.Text.StringBuilder();
-            if (!sourceMaps.TryGetValue(hash, out var map))
-            {
-                int line = 1;
-                var builder = ImmutableDictionary.CreateBuilder<int, int>();
-                foreach (var t in EnumerateInstructions(script))
-                {
-                    stringBuilder.Append($"{line} {t.ip} {t.instruction.OpCode}\n");
-                    builder.Add(t.ip, line++);
-                }
-                map = builder.ToImmutable();
-                sourceMaps[hash] = map;
-                sources[hash] = stringBuilder.ToString();
-            }
-
-            return map[ip];
-        }
 
         public IEnumerable<StackFrame> GetStackFrames(StackTraceArguments args)
         {
@@ -92,25 +63,59 @@ namespace NeoDebug.Neo3
                             Path = hashCode.ToString(),
                             AdapterData = id,
                         },
-                        Line = GetDisassemblyLine(context.Script, context.InstructionPointer)
+                        Line = disassemblyManager.GetLine(context.Script, context.InstructionPointer)
                     };
                 }
             }
         }
 
+        Scope AddScope(string name, IVariableContainer container)
+        {
+            var @ref = variableManager.Add(container);
+            return new Scope(name, @ref, false);
+        }
+        
         public IEnumerable<Scope> GetScopes(ScopesArguments args)
         {
-            yield break;
+            variableManager.Clear();
+
+            if ((engine.State & HALT_OR_FAULT) == 0)
+            {
+                var context = engine.CurrentContext;
+
+                yield return AddScope("Evaluation Stack", new EvaluationStackContainer(variableManager, context.EvaluationStack));
+
+                if (context.LocalVariables != null) 
+                {
+                    yield return AddScope("Locals", new SlotContainer(variableManager, context.LocalVariables));
+                }
+                if (context.StaticFields != null) 
+                {
+                    yield return AddScope("Statics", new SlotContainer(variableManager, context.StaticFields));
+                }
+                if (context.Arguments != null) 
+                {
+                    yield return AddScope("Arguments", new SlotContainer(variableManager, context.Arguments));
+                }
+            }
         }
 
         public IEnumerable<Variable> GetVariables(VariablesArguments args)
         {
-            yield break;
+            if ((engine.State & HALT_OR_FAULT) == 0)
+            {
+                if (variableManager.TryGet(args.VariablesReference, out var container))
+                {
+                    return container.Enumerate();
+                }
+            }
+
+            return Enumerable.Empty<Variable>();
         }
 
         public SourceResponse GetSource(SourceArguments arguments)
         {
-            var source = sources[arguments.SourceReference];
+            var source = disassemblyManager.GetSource(arguments.SourceReference);
             return new SourceResponse(source)
             {
                 MimeType = "text/x-neovm.disassembly"
