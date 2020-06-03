@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 
 namespace NeoDebug.Neo3
@@ -6,12 +6,12 @@ namespace NeoDebug.Neo3
     using NeoArray = Neo.VM.Types.Array;
     using NeoStruct = Neo.VM.Types.Struct;
 
-    class ArrayContainer : IVariableContainer
+    class NeoArrayContainer : IVariableContainer
     {
         private readonly IVariableManager manager;
         private readonly NeoArray array;
 
-        public ArrayContainer(IVariableManager manager, NeoArray array)
+        public NeoArrayContainer(IVariableManager manager, NeoArray array)
         {
             this.manager = manager;
             this.array = array;
@@ -19,7 +19,7 @@ namespace NeoDebug.Neo3
 
         public static Variable Create(IVariableManager manager, NeoArray array, string name)
         {
-            var container = new ArrayContainer(manager, array);
+            var container = new NeoArrayContainer(manager, array);
             var containerID = manager.Add(container);
             return new Variable()
             {

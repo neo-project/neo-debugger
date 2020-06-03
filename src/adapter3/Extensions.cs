@@ -44,7 +44,7 @@ namespace NeoDebug.Neo3
             //         return ByteArrayContainer.Create(session, item.GetByteArray(), name, true);
             // }
 
-            Variable NewVar(string value, string type = "")
+            Variable ToVariable(string value, string type = "")
             {
                 return new Variable()
                 {
@@ -56,16 +56,15 @@ namespace NeoDebug.Neo3
 
             return item switch
             {
-                Neo.VM.Types.Boolean _ => NewVar($"{item.ToBoolean()}", "Boolean"),
-                Neo.VM.Types.Buffer buffer => NewVar("Buffer"),
-                Neo.VM.Types.ByteString byteString => NewVar("ByteString"),
-                Neo.VM.Types.Integer @int => NewVar($"{@int.ToBigInteger()}", "Integer"),
-                Neo.VM.Types.InteropInterface _ => NewVar("InteropInterface"),
-                Neo.VM.Types.Map _ => NewVar("Map"),
-                Neo.VM.Types.Null _ => NewVar("null", "Null"),
-                Neo.VM.Types.Pointer _ => NewVar("Pointer"),
-                // Neo.VM.Types.Struct _ => NewVar("Struct"),
-                Neo.VM.Types.Array array => ArrayContainer.Create(manager, array, name),
+                Neo.VM.Types.Boolean _ => ToVariable($"{item.ToBoolean()}", "Boolean"),
+                Neo.VM.Types.Buffer buffer => ToVariable("Buffer"),
+                Neo.VM.Types.ByteString byteString => ToVariable("ByteString"),
+                Neo.VM.Types.Integer @int => ToVariable($"{@int.ToBigInteger()}", "Integer"),
+                Neo.VM.Types.InteropInterface _ => ToVariable("InteropInterface"),
+                Neo.VM.Types.Map _ => ToVariable("Map"),
+                Neo.VM.Types.Null _ => ToVariable("null", "Null"),
+                Neo.VM.Types.Pointer _ => ToVariable("Pointer"),
+                Neo.VM.Types.Array array => NeoArrayContainer.Create(manager, array, name),
                 _ => throw new NotImplementedException(),
             };
         }
