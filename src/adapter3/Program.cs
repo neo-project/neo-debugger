@@ -1,12 +1,15 @@
 ﻿using McMaster.Extensions.CommandLineUtils;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using Neo.VM;
+using Neo.SmartContract;
+using Newtonsoft.Json.Linq;
 using System;
 using System.IO;
+using System.Text;
 
 namespace NeoDebug.Neo3
 {
-
     class Program
     {
         private static void Main(string[] args) => CommandLineApplication.Execute<Program>(args);
@@ -65,9 +68,26 @@ namespace NeoDebug.Neo3
         }
 
         static IDebugSession CreateDebugSession(LaunchArguments launchArguments,
-            Action<DebugEvent> debugEventSender, DebugView defaultDebugView)
-        {
-            throw new NotImplementedException();
+            Action<DebugEvent> sendEvent, DebugView defaultDebugView)
+        {            
+            var program = launchArguments.ConfigurationProperties["program"].Value<string>();
+            var contract = LoadContract(program);
+
+            using var builder = new ScriptBuilder();
+            builder.EmitAppCall(contract.ScriptHash, "add", 2, 2);
+            var invokeScript = builder.ToArray();
+
+            var engine = new DebugExecutionEngine();
+            engine.LoadScript(builder.ToArray());
+
+            return new DebugSession(engine, sendEvent);
+
+            static NefFile LoadContract(string contractPath)
+            {
+                using var stream = File.OpenRead(contractPath);
+                using var reader = new BinaryReader(stream, Encoding.UTF8, false);
+                return Neo.IO.Helper.ReadSerializable<NefFile>(reader);
+            }
         }
 
         void LogMessage(LogCategory category, string message)

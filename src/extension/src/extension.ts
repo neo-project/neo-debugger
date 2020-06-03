@@ -2,7 +2,7 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import { WorkspaceFolder, DebugConfiguration, ProviderResult, CancellationToken } from 'vscode';
-import { join, basename, relative, resolve } from 'path';
+import { join, basename, relative, resolve, extname } from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as cp from 'child_process';
@@ -208,7 +208,7 @@ class NeoContractDebugConfigurationProvider implements vscode.DebugConfiguration
     }
 }
 
-async function getDebugAdapterCommand(config:vscode.WorkspaceConfiguration) : Promise<[string, string[]]> {
+async function getDebugAdapterCommand(program: string, config:vscode.WorkspaceConfiguration) : Promise<[string, string[]]> {
     var debugAdapterConfig = config.get<string[]>("debug-adapter");
     if (debugAdapterConfig && debugAdapterConfig.length > 0) {
         return [debugAdapterConfig[0], debugAdapterConfig.slice(1)];
@@ -220,8 +220,13 @@ async function getDebugAdapterCommand(config:vscode.WorkspaceConfiguration) : Pr
     }
 
     if (inDevelopmentMode()) {
-        const adapterProjectPath = resolve(extension.extensionPath, "..", "adapter");
-        const adapterPath = resolve(adapterProjectPath, "bin", "Debug", "netcoreapp3.1", "neodebug-adapter.exe");
+        var neoVersion3 = extname(program) === ".nef" ? true : false; 
+        
+        const adapterProjectPath = resolve(extension.extensionPath, "..", 
+            neoVersion3 ? "adapter3" : "adapter");
+        const adapterPath = resolve(adapterProjectPath, "bin", "Debug", "netcoreapp3.1", 
+            neoVersion3 ? "neodebug-adapter-3.exe" : "neodebug-adapter.exe");
+
         if (await checkFileExists(adapterPath))
         {
             return [adapterPath, []];
@@ -241,8 +246,9 @@ class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDes
 
     async createDebugAdapterDescriptor(session: vscode.DebugSession, executable: vscode.DebugAdapterExecutable | undefined): Promise<vscode.DebugAdapterDescriptor> {
 
+        const program: string = session.configuration["program"];
         const config = vscode.workspace.getConfiguration("neo-debugger");
-        let [cmd, args] = await getDebugAdapterCommand(config);
+        let [cmd, args] = await getDebugAdapterCommand(program, config);
         
         if (config.get<Boolean>("debug", false))
         {

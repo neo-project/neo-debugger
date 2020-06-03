@@ -8,7 +8,7 @@ namespace NeoDebug
     public class DebugAdapter : DebugAdapterBase
     {
         public delegate IDebugSession DebugSessionFactory(LaunchArguments launchArguments,
-                                                          Action<DebugEvent> debugEventSender,
+                                                          Action<DebugEvent> sendEvent,
                                                           DebugView defaultDebugView);
 
         class DebugViewRequest : DebugRequest<DebugViewArguments>
