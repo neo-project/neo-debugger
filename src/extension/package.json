@@ -314,7 +314,8 @@
         "menus": {
             "debug/toolBar": [
                 {
-                    "command": "neo-debugger.toggleDebugView"
+                    "command": "neo-debugger.toggleDebugView",
+                    "when": "debugType == 'neo-contract'"
                 }
             ]
         },
