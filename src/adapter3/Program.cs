@@ -7,6 +7,9 @@ using Newtonsoft.Json.Linq;
 using System;
 using System.IO;
 using System.Text;
+using Neo.SmartContract.Manifest;
+using Neo.Persistence;
+using Neo.Ledger;
 
 namespace NeoDebug.Neo3
 {
@@ -67,26 +70,50 @@ namespace NeoDebug.Neo3
             adapter.Run();
         }
 
+        // TODO: async?
         static IDebugSession CreateDebugSession(LaunchArguments launchArguments,
             Action<DebugEvent> sendEvent, DebugView defaultDebugView)
         {            
             var program = launchArguments.ConfigurationProperties["program"].Value<string>();
-            var contract = LoadContract(program);
+            var (contract, manifest) = LoadContract(program);
+
+            IStore memoryStore = new MemoryStore();
+            AddContract(memoryStore, contract, manifest);
 
             using var builder = new ScriptBuilder();
             builder.EmitAppCall(contract.ScriptHash, "add", 2, 2);
             var invokeScript = builder.ToArray();
 
-            var engine = new DebugApplicationEngine();
+            var engine = new DebugApplicationEngine(new SnapshotView(memoryStore));
             engine.LoadScript(builder.ToArray());
 
             return new DebugSession(engine, sendEvent);
 
-            static NefFile LoadContract(string contractPath)
+            static void AddContract(IStore store, NefFile contract, ContractManifest manifest)
             {
+                var snapshotView = new SnapshotView(store);
+
+                var contractState = new ContractState
+                {
+                    Id = snapshotView.ContractId.GetAndChange().NextId++,
+                    Script = contract.Script,
+                    Manifest = manifest
+                };
+                snapshotView.Contracts.Add(contract.ScriptHash, contractState);
+
+                snapshotView.Commit();
+            }
+
+            static (NefFile contract, ContractManifest manifest) LoadContract(string contractPath)
+            {
+                var manifestPath = Path.ChangeExtension(contractPath, ".manifest.json");
+                var manifest = ContractManifest.Parse(File.ReadAllBytes(manifestPath));
+
                 using var stream = File.OpenRead(contractPath);
                 using var reader = new BinaryReader(stream, Encoding.UTF8, false);
-                return Neo.IO.Helper.ReadSerializable<NefFile>(reader);
+                var nefFile = Neo.IO.Helper.ReadSerializable<NefFile>(reader);
+
+                return (nefFile, manifest);
             }
         }
 

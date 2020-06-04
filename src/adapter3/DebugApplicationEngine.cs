@@ -4,6 +4,7 @@ using Neo;
 using Neo.IO;
 using Neo.IO.Caching;
 using Neo.Ledger;
+using Neo.Persistence;
 using Neo.SmartContract;
 using Neo.VM;
 
@@ -11,7 +12,8 @@ namespace NeoDebug.Neo3
 {
     class DebugApplicationEngine : ApplicationEngine
     {
-        public DebugApplicationEngine() : base(TriggerType.All, null, null, 0, true)
+        
+        public DebugApplicationEngine(StoreView storeView) : base(TriggerType.Application, null, storeView, 0, true)
         {
         }
         

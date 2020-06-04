@@ -37,9 +37,6 @@ namespace NeoDebug.Neo3
             yield return new Thread(1, "main thread");
         }
 
-
-
-
         public IEnumerable<StackFrame> GetStackFrames(StackTraceArguments args)
         {
             System.Diagnostics.Debug.Assert(args.ThreadId == 1);
@@ -68,12 +65,6 @@ namespace NeoDebug.Neo3
             }
         }
 
-        Scope AddScope(string name, IVariableContainer container)
-        {
-            var @ref = variableManager.Add(container);
-            return new Scope(name, @ref, false);
-        }
-        
         public IEnumerable<Scope> GetScopes(ScopesArguments args)
         {
             variableManager.Clear();
@@ -96,6 +87,12 @@ namespace NeoDebug.Neo3
                 {
                     yield return AddScope("Arguments", new SlotContainer(variableManager, context.Arguments));
                 }
+            }
+
+            Scope AddScope(string name, IVariableContainer container)
+            {
+                var @ref = variableManager.Add(container);
+                return new Scope(name, @ref, false);
             }
         }
 
