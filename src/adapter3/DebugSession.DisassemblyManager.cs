@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 using System.Numerics;
 using Neo.SmartContract;
 using Neo.VM;
@@ -43,12 +44,15 @@ namespace NeoDebug.Neo3
                 var hash = script.GetHashCode();
                 if (!sourceMaps.TryGetValue(hash, out var map))
                 {
+                    var digitCount = Utility.DigitCount(EnumerateInstructions(script).Last().ip);
+                    var padString = new string('0', digitCount);
+
                     int line = 1;
                     var sourceBuilder = new System.Text.StringBuilder();
                     var sourceMapBuilder = ImmutableDictionary.CreateBuilder<int, int>();
                     foreach (var t in EnumerateInstructions(script))
                     {
-                        sourceBuilder.Append($"{line} {t.ip} {t.instruction.OpCode}");
+                        sourceBuilder.Append($"{t.ip.ToString(padString)} {t.instruction.OpCode}");
                         var comment = GetComment(t.instruction);
                         if (comment.Length > 0)
                         {
