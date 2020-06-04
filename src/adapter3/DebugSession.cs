@@ -11,12 +11,12 @@ namespace NeoDebug.Neo3
     {
         const VMState HALT_OR_FAULT = VMState.HALT | VMState.FAULT;
 
-        private readonly DebugExecutionEngine engine;
+        private readonly DebugApplicationEngine engine;
         private readonly Action<DebugEvent> sendEvent;
         private readonly DisassemblyManager disassemblyManager = new DisassemblyManager();
         private readonly VariableManager variableManager = new VariableManager();
 
-        public DebugSession(DebugExecutionEngine engine, Action<DebugEvent> sendEvent)
+        public DebugSession(DebugApplicationEngine engine, Action<DebugEvent> sendEvent)
         {
             this.engine = engine;
             this.sendEvent = sendEvent;

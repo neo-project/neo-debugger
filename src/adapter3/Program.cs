@@ -77,7 +77,7 @@ namespace NeoDebug.Neo3
             builder.EmitAppCall(contract.ScriptHash, "add", 2, 2);
             var invokeScript = builder.ToArray();
 
-            var engine = new DebugExecutionEngine();
+            var engine = new DebugApplicationEngine();
             engine.LoadScript(builder.ToArray());
 
             return new DebugSession(engine, sendEvent);
