@@ -23,37 +23,46 @@ namespace NeoDebug.Neo3
             static IEnumerable<(int ip, Instruction instruction)> EnumerateInstructions(Neo.VM.Script script)
             {
                 int ip = 0;
+                bool lastInstructionRet = false;
                 while (ip < script.Length)
                 {
                     var instruction = script.GetInstruction(ip);
+                    lastInstructionRet = instruction.OpCode == OpCode.RET;
                     yield return (ip, instruction);
                     ip = ip + instruction.Size;
+                }
+
+                if (!lastInstructionRet)
+                {
+                    yield return (ip, Instruction.RET);
                 }
             }
 
             public int GetLine(Neo.VM.Script script, int ip)
             {
                 var hash = script.GetHashCode();
-                var stringBuilder = new System.Text.StringBuilder();
                 if (!sourceMaps.TryGetValue(hash, out var map))
                 {
                     int line = 1;
-                    var builder = ImmutableDictionary.CreateBuilder<int, int>();
+                    var sourceBuilder = new System.Text.StringBuilder();
+                    var sourceMapBuilder = ImmutableDictionary.CreateBuilder<int, int>();
                     foreach (var t in EnumerateInstructions(script))
                     {
-                        stringBuilder.Append($"{line} {t.ip} {t.instruction.OpCode}");
+                        sourceBuilder.Append($"{line} {t.ip} {t.instruction.OpCode}");
                         var comment = GetComment(t.instruction);
                         if (comment.Length > 0)
                         {
-                            stringBuilder.Append($" # {comment}");
+                            sourceBuilder.Append($" # {comment}");
                         }
-                        stringBuilder.Append("\n");
-                        builder.Add(t.ip, line++);
+                        sourceBuilder.Append("\n");
+                        sourceMapBuilder.Add(t.ip, line++);
                     }
-                    map = builder.ToImmutable();
+
+                    map = sourceMapBuilder.ToImmutable();
                     sourceMaps[hash] = map;
-                    sources[hash] = stringBuilder.ToString();
+                    sources[hash] = sourceBuilder.ToString();
                 }
+
 
                 return map[ip];
             }
