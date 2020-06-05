@@ -44,7 +44,21 @@ namespace NeoDebug.Neo3
             //         return ByteArrayContainer.Create(session, item.GetByteArray(), name, true);
             // }
 
-            Variable ToVariable(string value, string type = "")
+            return item switch
+            {
+                Neo.VM.Types.Boolean _ => MakeVariable($"{item.ToBoolean()}", "Boolean"),
+                Neo.VM.Types.Buffer buffer => ByteArrayContainer.Create(manager, buffer, name),
+                Neo.VM.Types.ByteString byteString => ByteArrayContainer.Create(manager, byteString, name),
+                Neo.VM.Types.Integer @int => MakeVariable($"{@int.ToBigInteger()}", "Integer"),
+                Neo.VM.Types.InteropInterface _ => MakeVariable("InteropInterface"),
+                Neo.VM.Types.Map _ => MakeVariable("Map"),
+                Neo.VM.Types.Null _ => MakeVariable("null", "Null"),
+                Neo.VM.Types.Pointer _ => MakeVariable("Pointer"),
+                Neo.VM.Types.Array array => NeoArrayContainer.Create(manager, array, name),
+                _ => throw new NotImplementedException(),
+            };
+
+            Variable MakeVariable(string value, string type = "")
             {
                 return new Variable()
                 {
@@ -53,21 +67,6 @@ namespace NeoDebug.Neo3
                     Type = type
                 };
             }
-
-            return item switch
-            {
-                Neo.VM.Types.Boolean _ => ToVariable($"{item.ToBoolean()}", "Boolean"),
-                Neo.VM.Types.Buffer buffer => ToVariable("Buffer"),
-                Neo.VM.Types.ByteString byteString => ToVariable("ByteString"),
-                Neo.VM.Types.Integer @int => ToVariable($"{@int.ToBigInteger()}", "Integer"),
-                Neo.VM.Types.InteropInterface _ => ToVariable("InteropInterface"),
-                Neo.VM.Types.Map _ => ToVariable("Map"),
-                Neo.VM.Types.Null _ => ToVariable("null", "Null"),
-                Neo.VM.Types.Pointer _ => ToVariable("Pointer"),
-                Neo.VM.Types.Array array => NeoArrayContainer.Create(manager, array, name),
-                _ => throw new NotImplementedException(),
-            };
         }
-       
     }
 }

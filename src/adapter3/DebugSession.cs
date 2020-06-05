@@ -49,14 +49,15 @@ namespace NeoDebug.Neo3
                     var id = i++;
                     var frameName = $"frame {engine.InvocationStack.Count - id}";
                     var hashCode = context.Script.GetHashCode();
+                    var scriptHash = Neo.SmartContract.Helper.ToScriptHash(context.Script).ToString();
 
                     yield return new StackFrame
                     {
                         Source = new Source()
                         {
                             SourceReference = hashCode,
-                            Name = hashCode.ToString(),
-                            Path = hashCode.ToString(),
+                            Name = scriptHash,
+                            Path = scriptHash,
                             AdapterData = id,
                         },
                         Line = disassemblyManager.GetLine(context.Script, context.InstructionPointer)
