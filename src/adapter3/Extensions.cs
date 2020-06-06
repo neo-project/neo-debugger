@@ -8,6 +8,23 @@ namespace NeoDebug.Neo3
 
     static class Extensions
     {
+        public static string ToResult(this StackItem item)
+        {
+            return item switch
+            {
+                Neo.VM.Types.Boolean _ => item.ToBoolean().ToString(),
+                // Neo.VM.Types.Buffer buffer => ByteArrayContainer.Create(manager, buffer, name),
+                // Neo.VM.Types.ByteString byteString => ByteArrayContainer.Create(manager, byteString, name),
+                Neo.VM.Types.Integer @int => @int.ToBigInteger().ToString(),
+                // Neo.VM.Types.InteropInterface _ => MakeVariable("InteropInterface"),
+                // Neo.VM.Types.Map _ => MakeVariable("Map"),
+                Neo.VM.Types.Null _ => "<null>",
+                // Neo.VM.Types.Pointer _ => MakeVariable("Pointer"),
+                // Neo.VM.Types.Array array => NeoArrayContainer.Create(manager, array, name),
+                _ => throw new NotImplementedException(),
+            };
+        }
+        
         public static Variable ToVariable(this StackItem item, IVariableManager manager, string name, string? typeHint = null)
         {
             // switch (typeHint)

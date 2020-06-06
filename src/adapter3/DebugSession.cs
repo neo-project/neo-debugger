@@ -134,27 +134,82 @@ namespace NeoDebug.Neo3
         }
 
 
+        private void FireStoppedEvent(StoppedEvent.ReasonValue reasonValue)
+        {
+            if ((engine.State & VMState.FAULT) != 0)
+            {
+                sendEvent(new OutputEvent()
+                {
+                    Category = OutputEvent.CategoryValue.Stderr,
+                    Output = "Engine State Faulted\n",
+                });
+                sendEvent(new TerminatedEvent());
+            }
+            if ((engine.State & VMState.HALT) != 0)
+            {
+                for (var i = 0; i < engine.ResultStack.Count; i++)
+                {
+                    var result = engine.ResultStack.Peek(i);
+                    sendEvent(new OutputEvent()
+                    {
+                        Category = OutputEvent.CategoryValue.Stdout,
+                        Output = $"Return: {result.ToResult()}\n",
+                    });
+                }
+                sendEvent(new ExitedEvent());
+                sendEvent(new TerminatedEvent());
+            }
+            else
+            {
+                sendEvent(new StoppedEvent(reasonValue) { ThreadId = 1 });
+            }
+        }
+
+        void Step(Func<int, int, bool> compare)
+        {
+            var originalStackCount = engine.InvocationStack.Count;
+            var stopReason = StoppedEvent.ReasonValue.Step;
+            while ((engine.State & HALT_OR_FAULT) == 0)
+            {
+                engine.ExecuteInstruction();
+
+                if ((engine.State & HALT_OR_FAULT) != 0)
+                {
+                    break;
+                }
+
+                if (compare(engine.InvocationStack.Count, originalStackCount))
+                {
+                    break;
+                }
+            }
+
+            FireStoppedEvent(stopReason);
+        }
+
         public void Continue()
         {
-            throw new NotImplementedException();
+            while ((engine.State & HALT_OR_FAULT) == 0)
+            {
+                engine.ExecuteInstruction();
+            }
+
+            FireStoppedEvent(StoppedEvent.ReasonValue.Breakpoint);
         }
 
         public void StepIn()
         {
-            engine.ExecuteInstruction();
-            sendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Step) { ThreadId = 1 });
+            Step((_, __) => true);
         }
 
         public void StepOut()
         {
-            engine.ExecuteInstruction();
-            sendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Step) { ThreadId = 1 });
+            Step((currentStackCount, originalStackCount) => currentStackCount < originalStackCount);
         }
 
         public void StepOver()
         {
-            engine.ExecuteInstruction();
-            sendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Step) { ThreadId = 1 });
+            Step((currentStackCount, originalStackCount) => currentStackCount <= originalStackCount);
         }
     }
 }
