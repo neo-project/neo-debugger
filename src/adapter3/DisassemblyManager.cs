@@ -104,7 +104,7 @@ namespace NeoDebug.Neo3
             static char GetHexValue(int i) => (i < 10) ? (char)(i + '0') : (char)(i - 10 + 'A');
         }
 
-        string GetComment(Instruction instruction, int ip)
+        static string GetComment(Instruction instruction, int ip)
         {
             switch (instruction.OpCode)
             {
