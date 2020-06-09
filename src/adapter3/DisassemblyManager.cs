@@ -23,10 +23,11 @@ namespace NeoDebug.Neo3
         private readonly Dictionary<int, ImmutableDictionary<int, int>> sourceMaps = new Dictionary<int, ImmutableDictionary<int, int>>();
         private readonly Dictionary<int, string> sources = new Dictionary<int, string>();
 
-        public int GetLine(Neo.VM.Script script, int ip)
+        public (int line, string name, int sourceRef) GetStackFrameInfo(Neo.VM.Script script, int ip)
         {
-            var hash = script.GetHashCode();
-            if (!sourceMaps.TryGetValue(hash, out var map))
+            var scriptHash = ((byte[])script).ToScriptHash();
+            var sourceRef = scriptHash.GetHashCode();
+            if (!sourceMaps.TryGetValue(sourceRef, out var sourceMap))
             {
                 var digitCount = Utility.DigitCount(EnumerateInstructions(script).Last().ip);
                 var padString = new string('0', digitCount);
@@ -50,18 +51,31 @@ namespace NeoDebug.Neo3
                     sourceMapBuilder.Add(t.ip, line++);
                 }
 
-                map = sourceMapBuilder.ToImmutable();
-                sourceMaps[hash] = map;
-                sources[hash] = sourceBuilder.ToString();
+                sourceMap = sourceMapBuilder.ToImmutable();
+                sourceMaps[sourceRef] = sourceMap;
+                sources[sourceRef] = sourceBuilder.ToString();
             }
-
-
-            return map[ip];
+            
+            return (sourceMap[ip], scriptHash.ToString(), sourceRef);
         }
 
-        public string GetSource(int scriptHash)
+        public string GetSource(int sourceRef) => sources[sourceRef];
+
+        public int GetInstructionPointer(UInt160 scriptHash, int line)
         {
-            return sources[scriptHash];
+            var sourceRef = scriptHash.GetHashCode();
+            if (sourceMaps.TryGetValue(sourceRef, out var map))
+            {
+                foreach (var kvp in map)
+                {
+                    if (kvp.Value == line)
+                    {
+                        return kvp.Key;
+                    }
+                }
+            }
+
+            return -1;
         }
 
         static IEnumerable<(int ip, Instruction instruction)> EnumerateInstructions(Neo.VM.Script script)

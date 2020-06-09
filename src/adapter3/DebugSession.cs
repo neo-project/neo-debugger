@@ -7,7 +7,8 @@ using NeoDebug;
 
 namespace NeoDebug.Neo3
 {
-    partial class DebugSession : IDebugSession, IDisposable
+
+    class DebugSession : IDebugSession, IDisposable
     {
         const VMState HALT_OR_FAULT = VMState.HALT | VMState.FAULT;
 
@@ -43,24 +44,21 @@ namespace NeoDebug.Neo3
 
             if ((engine.State & HALT_OR_FAULT) == 0)
             {
-                int i = 0;
-                foreach (var context in engine.InvocationStack)
+                foreach (var (context, index) in engine.InvocationStack.Select((c, i) => (c, i)))
                 {
-                    var id = i++;
-                    var frameName = $"frame {engine.InvocationStack.Count - id}";
-                    var hashCode = context.Script.GetHashCode();
-                    var scriptHash = Neo.SmartContract.Helper.ToScriptHash(context.Script).ToString();
+                    var (line, name, sourceRef) = disassemblyManager.GetStackFrameInfo(context.Script, context.InstructionPointer);
 
                     yield return new StackFrame
                     {
+                        Id = index,
+                        Name = $"frame {engine.InvocationStack.Count - index}",
+                        Line = index == 0 ? line : line - 1,
                         Source = new Source()
                         {
-                            SourceReference = hashCode,
-                            Name = scriptHash,
-                            Path = scriptHash,
-                            AdapterData = id,
+                            SourceReference = sourceRef,
+                            Name = name,
+                            Path = name,
                         },
-                        Line = disassemblyManager.GetLine(context.Script, context.InstructionPointer)
                     };
                 }
             }
@@ -72,7 +70,7 @@ namespace NeoDebug.Neo3
 
             if ((engine.State & HALT_OR_FAULT) == 0)
             {
-                var context = engine.CurrentContext;
+                var context = engine.InvocationStack.ElementAt(args.FrameId);
 
                 yield return AddScope("Evaluation Stack", new EvaluationStackContainer(variableManager, context.EvaluationStack));
 
@@ -126,7 +124,7 @@ namespace NeoDebug.Neo3
 
         public IEnumerable<Breakpoint> SetBreakpoints(Source source, IReadOnlyList<SourceBreakpoint> sourceBreakpoints)
         {
-            yield break;
+            return Enumerable.Empty<Breakpoint>();
         }
 
         public void SetDebugView(DebugView debugView)
