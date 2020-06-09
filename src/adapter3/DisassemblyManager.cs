@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
@@ -43,12 +44,15 @@ namespace NeoDebug.Neo3
         }
 
         private readonly TryGetScript tryGetScript;
-        private readonly Dictionary<int, Disassembly> disassemblies = new Dictionary<int, Disassembly>();
+        private readonly ConcurrentDictionary<int, Disassembly> disassemblies = new ConcurrentDictionary<int, Disassembly>();
 
         public DisassemblyManager(TryGetScript tryGetScript)
         {
             this.tryGetScript = tryGetScript;
         }
+
+        public Disassembly GetDisassembly(Script script) 
+            => disassemblies.GetOrAdd(script.GetHashCode(), sourceRef => ToDisassembly(sourceRef, script));
 
         public bool TryGetDisassembly(UInt160 scriptHash, out Disassembly disassembly)
         {
@@ -65,52 +69,43 @@ namespace NeoDebug.Neo3
         public bool TryGetDisassembly(int sourceRef, out Disassembly disassembly) 
             => disassemblies.TryGetValue(sourceRef, out disassembly);
 
-        public Disassembly GetDisassembly(Script script)
+        static Disassembly ToDisassembly(int sourceRef, Script script)
         {
-            var sourceRef = script.GetHashCode();
-            if (!disassemblies.TryGetValue(sourceRef, out var disassembly))
+            var digitCount = Utility.DigitCount(EnumerateInstructions(script).Last().address);
+            var padString = new string('0', digitCount);
+
+            var sourceBuilder = new StringBuilder();
+            var addressMapBuilder = ImmutableDictionary.CreateBuilder<int, int>();
+            var lineMapBuilder = ImmutableDictionary.CreateBuilder<int, int>();
+
+            var line = 1;
+            foreach (var t in EnumerateInstructions(script))
             {
-                var digitCount = Utility.DigitCount(EnumerateInstructions(script).Last().address);
-                var padString = new string('0', digitCount);
-
-                var sourceBuilder = new StringBuilder();
-                var addressMapBuilder = ImmutableDictionary.CreateBuilder<int, int>();
-                var lineMapBuilder = ImmutableDictionary.CreateBuilder<int, int>();
-
-                var line = 1;
-                foreach (var t in EnumerateInstructions(script))
+                sourceBuilder.Append($"{t.address.ToString(padString)} {t.instruction.OpCode}");
+                if (!t.instruction.Operand.IsEmpty)
                 {
-                    sourceBuilder.Append($"{t.address.ToString(padString)} {t.instruction.OpCode}");
-                    if (!t.instruction.Operand.IsEmpty)
-                    {
-                        sourceBuilder.Append($" {GetOperandString(t.instruction)}");
-                    }
-                    var comment = GetComment(t.instruction, t.address);
-                    if (comment.Length > 0)
-                    {
-                        sourceBuilder.Append($" # {comment}");
-                    }
-                    sourceBuilder.Append("\n");
-                    addressMapBuilder.Add(t.address, line);
-                    lineMapBuilder.Add(line, t.address);
-                    line++;
+                    sourceBuilder.Append($" {GetOperandString(t.instruction)}");
                 }
-
-                var name = Helper.ToScriptHash(script).ToString();
-
-                disassembly = new Disassembly(
-                    name,
-                    sourceBuilder.ToString(),
-                    sourceRef,
-                    addressMapBuilder.ToImmutable(),
-                    lineMapBuilder.ToImmutable());
-                disassemblies[sourceRef] = disassembly;
+                var comment = GetComment(t.instruction, t.address);
+                if (comment.Length > 0)
+                {
+                    sourceBuilder.Append($" # {comment}");
+                }
+                sourceBuilder.Append("\n");
+                addressMapBuilder.Add(t.address, line);
+                lineMapBuilder.Add(line, t.address);
+                line++;
             }
 
-            return disassembly;
+            return new Disassembly(
+                Helper.ToScriptHash(script).ToString(),
+                sourceBuilder.ToString(),
+                sourceRef,
+                addressMapBuilder.ToImmutable(),
+                lineMapBuilder.ToImmutable());
         }
 
-        static IEnumerable<(int address, Instruction instruction)> EnumerateInstructions(Neo.VM.Script script)
+        static IEnumerable<(int address, Instruction instruction)> EnumerateInstructions(Script script)
         {
             int address = 0;
             bool lastInstructionRet = false;
