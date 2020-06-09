@@ -34,18 +34,18 @@ namespace NeoDebug.Neo3
 
         public bool TryGetScript(Neo.UInt160 scriptHash, [MaybeNullWhen(false)] out Neo.VM.Script script)
         {
-            var cs = engine.Snapshot.Contracts.TryGet(scriptHash);
-            if (cs != null)
+            var contractState = engine.Snapshot.Contracts.TryGet(scriptHash);
+            if (contractState != null)
             {
-                script = cs.Script;
+                script = contractState.Script;
                 return true;
             }
 
-            foreach (var ctx in engine.InvocationStack)
+            foreach (var context in engine.InvocationStack)
             {
-                if (scriptHash == Neo.SmartContract.Helper.ToScriptHash(ctx.Script))
+                if (scriptHash == Neo.SmartContract.Helper.ToScriptHash(context.Script))
                 {
-                    script = ctx.Script;
+                    script = context.Script;
                     return true;
                 }
             }

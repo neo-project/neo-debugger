@@ -50,51 +50,6 @@ namespace NeoDebug.Neo3
             this.tryGetScript = tryGetScript;
         }
 
-        // public (int sourceRef, Disassembly disassembly) GetDisassembly(Script script)
-        //     => (script.GetH)
-        // public (string name, int line, int sourceRef) GetStackTraceInfo(Script script, int address)
-        // {
-        //     var d = GetDisassembly(script);
-        //     return (d.Name, d.AddressMap[address], script.GetHashCode());
-        // }
-
-        // public string GetSource(int sourceReference) => disassemblies[sourceReference].Source;
-
-        // public IReadOnlyDictionary<int, int> GetLineMap(int sourceReference) 
-        //     => disassemblies[sourceReference].LineMap;
-
-
-        
-        // public bool TryGetLineMap(UInt160 scriptHash, [MaybeNullWhen(false)] out IReadOnlyDictionary<int, int> lineMap)
-        // {
-        //     if (TryGetDisassembly(scriptHash, out var disassembly))
-        //     {
-        //         lineMap = disassembly.LineMap;
-        //         return true;
-        //     }
-
-        //     lineMap = null;
-        //     return false;
-        // }
-
-        // public int GetAddress(int sourceReference, int line)
-        //     => disassemblies[sourceReference].LineMap[line];
-
-        // public bool TryGetSourceReference(string name, out int sourceReference)
-        // {
-        //     foreach (var kvp in disassemblies)
-        //     {
-        //         if (kvp.Value.Name == name)
-        //         {
-        //             sourceReference = kvp.Key;
-        //             return true;
-        //         }
-        //     }
-
-        //     sourceReference = default;
-        //     return false;
-        // }
-
         public bool TryGetDisassembly(UInt160 scriptHash, out Disassembly disassembly)
         {
             if (tryGetScript(scriptHash, out var script))
@@ -112,8 +67,8 @@ namespace NeoDebug.Neo3
 
         public Disassembly GetDisassembly(Script script)
         {
-            var hash = script.GetHashCode();
-            if (!disassemblies.TryGetValue(hash, out var disassembly))
+            var sourceRef = script.GetHashCode();
+            if (!disassemblies.TryGetValue(sourceRef, out var disassembly))
             {
                 var digitCount = Utility.DigitCount(EnumerateInstructions(script).Last().address);
                 var padString = new string('0', digitCount);
@@ -146,10 +101,10 @@ namespace NeoDebug.Neo3
                 disassembly = new Disassembly(
                     name,
                     sourceBuilder.ToString(),
-                    script.GetHashCode(),
+                    sourceRef,
                     addressMapBuilder.ToImmutable(),
                     lineMapBuilder.ToImmutable());
-                disassemblies[hash] = disassembly;
+                disassemblies[sourceRef] = disassembly;
             }
 
             return disassembly;
