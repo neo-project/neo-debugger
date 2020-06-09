@@ -46,7 +46,9 @@ namespace NeoDebug.Neo3
             {
                 foreach (var (context, index) in engine.InvocationStack.Select((c, i) => (c, i)))
                 {
-                    var (line, name, sourceRef) = disassemblyManager.GetStackFrameInfo(context.Script, context.InstructionPointer);
+                    var name = Neo.SmartContract.Helper.ToScriptHash(context.Script).ToString();
+                    var line = disassemblyManager.GetLine(context.Script, context.InstructionPointer);
+                    var sourceRef = disassemblyManager.GetSourceReference(context.Script);
 
                     yield return new StackFrame
                     {

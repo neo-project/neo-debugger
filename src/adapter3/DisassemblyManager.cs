@@ -20,21 +20,34 @@ namespace NeoDebug.Neo3
                 .ToImmutableDictionary(d => d.Hash, d => d.Method);
         }
 
-        private readonly Dictionary<int, ImmutableDictionary<int, int>> sourceMaps = new Dictionary<int, ImmutableDictionary<int, int>>();
-        private readonly Dictionary<int, string> sources = new Dictionary<int, string>();
-
-        public (int line, string name, int sourceRef) GetStackFrameInfo(Neo.VM.Script script, int ip)
+        readonly struct Disassembly
         {
-            var scriptHash = ((byte[])script).ToScriptHash();
-            var sourceRef = scriptHash.GetHashCode();
-            if (!sourceMaps.TryGetValue(sourceRef, out var sourceMap))
+            public readonly string Source;
+            public readonly ImmutableDictionary<int, int> AddressMap;
+            public readonly ImmutableList<int> LineMap;
+
+            public Disassembly(string source, ImmutableDictionary<int, int> addressMap, ImmutableList<int> lineMap)
+            {
+                this.Source = source;
+                this.AddressMap = addressMap;
+                this.LineMap = lineMap;
+            }
+        }
+
+        private readonly Dictionary<int, Disassembly> cachedDisassemblies = new Dictionary<int, Disassembly>();
+
+        Disassembly GetDisassembly(Neo.VM.Script script)
+        {
+            var hash = script.GetHashCode();
+            if (!cachedDisassemblies.TryGetValue(hash, out var disassembly))
             {
                 var digitCount = Utility.DigitCount(EnumerateInstructions(script).Last().ip);
                 var padString = new string('0', digitCount);
 
-                int line = 1;
                 var sourceBuilder = new System.Text.StringBuilder();
-                var sourceMapBuilder = ImmutableDictionary.CreateBuilder<int, int>();
+                var addressMapBuilder = ImmutableDictionary.CreateBuilder<int, int>();
+                var lineMapBuilder = ImmutableList.CreateBuilder<int>();
+
                 foreach (var t in EnumerateInstructions(script))
                 {
                     sourceBuilder.Append($"{t.ip.ToString(padString)} {t.instruction.OpCode}");
@@ -48,34 +61,38 @@ namespace NeoDebug.Neo3
                         sourceBuilder.Append($" # {comment}");
                     }
                     sourceBuilder.Append("\n");
-                    sourceMapBuilder.Add(t.ip, line++);
+                    addressMapBuilder.Add(t.ip, lineMapBuilder.Count + 1);
+                    lineMapBuilder.Add(t.ip);
                 }
 
-                sourceMap = sourceMapBuilder.ToImmutable();
-                sourceMaps[sourceRef] = sourceMap;
-                sources[sourceRef] = sourceBuilder.ToString();
+                disassembly = new Disassembly(
+                    sourceBuilder.ToString(),
+                    addressMapBuilder.ToImmutable(),
+                    lineMapBuilder.ToImmutable());
+                cachedDisassemblies[hash] = disassembly;
             }
-            
-            return (sourceMap[ip], scriptHash.ToString(), sourceRef);
+
+            return disassembly;
+        } 
+
+        public int GetLine(Neo.VM.Script script, int ip)
+        {
+            return GetDisassembly(script).AddressMap[ip];
         }
 
-        public string GetSource(int sourceRef) => sources[sourceRef];
-
-        public int GetInstructionPointer(UInt160 scriptHash, int line)
+        public int GetSourceReference(Neo.VM.Script script)
         {
-            var sourceRef = scriptHash.GetHashCode();
-            if (sourceMaps.TryGetValue(sourceRef, out var map))
-            {
-                foreach (var kvp in map)
-                {
-                    if (kvp.Value == line)
-                    {
-                        return kvp.Key;
-                    }
-                }
-            }
+            return script.GetHashCode();
+        }
 
-            return -1;
+        public int GetAddress(Neo.VM.Script script, int line)
+        {
+            return GetDisassembly(script).LineMap[line];
+        }
+
+        public string GetSource(int sourceReference)
+        {
+            return cachedDisassemblies[sourceReference].Source;
         }
 
         static IEnumerable<(int ip, Instruction instruction)> EnumerateInstructions(Neo.VM.Script script)
