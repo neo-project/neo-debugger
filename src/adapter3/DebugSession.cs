@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.VM;
@@ -14,18 +15,43 @@ namespace NeoDebug.Neo3
 
         private readonly DebugApplicationEngine engine;
         private readonly Action<DebugEvent> sendEvent;
-        private readonly DisassemblyManager disassemblyManager = new DisassemblyManager();
+        private readonly DisassemblyManager disassemblyManager;
         private readonly VariableManager variableManager = new VariableManager();
+        private readonly BreakpointManager breakpointManager;
 
         public DebugSession(DebugApplicationEngine engine, Action<DebugEvent> sendEvent)
         {
             this.engine = engine;
             this.sendEvent = sendEvent;
+            this.disassemblyManager = new DisassemblyManager(TryGetScript);
+            this.breakpointManager = new BreakpointManager(this.disassemblyManager);
         }
 
         public void Dispose()
         {
             engine.Dispose();
+        }
+
+        public bool TryGetScript(Neo.UInt160 scriptHash, [MaybeNullWhen(false)] out Neo.VM.Script script)
+        {
+            var cs = engine.Snapshot.Contracts.TryGet(scriptHash);
+            if (cs != null)
+            {
+                script = cs.Script;
+                return true;
+            }
+
+            foreach (var ctx in engine.InvocationStack)
+            {
+                if (scriptHash == Neo.SmartContract.Helper.ToScriptHash(ctx.Script))
+                {
+                    script = ctx.Script;
+                    return true;
+                }
+            }
+
+            script = null;
+            return false;
         }
 
         public void Start()
@@ -46,9 +72,8 @@ namespace NeoDebug.Neo3
             {
                 foreach (var (context, index) in engine.InvocationStack.Select((c, i) => (c, i)))
                 {
-                    var name = Neo.SmartContract.Helper.ToScriptHash(context.Script).ToString();
-                    var line = disassemblyManager.GetLine(context.Script, context.InstructionPointer);
-                    var sourceRef = disassemblyManager.GetSourceReference(context.Script);
+                    var disassembly = disassemblyManager.GetDisassembly(context.Script);
+                    var line = disassembly.AddressMap[context.InstructionPointer];
 
                     yield return new StackFrame
                     {
@@ -57,9 +82,9 @@ namespace NeoDebug.Neo3
                         Line = index == 0 ? line : line - 1,
                         Source = new Source()
                         {
-                            SourceReference = sourceRef,
-                            Name = name,
-                            Path = name,
+                            SourceReference = disassembly.SourceReference,
+                            Name = disassembly.Name,
+                            Path = disassembly.Name,
                         },
                     };
                 }
@@ -112,11 +137,15 @@ namespace NeoDebug.Neo3
 
         public SourceResponse GetSource(SourceArguments arguments)
         {
-            var source = disassemblyManager.GetSource(arguments.SourceReference);
-            return new SourceResponse(source)
+            if (disassemblyManager.TryGetDisassembly(arguments.SourceReference, out var disassembly))
             {
-                MimeType = "text/x-neovm.disassembly"
-            };
+                return new SourceResponse(disassembly.Source)
+                {
+                    MimeType = "text/x-neovm.disassembly"
+                };
+            }
+
+            throw new InvalidOperationException();
         }
 
         public EvaluateResponse Evaluate(EvaluateArguments args)
@@ -126,7 +155,7 @@ namespace NeoDebug.Neo3
 
         public IEnumerable<Breakpoint> SetBreakpoints(Source source, IReadOnlyList<SourceBreakpoint> sourceBreakpoints)
         {
-            return Enumerable.Empty<Breakpoint>();
+            return breakpointManager.SetBreakpoints(source, sourceBreakpoints);
         }
 
         public void SetDebugView(DebugView debugView)
@@ -192,6 +221,12 @@ namespace NeoDebug.Neo3
             while ((engine.State & HALT_OR_FAULT) == 0)
             {
                 engine.ExecuteInstruction();
+
+                if (engine.CurrentContext != null && 
+                    breakpointManager.CheckBreakpoint(engine.CurrentContext.Script, engine.CurrentContext.InstructionPointer))
+                {
+                    break;
+                }
             }
 
             FireStoppedEvent(StoppedEvent.ReasonValue.Breakpoint);

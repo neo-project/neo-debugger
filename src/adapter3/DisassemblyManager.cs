@@ -1,17 +1,21 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Numerics;
 using System.Text;
 using Neo;
 using Neo.SmartContract;
 using Neo.VM;
+using Helper = Neo.SmartContract.Helper;
 
 namespace NeoDebug.Neo3
 {
     class DisassemblyManager
     {
+        public delegate bool TryGetScript(UInt160 scriptHash, [MaybeNullWhen(false)] out Script script);
+
         private static readonly ImmutableDictionary<uint, string> sysCallNames;
 
         static DisassemblyManager()
@@ -20,96 +24,152 @@ namespace NeoDebug.Neo3
                 .ToImmutableDictionary(d => d.Hash, d => d.Method);
         }
 
-        readonly struct Disassembly
+        public readonly struct Disassembly
         {
+            public readonly string Name;
             public readonly string Source;
+            public readonly int SourceReference;
             public readonly ImmutableDictionary<int, int> AddressMap;
-            public readonly ImmutableList<int> LineMap;
+            public readonly ImmutableDictionary<int, int> LineMap;
 
-            public Disassembly(string source, ImmutableDictionary<int, int> addressMap, ImmutableList<int> lineMap)
+            public Disassembly(string name, string source, int sourceReference, ImmutableDictionary<int, int> addressMap, ImmutableDictionary<int, int> lineMap)
             {
+                this.Name = name;
                 this.Source = source;
+                this.SourceReference = sourceReference;
                 this.AddressMap = addressMap;
                 this.LineMap = lineMap;
             }
         }
 
-        private readonly Dictionary<int, Disassembly> cachedDisassemblies = new Dictionary<int, Disassembly>();
+        private readonly TryGetScript tryGetScript;
+        private readonly Dictionary<int, Disassembly> disassemblies = new Dictionary<int, Disassembly>();
 
-        Disassembly GetDisassembly(Neo.VM.Script script)
+        public DisassemblyManager(TryGetScript tryGetScript)
+        {
+            this.tryGetScript = tryGetScript;
+        }
+
+        // public (int sourceRef, Disassembly disassembly) GetDisassembly(Script script)
+        //     => (script.GetH)
+        // public (string name, int line, int sourceRef) GetStackTraceInfo(Script script, int address)
+        // {
+        //     var d = GetDisassembly(script);
+        //     return (d.Name, d.AddressMap[address], script.GetHashCode());
+        // }
+
+        // public string GetSource(int sourceReference) => disassemblies[sourceReference].Source;
+
+        // public IReadOnlyDictionary<int, int> GetLineMap(int sourceReference) 
+        //     => disassemblies[sourceReference].LineMap;
+
+
+        
+        // public bool TryGetLineMap(UInt160 scriptHash, [MaybeNullWhen(false)] out IReadOnlyDictionary<int, int> lineMap)
+        // {
+        //     if (TryGetDisassembly(scriptHash, out var disassembly))
+        //     {
+        //         lineMap = disassembly.LineMap;
+        //         return true;
+        //     }
+
+        //     lineMap = null;
+        //     return false;
+        // }
+
+        // public int GetAddress(int sourceReference, int line)
+        //     => disassemblies[sourceReference].LineMap[line];
+
+        // public bool TryGetSourceReference(string name, out int sourceReference)
+        // {
+        //     foreach (var kvp in disassemblies)
+        //     {
+        //         if (kvp.Value.Name == name)
+        //         {
+        //             sourceReference = kvp.Key;
+        //             return true;
+        //         }
+        //     }
+
+        //     sourceReference = default;
+        //     return false;
+        // }
+
+        public bool TryGetDisassembly(UInt160 scriptHash, out Disassembly disassembly)
+        {
+            if (tryGetScript(scriptHash, out var script))
+            {
+                disassembly = GetDisassembly(script);
+                return true;
+            }
+
+            disassembly = default;
+            return false;
+        }
+
+        public bool TryGetDisassembly(int sourceRef, out Disassembly disassembly) 
+            => disassemblies.TryGetValue(sourceRef, out disassembly);
+
+        public Disassembly GetDisassembly(Script script)
         {
             var hash = script.GetHashCode();
-            if (!cachedDisassemblies.TryGetValue(hash, out var disassembly))
+            if (!disassemblies.TryGetValue(hash, out var disassembly))
             {
-                var digitCount = Utility.DigitCount(EnumerateInstructions(script).Last().ip);
+                var digitCount = Utility.DigitCount(EnumerateInstructions(script).Last().address);
                 var padString = new string('0', digitCount);
 
-                var sourceBuilder = new System.Text.StringBuilder();
+                var sourceBuilder = new StringBuilder();
                 var addressMapBuilder = ImmutableDictionary.CreateBuilder<int, int>();
-                var lineMapBuilder = ImmutableList.CreateBuilder<int>();
+                var lineMapBuilder = ImmutableDictionary.CreateBuilder<int, int>();
 
+                var line = 1;
                 foreach (var t in EnumerateInstructions(script))
                 {
-                    sourceBuilder.Append($"{t.ip.ToString(padString)} {t.instruction.OpCode}");
+                    sourceBuilder.Append($"{t.address.ToString(padString)} {t.instruction.OpCode}");
                     if (!t.instruction.Operand.IsEmpty)
                     {
                         sourceBuilder.Append($" {GetOperandString(t.instruction)}");
                     }
-                    var comment = GetComment(t.instruction, t.ip);
+                    var comment = GetComment(t.instruction, t.address);
                     if (comment.Length > 0)
                     {
                         sourceBuilder.Append($" # {comment}");
                     }
                     sourceBuilder.Append("\n");
-                    addressMapBuilder.Add(t.ip, lineMapBuilder.Count + 1);
-                    lineMapBuilder.Add(t.ip);
+                    addressMapBuilder.Add(t.address, line);
+                    lineMapBuilder.Add(line, t.address);
+                    line++;
                 }
 
+                var name = Helper.ToScriptHash(script).ToString();
+
                 disassembly = new Disassembly(
+                    name,
                     sourceBuilder.ToString(),
+                    script.GetHashCode(),
                     addressMapBuilder.ToImmutable(),
                     lineMapBuilder.ToImmutable());
-                cachedDisassemblies[hash] = disassembly;
+                disassemblies[hash] = disassembly;
             }
 
             return disassembly;
-        } 
-
-        public int GetLine(Neo.VM.Script script, int ip)
-        {
-            return GetDisassembly(script).AddressMap[ip];
         }
 
-        public int GetSourceReference(Neo.VM.Script script)
+        static IEnumerable<(int address, Instruction instruction)> EnumerateInstructions(Neo.VM.Script script)
         {
-            return script.GetHashCode();
-        }
-
-        public int GetAddress(Neo.VM.Script script, int line)
-        {
-            return GetDisassembly(script).LineMap[line];
-        }
-
-        public string GetSource(int sourceReference)
-        {
-            return cachedDisassemblies[sourceReference].Source;
-        }
-
-        static IEnumerable<(int ip, Instruction instruction)> EnumerateInstructions(Neo.VM.Script script)
-        {
-            int ip = 0;
+            int address = 0;
             bool lastInstructionRet = false;
-            while (ip < script.Length)
+            while (address < script.Length)
             {
-                var instruction = script.GetInstruction(ip);
+                var instruction = script.GetInstruction(address);
                 lastInstructionRet = instruction.OpCode == OpCode.RET;
-                yield return (ip, instruction);
-                ip = ip + instruction.Size;
+                yield return (address, instruction);
+                address = address + instruction.Size;
             }
 
             if (!lastInstructionRet)
             {
-                yield return (ip, Instruction.RET);
+                yield return (address, Instruction.RET);
             }
         }
 

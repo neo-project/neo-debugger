@@ -12,7 +12,6 @@ namespace NeoDebug.Neo3
 {
     class DebugApplicationEngine : ApplicationEngine
     {
-        
         public DebugApplicationEngine(StoreView storeView) : base(TriggerType.Application, null, storeView, 0, true)
         {
         }
