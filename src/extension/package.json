@@ -131,6 +131,9 @@
                                     ]
                                 }
                             },
+                            "operation": {
+                                "type": "string"
+                            },
                             "args": {
                                 "type": "array",
                                 "description": "Command line arguments passed to the program.",
