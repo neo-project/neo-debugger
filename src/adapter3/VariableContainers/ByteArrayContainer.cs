@@ -18,24 +18,24 @@ namespace NeoDebug.Neo3
 
         public static Variable Create(IVariableManager manager, ByteString byteString, string name)
         {
-            // TODO: byteString.Memory should be public to avoid copy
-            return Create(manager, byteString.Span.ToArray(), name, "ByteString");
+            var container = new ByteArrayContainer(byteString);
+            return ToVariable(manager, container, name, "ByteString");
         }
 
         public static Variable Create(IVariableManager manager, Buffer buffer, string name)
         {
-            return Create(manager, buffer.InnerBuffer, name, "Buffer");
+            var container = new ByteArrayContainer(buffer.InnerBuffer);
+            return ToVariable(manager, container, name, "Buffer");
         }
 
-        static Variable Create(IVariableManager manager, ReadOnlyMemory<byte> memory, string name, string type)
+        static Variable ToVariable(IVariableManager manager, ByteArrayContainer container, string name, string type)
         {
-            var container = new ByteArrayContainer(memory);
             return new Variable()
             {
                 Name = name,
-                Value = $"{type}[{memory.Length}]",
+                Value = $"{type}[{container.memory.Length}]",
                 VariablesReference = manager.Add(container),
-                IndexedVariables = memory.Length,
+                IndexedVariables = container.memory.Length,
             };
         }
 
