@@ -10,25 +10,33 @@ namespace NeoDebug.Neo3
     class StorageContainer : IVariableContainer
     {
         private readonly StoreView store;
+        private readonly int? contractId;
 
-        public StorageContainer(StoreView store)
+        public StorageContainer(UInt160 scriptHash, StoreView store)
         {
             this.store = store;
+            contractId = store.Contracts.TryGet(scriptHash)?.Id;
         }
 
         public IEnumerable<Variable> Enumerate(IVariableManager manager)
         {
-            foreach (var (key, item) in store.Storages.Find())
+            if (contractId.HasValue)
             {
-                var keyHashCode = key.Key.GetSequenceHashCode();
-                var kvp = new KvpContainer(key, item);
-                yield return new Variable()
+                foreach (var (key, item) in store.Storages.Find())
                 {
-                    Name = keyHashCode.ToString("x"),
-                    Value = string.Empty,
-                    VariablesReference = manager.Add(kvp),
-                    NamedVariables = 3
-                };
+                    if (key.Id != contractId.Value)
+                        continue;
+
+                    var keyHashCode = key.Key.GetSequenceHashCode();
+                    var kvp = new KvpContainer(key, item);
+                    yield return new Variable()
+                    {
+                        Name = keyHashCode.ToString("x"),
+                        Value = string.Empty,
+                        VariablesReference = manager.Add(kvp),
+                        NamedVariables = 3
+                    };
+                }
             }
         }
 

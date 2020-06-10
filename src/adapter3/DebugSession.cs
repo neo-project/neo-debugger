@@ -101,7 +101,10 @@ namespace NeoDebug.Neo3
                 yield return AddScope("Locals", new SlotContainer("local", context.LocalVariables));
                 yield return AddScope("Statics", new SlotContainer("static", context.StaticFields));
                 yield return AddScope("Arguments", new SlotContainer("arg", context.Arguments));
-                yield return AddScope("Storage", new StorageContainer(engine.Snapshot));
+
+                // TODO: NEO Core needs mechanism to get ScriptHash from ExecutionContext
+                var scriptHash = Neo.SmartContract.Helper.ToScriptHash(context.Script);
+                yield return AddScope("Storage", new StorageContainer(scriptHash, engine.Snapshot));
             }
 
             Scope AddScope(string name, IVariableContainer container)
