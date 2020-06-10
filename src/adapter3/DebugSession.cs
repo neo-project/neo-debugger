@@ -93,26 +93,14 @@ namespace NeoDebug.Neo3
 
         public IEnumerable<Scope> GetScopes(ScopesArguments args)
         {
-            variableManager.Clear();
-
             if ((engine.State & HALT_OR_FAULT) == 0)
             {
                 var context = engine.InvocationStack.ElementAt(args.FrameId);
 
                 yield return AddScope("Evaluation Stack", new EvaluationStackContainer(variableManager, context.EvaluationStack));
-
-                if (context.LocalVariables != null) 
-                {
-                    yield return AddScope("Locals", new SlotContainer(variableManager, context.LocalVariables));
-                }
-                if (context.StaticFields != null) 
-                {
-                    yield return AddScope("Statics", new SlotContainer(variableManager, context.StaticFields));
-                }
-                if (context.Arguments != null) 
-                {
-                    yield return AddScope("Arguments", new SlotContainer(variableManager, context.Arguments));
-                }
+                yield return AddScope("Locals", new SlotContainer(variableManager, context.LocalVariables, "local"));
+                yield return AddScope("Statics", new SlotContainer(variableManager, context.StaticFields, "static"));
+                yield return AddScope("Arguments", new SlotContainer(variableManager, context.Arguments, "arg"));
             }
 
             Scope AddScope(string name, IVariableContainer container)
@@ -165,6 +153,8 @@ namespace NeoDebug.Neo3
 
         private void FireStoppedEvent(StoppedEvent.ReasonValue reasonValue)
         {
+            variableManager.Clear();
+
             if ((engine.State & VMState.FAULT) != 0)
             {
                 sendEvent(new OutputEvent()

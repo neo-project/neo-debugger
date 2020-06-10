@@ -21,11 +21,11 @@ namespace NeoDebug.Neo3
 
         public IEnumerable<Breakpoint> SetBreakpoints(Source source, IReadOnlyList<SourceBreakpoint> sourceBreakpoints)
         {
-            var disassembly = GetDisassembly();
+            var (sourceRef, lineMap) = GetDisassembly();
             var breakpoints = ImmutableHashSet.CreateBuilder<int>();
             foreach (var sbp in sourceBreakpoints)
             {
-                var address = disassembly.LineMap.TryGetValue(sbp.Line, out var _address) ? _address : -1;
+                var address = lineMap.TryGetValue(sbp.Line, out var _address) ? _address : -1;
 
                 if (address >= 0)
                 {
@@ -41,26 +41,26 @@ namespace NeoDebug.Neo3
                 };
             }
 
-            if (disassembly.SourceReference != 0)
+            if (sourceRef != 0)
             {
-                this.scriptBreakpoints[disassembly.SourceReference] = breakpoints.ToImmutable();
+                this.scriptBreakpoints[sourceRef] = breakpoints.ToImmutable();
             }
 
-            DisassemblyManager.Disassembly GetDisassembly()
+            (int sourceRef, IReadOnlyDictionary<int, int> lineMap) GetDisassembly()
             {
                 if (source.SourceReference.HasValue
                     && disassemblyManager.TryGetDisassembly(source.SourceReference.Value, out var disassembly))
                 {
-                    return disassembly;
+                    return (disassembly.SourceReference, disassembly.LineMap);
                 }
 
                 if (UInt160.TryParse(source.Name, out var scriptHash)
                     && disassemblyManager.TryGetDisassembly(scriptHash, out disassembly))
                 {
-                    return disassembly;
+                    return (disassembly.SourceReference, disassembly.LineMap);
                 }
 
-                return default;
+                return (0, ImmutableDictionary<int, int>.Empty);
             }
         }
 
