@@ -7,24 +7,22 @@ namespace NeoDebug.Neo3
 {
     class SlotContainer : IVariableContainer
     {
-        private readonly IVariableManager manager;
         private readonly Slot? slot;
-        private readonly string name;
+        private readonly string prefix;
 
-        public SlotContainer(IVariableManager manager, Slot? slot, string name)
+        public SlotContainer(string prefix, Slot? slot)
         {
-            this.manager = manager;
             this.slot = slot;
-            this.name = name;
+            this.prefix = prefix;
         }
 
-        public IEnumerable<Variable> Enumerate()
+        public IEnumerable<Variable> Enumerate(IVariableManager manager)
         {
             if (slot != null)
             {
                 for (int i = 0; i < slot.Count; i++)
                 {
-                    var v = slot[i].ToVariable(manager, $"{name}{i}");
+                    var v = slot[i].ToVariable(manager, $"{prefix}{i}");
                     v.EvaluateName = v.Name;
                     yield return v;
                 }

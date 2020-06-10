@@ -97,16 +97,16 @@ namespace NeoDebug.Neo3
             {
                 var context = engine.InvocationStack.ElementAt(args.FrameId);
 
-                yield return AddScope("Evaluation Stack", new EvaluationStackContainer(variableManager, context.EvaluationStack));
-                yield return AddScope("Locals", new SlotContainer(variableManager, context.LocalVariables, "local"));
-                yield return AddScope("Statics", new SlotContainer(variableManager, context.StaticFields, "static"));
-                yield return AddScope("Arguments", new SlotContainer(variableManager, context.Arguments, "arg"));
+                yield return AddScope("Evaluation Stack", new EvaluationStackContainer(context.EvaluationStack));
+                yield return AddScope("Locals", new SlotContainer("local", context.LocalVariables));
+                yield return AddScope("Statics", new SlotContainer("static", context.StaticFields));
+                yield return AddScope("Arguments", new SlotContainer("arg", context.Arguments));
             }
 
             Scope AddScope(string name, IVariableContainer container)
             {
-                var @ref = variableManager.Add(container);
-                return new Scope(name, @ref, false);
+                var reference = variableManager.Add(container);
+                return new Scope(name, reference, false);
             }
         }
 
@@ -116,7 +116,7 @@ namespace NeoDebug.Neo3
             {
                 if (variableManager.TryGet(args.VariablesReference, out var container))
                 {
-                    return container.Enumerate();
+                    return container.Enumerate(variableManager);
                 }
             }
 

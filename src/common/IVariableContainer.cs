@@ -5,6 +5,6 @@ namespace NeoDebug
 {
     public interface IVariableContainer
     {
-        IEnumerable<Variable> Enumerate();
+        IEnumerable<Variable> Enumerate(IVariableManager manager);
     }
 }

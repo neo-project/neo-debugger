@@ -8,30 +8,26 @@ namespace NeoDebug.Neo3
 
     class NeoArrayContainer : IVariableContainer
     {
-        private readonly IVariableManager manager;
         private readonly NeoArray array;
 
-        public NeoArrayContainer(IVariableManager manager, NeoArray array)
+        public NeoArrayContainer(NeoArray array)
         {
-            this.manager = manager;
             this.array = array;
         }
 
         public static Variable Create(IVariableManager manager, NeoArray array, string name)
         {
-            var container = new NeoArrayContainer(manager, array);
-            var containerID = manager.Add(container);
+            var container = new NeoArrayContainer(array);
             return new Variable()
             {
                 Name = name,
-                Type = $"{(array is NeoStruct ? "Struct" : "Array")}[{array.Count}]",
-                Value = string.Empty,
-                VariablesReference = containerID,
+                Value = $"{(array is NeoStruct ? "Struct" : "Array")}[{array.Count}]",
+                VariablesReference = manager.Add(container),
                 IndexedVariables = array.Count,
             };
         }
 
-        public IEnumerable<Variable> Enumerate()
+        public IEnumerable<Variable> Enumerate(IVariableManager manager)
         {
             for (int i = 0; i < array.Count; i++)
             {
