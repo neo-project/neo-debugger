@@ -101,6 +101,7 @@ namespace NeoDebug.Neo3
                 yield return AddScope("Locals", new SlotContainer("local", context.LocalVariables));
                 yield return AddScope("Statics", new SlotContainer("static", context.StaticFields));
                 yield return AddScope("Arguments", new SlotContainer("arg", context.Arguments));
+                yield return AddScope("Storage", new StorageContainer(engine.Snapshot));
             }
 
             Scope AddScope(string name, IVariableContainer container)

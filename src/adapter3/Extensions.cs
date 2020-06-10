@@ -1,26 +1,45 @@
 using System;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using Neo;
 
 namespace NeoDebug.Neo3
 {
     using StackItem = Neo.VM.Types.StackItem;
-    using StackItemType = Neo.VM.Types.StackItemType;
 
     static class Extensions
     {
+        //https://stackoverflow.com/a/1646913
+        public static int GetSequenceHashCode(this ReadOnlySpan<byte> span)
+        {
+            unchecked
+            {
+                int hash = 17;
+                for (int i = 0; i < span.Length; i++)
+                {
+                    hash = hash * 31 + span[i];
+                }
+                return hash;
+            }
+        }
+
+        public static int GetSequenceHashCode(this byte[] array)
+        {
+            return GetSequenceHashCode(array.AsSpan());
+        }
+        
         public static string ToResult(this StackItem item)
         {
             return item switch
             {
                 Neo.VM.Types.Boolean _ => item.ToBoolean().ToString(),
-                // Neo.VM.Types.Buffer buffer => ByteArrayContainer.Create(manager, buffer, name),
-                // Neo.VM.Types.ByteString byteString => ByteArrayContainer.Create(manager, byteString, name),
+                Neo.VM.Types.Buffer buffer => "Buffer",
+                Neo.VM.Types.ByteString byteString => byteString.Span.ToHexString(), 
                 Neo.VM.Types.Integer @int => @int.ToBigInteger().ToString(),
                 // Neo.VM.Types.InteropInterface _ => MakeVariable("InteropInterface"),
                 // Neo.VM.Types.Map _ => MakeVariable("Map"),
                 Neo.VM.Types.Null _ => "<null>",
                 // Neo.VM.Types.Pointer _ => MakeVariable("Pointer"),
-                // Neo.VM.Types.Array array => NeoArrayContainer.Create(manager, array, name),
+                Neo.VM.Types.Array array => "NeoArray",
                 _ => throw new NotImplementedException(),
             };
         }

@@ -1,4 +1,5 @@
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using Neo.Ledger;
 using Neo.Persistence;
 using Neo.SmartContract;
 using Neo.SmartContract.Manifest;
@@ -17,19 +18,31 @@ namespace NeoDebug.Neo3
     {
         public static DebugSession CreateDebugSession(LaunchArguments launchArguments, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
         {
-            var program = launchArguments.ConfigurationProperties["program"].Value<string>();
+            var config = launchArguments.ConfigurationProperties;
+            var program = config["program"].Value<string>();
             var (contract, manifest) = LoadContract(program);
 
             IStore memoryStore = new MemoryStore();
-            AddContract(memoryStore, contract, manifest);
+            var id = AddContract(memoryStore, contract, manifest);
+            AddStorage(memoryStore, ParseStorage(id, config));
 
             var engine = new DebugApplicationEngine(new SnapshotView(memoryStore));
-            var invokeScript = CreateLaunchScript(contract, launchArguments.ConfigurationProperties);
+            var invokeScript = CreateLaunchScript(contract, config);
             engine.LoadScript(invokeScript);
 
             return new DebugSession(engine, sendEvent);
 
-            static void AddContract(IStore store, NefFile contract, ContractManifest manifest)
+            static void AddStorage(IStore store, IEnumerable<(StorageKey key, StorageItem item)> storages)
+            {
+                var snapshotView = new SnapshotView(store);
+                foreach (var (key, item) in storages)
+                {
+                    snapshotView.Storages.Add(key, item);
+                }
+                snapshotView.Commit();
+            }
+
+            static int AddContract(IStore store, NefFile contract, ContractManifest manifest)
             {
                 var snapshotView = new SnapshotView(store);
 
@@ -42,6 +55,8 @@ namespace NeoDebug.Neo3
                 snapshotView.Contracts.Add(contract.ScriptHash, contractState);
 
                 snapshotView.Commit();
+
+                return contractState.Id;
             }
 
             static (NefFile contract, ContractManifest manifest) LoadContract(string contractPath)
@@ -67,6 +82,46 @@ namespace NeoDebug.Neo3
             return builder.ToArray();
         }
         
+        static IEnumerable<(StorageKey key, StorageItem item)> ParseStorage(int contractId, Dictionary<string, JToken> config)
+        {
+            if (config.TryGetValue("storage", out var token)
+                && token != null)
+            {
+                return ParseStorage(contractId, token);
+            }
+
+            return Enumerable.Empty<(StorageKey key, StorageItem item)>();
+        }
+
+        static IEnumerable<(StorageKey key, StorageItem item)> ParseStorage(int contractId, JToken token)
+        {
+            return token.Select(t =>
+            {
+                var key = new StorageKey
+                {
+                    Id = contractId,
+                    Key = ConvertString(t["key"]),
+                };
+
+                var item = new StorageItem
+                {
+                    Value = ConvertString(t["value"]),
+                    IsConstant = t.Value<bool?>("constant") ?? false
+                };
+                return (key, item);
+            });
+
+            static byte[] ConvertString(JToken? token)
+            {
+                var value = token?.Value<string>() ?? string.Empty;
+                // if (value.TryParseBigInteger(out var bigInteger))
+                // {
+                //     return bigInteger.ToByteArray();
+                // }
+                return Encoding.UTF8.GetBytes(value);
+            }
+        }
+
         static IEnumerable<ContractParameter> ParseArguments(Dictionary<string, JToken> config)
         {
             if (config.TryGetValue("args", out var args))
