@@ -1,4 +1,5 @@
-﻿using System.Collections.Immutable;
+﻿using System;
+using System.Collections.Immutable;
 using System.Linq;
 using Neo;
 using Neo.IO;
@@ -12,6 +13,8 @@ namespace NeoDebug.Neo3
 {
     class DebugApplicationEngine : ApplicationEngine
     {
+        static uint CheckWitnessHash = "System.Runtime.CheckWitness".ToInteropMethodHash();
+
         public DebugApplicationEngine(StoreView storeView) : base(TriggerType.Application, null, storeView, 0, true)
         {
         }
@@ -22,9 +25,22 @@ namespace NeoDebug.Neo3
         {
             return base.PreExecuteInstruction();
         }
+
         protected override bool OnSysCall(uint method)
         {
+            if (method == CheckWitnessHash)
+            {
+                return Runtime_CheckWitness(this);
+            }
+
             return base.OnSysCall(method);
+        }
+
+        private static bool Runtime_CheckWitness(ApplicationEngine engine)
+        {
+            var _ = engine.CurrentContext.EvaluationStack.Pop().GetSpan();
+            engine.CurrentContext.EvaluationStack.Push(true);
+            return true;
         }
 
         protected override void LoadContext(ExecutionContext context)
