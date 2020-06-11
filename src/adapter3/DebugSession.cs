@@ -145,18 +145,23 @@ namespace NeoDebug.Neo3
             if ((engine.State & HALT_OR_FAULT) == 0)
             {
                 var context = engine.InvocationStack.ElementAt(args.FrameId);
+                // TODO: ExecutionContext needs a mechanism to retrieve script hash 
+                //       https://github.com/neo-project/neo/issues/1696
+                var scriptHash = Neo.SmartContract.Helper.ToScriptHash(context.Script);
 
-                // if (disassemblyView)
+                if (disassemblyView)
                 {
                     yield return AddScope("Evaluation Stack", new EvaluationStackContainer(context.EvaluationStack));
                     yield return AddScope("Locals", new SlotContainer("local", context.LocalVariables));
                     yield return AddScope("Statics", new SlotContainer("static", context.StaticFields));
                     yield return AddScope("Arguments", new SlotContainer("arg", context.Arguments));
                 }
+                else
+                {
+                    var debugInfo = debugInfoMap.TryGetValue(scriptHash, out var di) ? di : null;
+                    yield return AddScope("Variables", new ExecutionContextContainer(context, debugInfo));
+                }
 
-                // TODO: ExecutionContext needs a mechanism to retrieve script hash 
-                //       https://github.com/neo-project/neo/issues/1696
-                var scriptHash = Neo.SmartContract.Helper.ToScriptHash(context.Script);
                 yield return AddScope("Storage", new StorageContainer(scriptHash, engine.Snapshot));
             }
 
@@ -205,6 +210,19 @@ namespace NeoDebug.Neo3
 
         public void SetDebugView(DebugView debugView)
         {
+            var original = disassemblyView;
+            disassemblyView = debugView switch
+            {
+                DebugView.Disassembly => true,
+                DebugView.Source => false,
+                DebugView.Toggle => !disassemblyView,
+                _ => throw new ArgumentException(nameof(debugView))
+            };
+
+            if (original != disassemblyView)
+            {
+                FireStoppedEvent(StoppedEvent.ReasonValue.Step);
+            }
         }
 
 
