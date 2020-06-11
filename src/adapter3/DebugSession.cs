@@ -84,7 +84,8 @@ namespace NeoDebug.Neo3
             {
                 foreach (var (context, index) in engine.InvocationStack.Select((c, i) => (c, i)))
                 {
-                    // TODO: NEO needs way to retrieve script hash from context
+                    // TODO: ExecutionContext needs a mechanism to retrieve script hash 
+                    //       https://github.com/neo-project/neo/issues/1696
                     var scriptHash = Neo.SmartContract.Helper.ToScriptHash(context.Script);
                     DebugInfo.Method? method = null;
                     if (debugInfoMap.TryGetValue(scriptHash, out var debugInfo))
@@ -153,7 +154,8 @@ namespace NeoDebug.Neo3
                     yield return AddScope("Arguments", new SlotContainer("arg", context.Arguments));
                 }
 
-                // TODO: NEO Core needs mechanism to get ScriptHash from ExecutionContext
+                // TODO: ExecutionContext needs a mechanism to retrieve script hash 
+                //       https://github.com/neo-project/neo/issues/1696
                 var scriptHash = Neo.SmartContract.Helper.ToScriptHash(context.Script);
                 yield return AddScope("Storage", new StorageContainer(scriptHash, engine.Snapshot));
             }
