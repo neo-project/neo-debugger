@@ -13,7 +13,7 @@ namespace NeoDebug.Neo3
 {
     class DebugApplicationEngine : ApplicationEngine
     {
-        static uint CheckWitnessHash = "System.Runtime.CheckWitness".ToInteropMethodHash();
+        static readonly uint CheckWitnessHash = "System.Runtime.CheckWitness".ToInteropMethodHash();
 
         public DebugApplicationEngine(StoreView storeView) : base(TriggerType.Application, null, storeView, 0, true)
         {

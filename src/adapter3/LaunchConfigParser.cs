@@ -21,6 +21,7 @@ namespace NeoDebug.Neo3
             var config = launchArguments.ConfigurationProperties;
             var program = config["program"].Value<string>();
             var (contract, manifest) = LoadContract(program);
+            var debugInfo = DebugInfoParser.Load(program);
 
             IStore memoryStore = new MemoryStore();
             var id = AddContract(memoryStore, contract, manifest);
