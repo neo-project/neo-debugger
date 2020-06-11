@@ -1,11 +1,13 @@
 using System;
 using System.Linq;
+using System.Text;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
 
 namespace NeoDebug.Neo3
 {
     using StackItem = Neo.VM.Types.StackItem;
+    using StackItemType = Neo.VM.Types.StackItemType;
 
     static class Extensions
     {
@@ -81,39 +83,63 @@ namespace NeoDebug.Neo3
         
         public static Variable ToVariable(this StackItem item, IVariableManager manager, string name, string? typeHint = null)
         {
-            // switch (typeHint)
-            // {
-            //     case "Boolean":
-            //         return new Variable()
-            //         {
-            //             Name = name,
-            //             Value = item.GetBoolean().ToString(),
-            //             Type = "#Boolean",
-            //         };
-            //     case "Integer":
-            //         return new Variable()
-            //         {
-            //             Name = name,
-            //             Value = item.GetBigInteger().ToString(),
-            //             Type = "#Integer",
-            //         };
-            //     case "String":
-            //         return new Variable()
-            //         {
-            //             Name = name,
-            //             Value = item.GetString(),
-            //             Type = "#String",
-            //         };
-            //     case "HexString":
-            //         return new Variable()
-            //         {
-            //             Name = name,
-            //             Value = item.GetBigInteger().ToHexString(),
-            //             Type = "#ByteArray"
-            //         };
-            //     case "ByteArray":
-            //         return ByteArrayContainer.Create(session, item.GetByteArray(), name, true);
-            // }
+            switch (typeHint)
+            {
+                case "Boolean":
+                    return new Variable()
+                    {
+                        Name = name,
+                        Value = item.ToBoolean().ToString(),
+                        Type = "Boolean",
+                    };
+                case "Integer":
+                {
+                    var value = item.IsNull ? "0" : 
+                        ((Neo.VM.Types.Integer)item.ConvertTo(StackItemType.Integer)).ToBigInteger().ToString();
+                    return new Variable()
+                    {
+                        Name = name,
+                        Value = value,
+                        Type = "Integer",
+                    };
+                }
+                case "String":
+                {
+                    var value = item.IsNull ? "<null>" : 
+                        Encoding.UTF8.GetString(((Neo.VM.Types.ByteString)item.ConvertTo(StackItemType.ByteString)).Span);
+                    return new Variable()
+                    {
+                        Name = name,
+                        Value = value,
+                        Type = "String",
+                    };
+                }
+                case "HexString":
+                {
+                    var value = item.IsNull ? "<null>" : 
+                        ((Neo.VM.Types.ByteString)item.ConvertTo(StackItemType.ByteString)).Span.ToHexString();
+                    return new Variable()
+                    {
+                        Name = name,
+                        Value = value,
+                        Type = "HexString"
+                    };
+                }
+                case "ByteArray":
+                {
+                    if (item.IsNull)
+                    {
+                        return new Variable()
+                        {
+                            Name = name,
+                            Value = "<null>",
+                            Type = "ByteString"
+                        };
+                    }
+                    var byteString = (Neo.VM.Types.ByteString)item.ConvertTo(StackItemType.ByteString);
+                    return ByteArrayContainer.Create(manager, byteString, name);
+                }
+            }
 
             return item switch
             {

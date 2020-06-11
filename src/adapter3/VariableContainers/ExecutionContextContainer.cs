@@ -19,16 +19,20 @@ namespace NeoDebug.Neo3
 
         public IEnumerable<Variable> Enumerate(IVariableManager manager)
         {
-            return EnumerateSlot("arg", context.Arguments)
-                .Concat(EnumerateSlot("local", context.LocalVariables))
+            var method = debugInfo?.GetMethod(context.InstructionPointer);
+
+            return EnumerateSlot("arg", context.Arguments, method?.Parameters)
+                .Concat(EnumerateSlot("local", context.LocalVariables, method?.Variables))
                 .Concat(EnumerateSlot("static", context.StaticFields));
 
-            IEnumerable<Variable> EnumerateSlot(string prefix, IReadOnlyList<StackItem>? slot)
+            IEnumerable<Variable> EnumerateSlot(string prefix, IReadOnlyList<StackItem>? slot, IList<(string name, string type)>? zzz = null)
             {
+                zzz ??= new List<(string name, string type)>();
                 slot ??= new List<StackItem>();
                 for (int i = 0; i < slot.Count; i++)
                 {
-                    var v = slot[i].ToVariable(manager, $"{prefix}{i}");
+                    var (name, type) = i < zzz.Count ? zzz[i] : ($"{prefix}{i}" , string.Empty);
+                    var v = slot[i].ToVariable(manager, name, type);
                     v.EvaluateName = v.Name;
                     yield return v;
                 }
