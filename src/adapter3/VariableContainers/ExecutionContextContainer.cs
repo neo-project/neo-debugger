@@ -25,13 +25,13 @@ namespace NeoDebug.Neo3
                 .Concat(EnumerateSlot("local", context.LocalVariables, method?.Variables))
                 .Concat(EnumerateSlot("static", context.StaticFields));
 
-            IEnumerable<Variable> EnumerateSlot(string prefix, IReadOnlyList<StackItem>? slot, IList<(string name, string type)>? zzz = null)
+            IEnumerable<Variable> EnumerateSlot(string prefix, IReadOnlyList<StackItem>? slot, IList<(string name, string type)>? variableInfo = null)
             {
-                zzz ??= new List<(string name, string type)>();
+                variableInfo ??= new List<(string name, string type)>();
                 slot ??= new List<StackItem>();
                 for (int i = 0; i < slot.Count; i++)
                 {
-                    var (name, type) = i < zzz.Count ? zzz[i] : ($"{prefix}{i}" , string.Empty);
+                    var (name, type) = i < variableInfo.Count ? variableInfo[i] : ($"{prefix}{i}" , string.Empty);
                     var v = slot[i].ToVariable(manager, name, type);
                     v.EvaluateName = v.Name;
                     yield return v;

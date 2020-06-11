@@ -28,7 +28,7 @@ namespace NeoDebug.Neo3
             this.sendEvent = sendEvent;
             this.disassemblyView = defaultDebugView == DebugView.Disassembly;
             this.disassemblyManager = new DisassemblyManager(TryGetScript);
-            this.breakpointManager = new BreakpointManager(this.disassemblyManager);
+            this.breakpointManager = new BreakpointManager(this.disassemblyManager, debugInfos);
             this.debugInfoMap = debugInfos.ToImmutableDictionary(d => d.ScriptHash);
         }
 
@@ -268,7 +268,7 @@ namespace NeoDebug.Neo3
                 engine.ExecuteInstruction();
 
                 if (engine.CurrentContext != null && 
-                    breakpointManager.CheckBreakpoint(engine.CurrentContext.Script, engine.CurrentContext.InstructionPointer))
+                    breakpointManager.CheckBreakpoint(engine.CurrentScriptHash, engine.CurrentContext.InstructionPointer))
                 {
                     stopReason = StoppedEvent.ReasonValue.Breakpoint;
                     break;
@@ -311,7 +311,7 @@ namespace NeoDebug.Neo3
                 engine.ExecuteInstruction();
 
                 if (engine.CurrentContext != null && 
-                    breakpointManager.CheckBreakpoint(engine.CurrentContext.Script, engine.CurrentContext.InstructionPointer))
+                    breakpointManager.CheckBreakpoint(engine.CurrentScriptHash, engine.CurrentContext.InstructionPointer))
                 {
                     break;
                 }
