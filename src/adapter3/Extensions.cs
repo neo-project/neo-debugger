@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
 
@@ -8,6 +9,40 @@ namespace NeoDebug.Neo3
 
     static class Extensions
     {
+        public static DebugInfo.Method? GetMethod(this DebugInfo debugInfo, int instructionPointer)
+        {
+            return debugInfo.Methods
+                .SingleOrDefault(m => m.Range.Start <= instructionPointer && instructionPointer <= m.Range.End);
+        }
+
+        public static DebugInfo.SequencePoint? GetCurrentSequencePoint(this DebugInfo.Method? method, int instructionPointer)
+        {
+            if (method != null)
+            {
+                var sequencePoints = method.SequencePoints.OrderBy(sp => sp.Address).ToArray();
+                if (sequencePoints.Length > 0)
+                {
+                    for (int i = 0; i < sequencePoints.Length; i++)
+                    {
+                        if (instructionPointer == sequencePoints[i].Address)
+                            return sequencePoints[i];
+                    }
+
+                    if (instructionPointer <= sequencePoints[0].Address)
+                        return sequencePoints[0];
+
+                    for (int i = 0; i < sequencePoints.Length - 1; i++)
+                    {
+                        if (instructionPointer > sequencePoints[i].Address && instructionPointer <= sequencePoints[i + 1].Address)
+                            return sequencePoints[i];
+                    }
+                }
+            }
+
+            return null;
+        }
+
+
         //https://stackoverflow.com/a/1646913
         public static int GetSequenceHashCode(this ReadOnlySpan<byte> span)
         {

@@ -31,7 +31,7 @@ namespace NeoDebug.Neo3
             var invokeScript = CreateLaunchScript(contract, config);
             engine.LoadScript(invokeScript);
 
-            return new DebugSession(engine, sendEvent);
+            return new DebugSession(engine, sendEvent, new DebugInfo[]{ debugInfo }, DebugView.Source);
 
             static void AddStorage(IStore store, IEnumerable<(StorageKey key, StorageItem item)> storages)
             {

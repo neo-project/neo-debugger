@@ -1,30 +1,35 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using Neo;
 using Neo.VM;
 using NeoDebug;
 
 namespace NeoDebug.Neo3
 {
-
     class DebugSession : IDebugSession, IDisposable
     {
         const VMState HALT_OR_FAULT = VMState.HALT | VMState.FAULT;
 
         private readonly DebugApplicationEngine engine;
         private readonly Action<DebugEvent> sendEvent;
+        private bool disassemblyView;
         private readonly DisassemblyManager disassemblyManager;
         private readonly VariableManager variableManager = new VariableManager();
         private readonly BreakpointManager breakpointManager;
+        private readonly IReadOnlyDictionary<UInt160, DebugInfo> debugInfoMap;
 
-        public DebugSession(DebugApplicationEngine engine, Action<DebugEvent> sendEvent)
+        public DebugSession(DebugApplicationEngine engine, Action<DebugEvent> sendEvent, IEnumerable<DebugInfo> debugInfos, DebugView defaultDebugView)
         {
             this.engine = engine;
             this.sendEvent = sendEvent;
+            this.disassemblyView = defaultDebugView == DebugView.Disassembly;
             this.disassemblyManager = new DisassemblyManager(TryGetScript);
             this.breakpointManager = new BreakpointManager(this.disassemblyManager);
+            this.debugInfoMap = debugInfos.ToImmutableDictionary(d => d.ScriptHash);
         }
 
         public void Dispose()
@@ -56,7 +61,14 @@ namespace NeoDebug.Neo3
 
         public void Start()
         {
-            sendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Entry) { ThreadId = 1 });
+            if (disassemblyView)
+            {
+                FireStoppedEvent(StoppedEvent.ReasonValue.Entry);
+            }
+            else
+            {
+                StepIn();
+            }
         }
 
         public IEnumerable<Thread> GetThreads()
@@ -72,21 +84,57 @@ namespace NeoDebug.Neo3
             {
                 foreach (var (context, index) in engine.InvocationStack.Select((c, i) => (c, i)))
                 {
-                    var disassembly = disassemblyManager.GetDisassembly(context.Script);
-                    var line = disassembly.AddressMap[context.InstructionPointer];
+                    // TODO: NEO needs way to retrieve script hash from context
+                    var scriptHash = Neo.SmartContract.Helper.ToScriptHash(context.Script);
+                    DebugInfo.Method? method = null;
+                    if (debugInfoMap.TryGetValue(scriptHash, out var debugInfo))
+                    {
+                        method = debugInfo.GetMethod(context.InstructionPointer);
+                    }
 
-                    yield return new StackFrame
+                    var frame = new StackFrame()
                     {
                         Id = index,
-                        Name = $"frame {engine.InvocationStack.Count - index}",
-                        Line = index == 0 ? line : line - 1,
-                        Source = new Source()
+                        Name = method?.Name ?? $"frame {engine.InvocationStack.Count - index}",
+                    };
+
+                    if (disassemblyView)
+                    {
+
+                        var disassembly = disassemblyManager.GetDisassembly(context.Script);
+                        var line = disassembly.AddressMap[context.InstructionPointer];
+                        frame.Source = new Source()
                         {
                             SourceReference = disassembly.SourceReference,
                             Name = disassembly.Name,
                             Path = disassembly.Name,
-                        },
-                    };
+                        };
+                        frame.Line = index == 0 ? line : line - 1;
+   
+                    }
+                    else
+                    {
+                        var sequencePoint = method.GetCurrentSequencePoint(context.InstructionPointer);
+
+                        if (sequencePoint != null)
+                        {
+                            frame.Source = new Source()
+                            {
+                                Name = System.IO.Path.GetFileName(sequencePoint.Document),
+                                Path = sequencePoint.Document
+                            };
+                            frame.Line = sequencePoint.Start.line;
+                            frame.Column = sequencePoint.Start.column;
+
+                            if (sequencePoint.Start != sequencePoint.End)
+                            {
+                                frame.EndLine = sequencePoint.End.line;
+                                frame.EndColumn = sequencePoint.End.column;
+                            }
+                        }
+                    }
+
+                    yield return frame;
                 }
             }
         }
@@ -97,10 +145,13 @@ namespace NeoDebug.Neo3
             {
                 var context = engine.InvocationStack.ElementAt(args.FrameId);
 
-                yield return AddScope("Evaluation Stack", new EvaluationStackContainer(context.EvaluationStack));
-                yield return AddScope("Locals", new SlotContainer("local", context.LocalVariables));
-                yield return AddScope("Statics", new SlotContainer("static", context.StaticFields));
-                yield return AddScope("Arguments", new SlotContainer("arg", context.Arguments));
+                // if (disassemblyView)
+                {
+                    yield return AddScope("Evaluation Stack", new EvaluationStackContainer(context.EvaluationStack));
+                    yield return AddScope("Locals", new SlotContainer("local", context.LocalVariables));
+                    yield return AddScope("Statics", new SlotContainer("static", context.StaticFields));
+                    yield return AddScope("Arguments", new SlotContainer("arg", context.Arguments));
+                }
 
                 // TODO: NEO Core needs mechanism to get ScriptHash from ExecutionContext
                 var scriptHash = Neo.SmartContract.Helper.ToScriptHash(context.Script);
@@ -196,18 +247,41 @@ namespace NeoDebug.Neo3
             {
                 engine.ExecuteInstruction();
 
-                if ((engine.State & HALT_OR_FAULT) != 0)
+                if (engine.CurrentContext != null && 
+                    breakpointManager.CheckBreakpoint(engine.CurrentContext.Script, engine.CurrentContext.InstructionPointer))
                 {
+                    stopReason = StoppedEvent.ReasonValue.Breakpoint;
                     break;
                 }
 
-                if (compare(engine.InvocationStack.Count, originalStackCount))
+                if (compare(engine.InvocationStack.Count, originalStackCount)
+                    && (disassemblyView || CheckSequencePoint()))
                 {
                     break;
                 }
             }
 
             FireStoppedEvent(stopReason);
+
+            bool CheckSequencePoint()
+            {
+                if (engine.CurrentContext != null) 
+                {
+                    var ip = engine.CurrentContext.InstructionPointer;
+                    if (debugInfoMap.TryGetValue(engine.CurrentScriptHash, out var info))
+                    {
+                        var methods = info.Methods;
+                        for (int i = 0; i < methods.Count; i++)
+                        {
+                            if (methods[i].SequencePoints.Any(sp => sp.Address == ip))
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                }
+                return false;
+            } 
         }
 
         public void Continue()
