@@ -229,7 +229,6 @@ namespace NeoDebug.Neo3
             }
         }
 
-
         private void FireStoppedEvent(StoppedEvent.ReasonValue reasonValue)
         {
             variableManager.Clear();

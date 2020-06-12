@@ -80,7 +80,13 @@ namespace NeoDebug.Neo3
                 _ => throw new NotImplementedException(),
             };
         }
-        
+
+        public static Variable ForEvaluation(this Variable @this, string prefix = "")
+        {
+            @this.EvaluateName = prefix + @this.Name;
+            return @this;
+        }        
+
         public static Variable ToVariable(this StackItem item, IVariableManager manager, string name, string? typeHint = null)
         {
             switch (typeHint)

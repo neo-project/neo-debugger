@@ -39,7 +39,7 @@ namespace NeoDebug.Neo3
                         ? slot[i].ToVariable(manager, name, type) 
                         : StackItem.Null.ToVariable(manager, name, type);
 
-                    yield return v;
+                    yield return v.ForEvaluation();
                 }
             }
         }

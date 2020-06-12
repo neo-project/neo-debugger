@@ -21,6 +21,7 @@ namespace NeoDebug.Neo3
             return new Variable()
             {
                 Name = name,
+                EvaluateName = name,
                 Value = $"{(array is NeoStruct ? "Struct" : "Array")}[{array.Count}]",
                 VariablesReference = manager.Add(container),
                 IndexedVariables = array.Count,

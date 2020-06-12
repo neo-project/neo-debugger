@@ -18,7 +18,7 @@ namespace NeoDebug.Neo3
             for (int i = 0; i < evalStack.Count; i++)
             {
                 var v = evalStack.Peek(i).ToVariable(manager, $"eval{evalStack.Count - i - 1}");
-                yield return v;
+                yield return v.ForEvaluation("#");
             }
         }
     }

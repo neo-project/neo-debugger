@@ -27,11 +27,11 @@ namespace NeoDebug.Neo3
                     if (key.Id != contractId.Value)
                         continue;
 
-                    var keyHashCode = key.Key.GetSequenceHashCode();
-                    var kvp = new KvpContainer(key, item);
+                    var keyHashCode = key.Key.GetSequenceHashCode().ToString("x");
+                    var kvp = new KvpContainer(key, item, keyHashCode);
                     yield return new Variable()
                     {
-                        Name = keyHashCode.ToString("x"),
+                        Name = keyHashCode,
                         Value = string.Empty,
                         VariablesReference = manager.Add(kvp),
                         NamedVariables = 3
@@ -44,34 +44,31 @@ namespace NeoDebug.Neo3
         {
             private readonly StorageKey key;
             private readonly StorageItem item;
+            private readonly string hashCode;
 
-            public KvpContainer(StorageKey key, StorageItem item)
+            public KvpContainer(StorageKey key, StorageItem item, string hashCode)
             {
                 this.key = key;
                 this.item = item;
+                this.hashCode = hashCode;
             }
 
             public IEnumerable<Variable> Enumerate(IVariableManager manager)
             {
-                yield return new Variable()
-                {
-                    Name = "key",
-                    Value = key.Key.ToHexString(),
-                    // EvaluateName = $"$storage[{hashCode}].key",
-                };
+                var keyVariable = ByteArrayContainer.Create(manager, key.Key, "key");
+                keyVariable.EvaluateName = $"#storage[{hashCode}].key";
+                yield return keyVariable;
 
-                yield return new Variable()
-                {
-                    Name = "value",
-                    Value = item.Value.ToHexString(),
-                    // EvaluateName = $"$storage[{hashCode}].value",
-                };
+                var itemVariable = ByteArrayContainer.Create(manager, item.Value, "item");
+                itemVariable.EvaluateName = $"#storage[{hashCode}].value";
+                yield return itemVariable;
 
                 yield return new Variable()
                 {
                     Name = "isConstant",
+                    EvaluateName = $"#storage[{hashCode}].isConstant",
+                    Type = "Boolean",
                     Value = item.IsConstant.ToString(),
-                    Type = "Boolean"
                 };
             }
         }
