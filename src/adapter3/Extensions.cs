@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
@@ -15,6 +16,12 @@ namespace NeoDebug.Neo3
         {
             return debugInfo.Methods
                 .SingleOrDefault(m => m.Range.Start <= instructionPointer && instructionPointer <= m.Range.End);
+        }
+
+        public static bool TryGetMethod(this DebugInfo debugInfo, int instructionPointer, [MaybeNullWhen(false)] out DebugInfo.Method method)
+        {
+            method = debugInfo.GetMethod(instructionPointer);
+            return method != null;
         }
 
         public static DebugInfo.SequencePoint? GetCurrentSequencePoint(this DebugInfo.Method? method, int instructionPointer)

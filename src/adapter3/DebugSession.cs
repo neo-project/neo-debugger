@@ -210,14 +210,6 @@ namespace NeoDebug.Neo3
             var context = engine.InvocationStack.ElementAt(args.FrameId.Value);
 
             var (typeHint, expression) = VariableManager.ParsePrefix(args.Expression);
-            if (expression.StartsWith("#storage"))
-            {
-                // TODO: ExecutionContext needs a mechanism to retrieve script hash 
-                //       https://github.com/neo-project/neo/issues/1696
-                var scriptHash = Neo.SmartContract.Helper.ToScriptHash(context.Script);
-                var container = new StorageContainer(scriptHash, engine.Snapshot);
-                return container.Evaluate(variableManager, expression, typeHint);
-            }
 
             if (expression.StartsWith("#arg"))
             {
@@ -234,12 +226,60 @@ namespace NeoDebug.Neo3
                 return EvaluateSlot(context.StaticFields, expression, 7);
             }
 
+            // TODO: ExecutionContext needs a mechanism to retrieve script hash 
+            //       https://github.com/neo-project/neo/issues/1696
+            var scriptHash = Neo.SmartContract.Helper.ToScriptHash(context.Script);
+
+            if (expression.StartsWith("#storage"))
+            {
+                var container = new StorageContainer(scriptHash, engine.Snapshot);
+                return container.Evaluate(variableManager, expression, typeHint);
+            }
+
+            if (debugInfoMap.TryGetValue(scriptHash, out var debugInfo)
+                && debugInfo.TryGetMethod(context.InstructionPointer, out var method))
+            {
+                EvaluateResponse response;
+                if (TryEvaluateSlot(context.Arguments, method.Parameters, out response))
+                {
+                    return response;
+                }
+                
+                if (TryEvaluateSlot(context.LocalVariables, method.Variables, out response))
+                {
+                    return response;
+                }
+            }
+            
+            bool TryEvaluateSlot(Slot slot, IList<(string name, string type)> variables, out EvaluateResponse response)
+            {
+                for (int i = 0; i < variables.Count; i++)
+                {
+                    if (i < slot.Count)
+                    {
+                        var (name, type) = variables[i];
+                        if (name == expression)
+                        {
+                            response = slot[i].ToVariable(variableManager, name, 
+                                string.IsNullOrEmpty(typeHint) ? type : typeHint)
+                                .ToEvaluateResponse();
+                            return true;
+                        }
+                    }
+                }
+
+                response = null!;
+                return false;
+            }
+
+
             EvaluateResponse EvaluateSlot(Slot slot, string name, int count)
             {
                 if (int.TryParse(name.AsSpan().Slice(count), out int index)
                     && index < slot.Count)
                 {
-                    return slot[index].ToVariable(this.variableManager, name, typeHint)
+                    return slot[index]
+                        .ToVariable(this.variableManager, name, typeHint)
                         .ToEvaluateResponse();
                 }
 
