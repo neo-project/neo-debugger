@@ -1,4 +1,4 @@
-﻿namespace NeoDebug
+﻿namespace NeoDebug.Neo3
 {
     public interface IVariableManager
     {

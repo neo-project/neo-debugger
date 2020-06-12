@@ -27,7 +27,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\common\common.csproj" />
     <ProjectReference Include="..\..\..\..\official\neo3\core\src\neo\neo.csproj" />
   </ItemGroup>
 

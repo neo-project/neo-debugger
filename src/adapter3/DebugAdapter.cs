@@ -3,7 +3,7 @@ using System.Linq;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 
-namespace NeoDebug
+namespace NeoDebug.Neo3
 {
     public class DebugAdapter : DebugAdapterBase
     {

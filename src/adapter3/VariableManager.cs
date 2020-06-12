@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 
-namespace NeoDebug
+namespace NeoDebug.Neo3
 {
     public class VariableManager : IVariableManager
     {
@@ -13,7 +14,7 @@ namespace NeoDebug
             containers.Clear();
         }
 
-        public bool TryGet(int id, out IVariableContainer container)
+        public bool TryGet(int id, [MaybeNullWhen(false)] out IVariableContainer container)
         {
             return containers.TryGetValue(id, out container);
         }
