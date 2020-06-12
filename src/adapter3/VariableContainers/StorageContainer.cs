@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text.RegularExpressions;
@@ -63,23 +64,38 @@ namespace NeoDebug.Neo3
             }
         }
 
-        static readonly Regex storageRegex = new Regex(@"^\#storage\[([0-9a-fA-F]{8})\]\.(key|item|isConstant)$");
-
-        public Neo.VM.Types.StackItem? Evaluate(string expression)
+        public Neo.VM.Types.StackItem? Evaluate(ReadOnlyMemory<char> expression)
         {
-            var match = storageRegex.Match(expression);
-            if (match.Success
-                && int.TryParse(match.Groups[1].Value, NumberStyles.HexNumber, null, out var keyHash))
+            bool TryGetKeyHash(out int value)
             {
-                if (TryFind(keyHash, out var tuple))
+                if (expression.Length >= 18    
+                    && expression.StartsWith("#storage[")
+                    && expression.Span[17] == ']'
+                    && expression.Span[18] == '.'
+                    && int.TryParse(expression.Slice(9, 8).Span, NumberStyles.HexNumber, null, out value))
                 {
-                    return match.Groups[2].Value switch
-                    {
-                        "key" => tuple.key.Key,
-                        "item" => tuple.item.Value,
-                        "isConstant" => tuple.item.IsConstant,
-                        _ => null,
-                    };
+                    return true;   
+                }
+
+                value = default;
+                return false;
+            }
+
+            if (TryGetKeyHash(out var keyHash) 
+                && TryFind(keyHash, out var tuple))
+            {
+                var remain = expression.Slice(19);
+                if (remain.Span.SequenceEqual("key"))
+                {
+                    return tuple.key.Key;
+                }
+                else if (remain.Span.SequenceEqual("item"))
+                {
+                    return tuple.item.Value;
+                }
+                else if (remain.Span.SequenceEqual("isConstant"))
+                {
+                    return tuple.item.IsConstant;
                 }
             }
 

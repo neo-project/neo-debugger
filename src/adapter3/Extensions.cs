@@ -12,6 +12,13 @@ namespace NeoDebug.Neo3
 
     static class Extensions
     {
+        public static bool StartsWith<T>(this ReadOnlyMemory<T> @this, ReadOnlySpan<T> value)
+            where T : IEquatable<T>
+        {
+            return @this.Length >= value.Length 
+                && @this.Slice(0, value.Length).Span.SequenceEqual(value);
+        }
+
         public static DebugInfo.Method? GetMethod(this DebugInfo debugInfo, int instructionPointer)
         {
             return debugInfo.Methods

@@ -204,11 +204,11 @@ namespace NeoDebug.Neo3
             throw new InvalidOperationException();
         }
 
-        (StackItem? item, string typeHint) Evaluate(ExecutionContext context, string name)
+        (StackItem? item, string typeHint) Evaluate(ExecutionContext context, ReadOnlyMemory<char> name)
         {
             if (name.StartsWith("#eval"))
             {
-                if (int.TryParse(name.AsSpan().Slice(5), out var value))
+                if (int.TryParse(name.Span.Slice(5), out var value))
                 {
                     var index = context.EvaluationStack.Count - 1 - value;
                     if (index >= 0 && index < context.EvaluationStack.Count)
@@ -222,17 +222,17 @@ namespace NeoDebug.Neo3
 
             if (name.StartsWith("#arg"))
             {
-                return (EvaluateSlot(context.Arguments, name, 4), string.Empty);
+                return (EvaluateSlot(context.Arguments, 4), string.Empty);
             }
 
             if (name.StartsWith("#local"))
             {
-                return (EvaluateSlot(context.LocalVariables, name, 6), string.Empty);
+                return (EvaluateSlot(context.LocalVariables, 6), string.Empty);
             }
 
             if (name.StartsWith("#static"))
             {
-                return (EvaluateSlot(context.StaticFields, name, 7), string.Empty);
+                return (EvaluateSlot(context.StaticFields, 7), string.Empty);
             }
 
             // TODO: ExecutionContext needs a mechanism to retrieve script hash 
@@ -249,12 +249,12 @@ namespace NeoDebug.Neo3
                 && debugInfo.TryGetMethod(context.InstructionPointer, out var method))
             {
                 (StackItem?, string) result;
-                if (TryEvaluateSlot(context.Arguments, name, method.Parameters, out result))
+                if (TryEvaluateSlot(context.Arguments, method.Parameters, out result))
                 {
                     return result;
                 }
                 
-                if (TryEvaluateSlot(context.LocalVariables, name, method.Variables, out result))
+                if (TryEvaluateSlot(context.LocalVariables, method.Variables, out result))
                 {
                     return result;
                 }
@@ -262,13 +262,13 @@ namespace NeoDebug.Neo3
 
             return default;
 
-            static bool TryEvaluateSlot(Slot slot, string name, IList<(string name, string type)> variables, out (StackItem?, string) result)
+            bool TryEvaluateSlot(Slot slot, IList<(string name, string type)> variables, out (StackItem?, string) result)
             {
                 for (int i = 0; i < variables.Count; i++)
                 {
                     if (i < slot.Count)
                     {
-                        if (variables[i].name == name)
+                        if (name.Span.SequenceEqual(variables[i].name))
                         {
                             result = (slot[i], variables[i].type);
                             return true;
@@ -280,9 +280,9 @@ namespace NeoDebug.Neo3
                 return false;
             }
 
-            StackItem? EvaluateSlot(Slot slot, string name, int count)
+            StackItem? EvaluateSlot(Slot slot, int count)
             {
-                if (int.TryParse(name.AsSpan().Slice(count), out int index)
+                if (int.TryParse(name.Span.Slice(count), out int index)
                     && index < slot.Count)
                 {
                     return slot[index];
@@ -297,16 +297,23 @@ namespace NeoDebug.Neo3
             if (!args.FrameId.HasValue)
                 return DebugAdapter.FailedEvaluation;
 
-            var context = engine.InvocationStack.ElementAt(args.FrameId.Value);
-            var (typeHint, expression) = VariableManager.ParsePrefix(args.Expression);
-            var (item, type) = Evaluate(context, expression);
+            try
+            {
+                var context = engine.InvocationStack.ElementAt(args.FrameId.Value);
+                var (name, typeHint, remaining) = VariableManager.ParseEvalExpression(args.Expression);
+                var (item, type) = Evaluate(context, name);
 
-            if (item != null)
-                return item
-                    .ToVariable(variableManager, string.Empty, string.IsNullOrEmpty(typeHint) ? type : typeHint)
-                    .ToEvaluateResponse();
+                if (item != null)
+                    return item
+                        .ToVariable(variableManager, string.Empty, string.IsNullOrEmpty(typeHint) ? type : typeHint)
+                        .ToEvaluateResponse();
 
-            return DebugAdapter.FailedEvaluation;
+                return DebugAdapter.FailedEvaluation;
+            }
+            catch (Exception)
+            {
+                return DebugAdapter.FailedEvaluation;
+            }
         }
 
         public IEnumerable<Breakpoint> SetBreakpoints(Source source, IReadOnlyList<SourceBreakpoint> sourceBreakpoints)
