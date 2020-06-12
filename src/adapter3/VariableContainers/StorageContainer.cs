@@ -1,5 +1,6 @@
-using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
 using Neo.Ledger;
@@ -16,6 +17,28 @@ namespace NeoDebug.Neo3
         {
             this.store = store;
             contractId = store.Contracts.TryGet(scriptHash)?.Id;
+        }
+
+        bool TryFind(int hashCode, out (StorageKey key, StorageItem item) tuple)
+        {
+            if (contractId.HasValue)
+            {
+                foreach (var (key, item) in store.Storages.Find())
+                {
+                    if (key.Id != contractId.Value)
+                        continue;
+
+                    var keyHashCode = key.Key.GetSequenceHashCode();
+                    if (hashCode == keyHashCode)
+                    {
+                        tuple = (key, item);
+                        return true;
+                    }
+                }
+            }
+
+            tuple = default;
+            return false;
         }
 
         public IEnumerable<Variable> Enumerate(IVariableManager manager)
@@ -40,6 +63,35 @@ namespace NeoDebug.Neo3
             }
         }
 
+        static readonly Regex storageRegex = new Regex(@"^\#storage\[([0-9a-fA-F]{8})\]\.(key|item|isConstant)$");
+
+        public EvaluateResponse Evaluate(IVariableManager manager, string expression, string typeHint)
+        {
+            var match = storageRegex.Match(expression);
+            if (match.Success
+                && int.TryParse(match.Groups[1].Value, NumberStyles.HexNumber, null, out var keyHash))
+            {
+                if (TryFind(keyHash, out var tuple))
+                {
+                    return match.Groups[2].Value switch
+                    {
+                        "key" => tuple.key.Key
+                            .ToVariable(manager, "key", typeHint)
+                            .ToEvaluateResponse(),
+                        "item" => tuple.item.Value
+                            .ToVariable(manager, "item", typeHint)
+                            .ToEvaluateResponse(),
+                        "isConstant" => tuple.item.IsConstant
+                            .ToVariable(manager, "isConstant", typeHint)
+                            .ToEvaluateResponse(),
+                        _ => DebugAdapter.FailedEvaluation,
+                    };
+                }
+            }
+
+            return DebugAdapter.FailedEvaluation;
+        }
+
         class KvpContainer : IVariableContainer
         {
             private readonly StorageKey key;
@@ -55,21 +107,15 @@ namespace NeoDebug.Neo3
 
             public IEnumerable<Variable> Enumerate(IVariableManager manager)
             {
-                var keyVariable = ByteArrayContainer.Create(manager, key.Key, "key");
-                keyVariable.EvaluateName = $"#storage[{hashCode}].key";
-                yield return keyVariable;
+                yield return ForEvaluation(key.Key.ToVariable(manager, "key"));
+                yield return ForEvaluation(item.Value.ToVariable(manager, "item"));
+                yield return ForEvaluation(item.IsConstant.ToVariable(manager, "isConstant"));
 
-                var itemVariable = ByteArrayContainer.Create(manager, item.Value, "item");
-                itemVariable.EvaluateName = $"#storage[{hashCode}].value";
-                yield return itemVariable;
-
-                yield return new Variable()
+                Variable ForEvaluation(Variable variable)
                 {
-                    Name = "isConstant",
-                    EvaluateName = $"#storage[{hashCode}].isConstant",
-                    Type = "Boolean",
-                    Value = item.IsConstant.ToString(),
-                };
+                    variable.EvaluateName = $"#storage[{hashCode}].{variable.Name}";
+                    return variable;
+                }
             }
         }
     }

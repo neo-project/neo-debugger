@@ -87,6 +87,21 @@ namespace NeoDebug.Neo3
             return @this;
         }        
 
+        public static EvaluateResponse ToEvaluateResponse(this Variable @this)
+        {
+            return new EvaluateResponse(@this.Value, @this.VariablesReference);
+        }
+
+        public static Variable ToVariable(this byte[] item, IVariableManager manager, string name, string? typeHint = null)
+        {
+            return ToVariable((StackItem)item, manager, name, typeHint);
+        }
+
+        public static Variable ToVariable(this bool item, IVariableManager manager, string name, string? typeHint = null)
+        {
+            return ToVariable((StackItem)item, manager, name, typeHint);
+        }
+
         public static Variable ToVariable(this StackItem item, IVariableManager manager, string name, string? typeHint = null)
         {
             switch (typeHint)

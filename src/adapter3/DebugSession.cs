@@ -204,6 +204,48 @@ namespace NeoDebug.Neo3
 
         public EvaluateResponse Evaluate(EvaluateArguments args)
         {
+            if (!args.FrameId.HasValue)
+                return DebugAdapter.FailedEvaluation;
+
+            var context = engine.InvocationStack.ElementAt(args.FrameId.Value);
+
+            var (typeHint, expression) = VariableManager.ParsePrefix(args.Expression);
+            if (expression.StartsWith("#storage"))
+            {
+                // TODO: ExecutionContext needs a mechanism to retrieve script hash 
+                //       https://github.com/neo-project/neo/issues/1696
+                var scriptHash = Neo.SmartContract.Helper.ToScriptHash(context.Script);
+                var container = new StorageContainer(scriptHash, engine.Snapshot);
+                return container.Evaluate(variableManager, expression, typeHint);
+            }
+
+            if (expression.StartsWith("#arg"))
+            {
+                return EvaluateSlot(context.Arguments, expression, 4);
+            }
+
+            if (expression.StartsWith("#local"))
+            {
+                return EvaluateSlot(context.LocalVariables, expression, 6);
+            }
+
+            if (expression.StartsWith("#static"))
+            {
+                return EvaluateSlot(context.StaticFields, expression, 7);
+            }
+
+            EvaluateResponse EvaluateSlot(Slot slot, string name, int count)
+            {
+                if (int.TryParse(name.AsSpan().Slice(count), out int index)
+                    && index < slot.Count)
+                {
+                    return slot[index].ToVariable(this.variableManager, name, typeHint)
+                        .ToEvaluateResponse();
+                }
+
+                return DebugAdapter.FailedEvaluation;
+            }
+
             return DebugAdapter.FailedEvaluation;
         }
 
