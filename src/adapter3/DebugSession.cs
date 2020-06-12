@@ -10,6 +10,8 @@ using NeoDebug;
 
 namespace NeoDebug.Neo3
 {
+    using StackItem = Neo.VM.Types.StackItem;
+
     class DebugSession : IDebugSession, IDisposable
     {
         const VMState HALT_OR_FAULT = VMState.HALT | VMState.FAULT;
@@ -202,78 +204,88 @@ namespace NeoDebug.Neo3
             throw new InvalidOperationException();
         }
 
-        Variable? Evaluate(ExecutionContext context, string expression, string typeHint)
+        (StackItem? item, string typeHint) Evaluate(ExecutionContext context, string name)
         {
-
-            if (expression.StartsWith("#arg"))
+            if (name.StartsWith("#eval"))
             {
-                return EvaluateSlot(context.Arguments, expression, 4);
+                if (int.TryParse(name.AsSpan().Slice(5), out var value))
+                {
+                    var index = context.EvaluationStack.Count - 1 - value;
+                    if (index >= 0 && index < context.EvaluationStack.Count)
+                    {
+                        return (context.EvaluationStack.Peek(index), string.Empty);
+                    }
+                }
+
+                return (null, string.Empty);
             }
 
-            if (expression.StartsWith("#local"))
+            if (name.StartsWith("#arg"))
             {
-                return EvaluateSlot(context.LocalVariables, expression, 6);
+                return (EvaluateSlot(context.Arguments, name, 4), string.Empty);
             }
 
-            if (expression.StartsWith("#static"))
+            if (name.StartsWith("#local"))
             {
-                return EvaluateSlot(context.StaticFields, expression, 7);
+                return (EvaluateSlot(context.LocalVariables, name, 6), string.Empty);
+            }
+
+            if (name.StartsWith("#static"))
+            {
+                return (EvaluateSlot(context.StaticFields, name, 7), string.Empty);
             }
 
             // TODO: ExecutionContext needs a mechanism to retrieve script hash 
             //       https://github.com/neo-project/neo/issues/1696
             var scriptHash = Neo.SmartContract.Helper.ToScriptHash(context.Script);
 
-            if (expression.StartsWith("#storage"))
+            if (name.StartsWith("#storage"))
             {
                 var container = new StorageContainer(scriptHash, engine.Snapshot);
-                return container.Evaluate(variableManager, expression, typeHint);
+                return (container.Evaluate(name), string.Empty);
             }
 
             if (debugInfoMap.TryGetValue(scriptHash, out var debugInfo)
                 && debugInfo.TryGetMethod(context.InstructionPointer, out var method))
             {
-                Variable? response;
-                if (TryEvaluateSlot(context.Arguments, method.Parameters, out response))
+                (StackItem?, string) result;
+                if (TryEvaluateSlot(context.Arguments, name, method.Parameters, out result))
                 {
-                    return response;
+                    return result;
                 }
                 
-                if (TryEvaluateSlot(context.LocalVariables, method.Variables, out response))
+                if (TryEvaluateSlot(context.LocalVariables, name, method.Variables, out result))
                 {
-                    return response;
+                    return result;
                 }
             }
 
-            return null;
+            return default;
 
-            bool TryEvaluateSlot(Slot slot, IList<(string name, string type)> variables, out Variable? response)
+            static bool TryEvaluateSlot(Slot slot, string name, IList<(string name, string type)> variables, out (StackItem?, string) result)
             {
                 for (int i = 0; i < variables.Count; i++)
                 {
                     if (i < slot.Count)
                     {
-                        var (name, type) = variables[i];
-                        if (name == expression)
+                        if (variables[i].name == name)
                         {
-                            response = slot[i].ToVariable(variableManager, name, 
-                                string.IsNullOrEmpty(typeHint) ? type : typeHint);
+                            result = (slot[i], variables[i].type);
                             return true;
                         }
                     }
                 }
 
-                response = null!;
+                result = default;
                 return false;
             }
 
-            Variable? EvaluateSlot(Slot slot, string name, int count)
+            StackItem? EvaluateSlot(Slot slot, string name, int count)
             {
                 if (int.TryParse(name.AsSpan().Slice(count), out int index)
                     && index < slot.Count)
                 {
-                    return slot[index]
-                        .ToVariable(this.variableManager, name, typeHint);
+                    return slot[index];
                 }
 
                 return null;
@@ -287,11 +299,12 @@ namespace NeoDebug.Neo3
 
             var context = engine.InvocationStack.ElementAt(args.FrameId.Value);
             var (typeHint, expression) = VariableManager.ParsePrefix(args.Expression);
+            var (item, type) = Evaluate(context, expression);
 
-            var variable = Evaluate(context, expression, typeHint);
-
-            if (variable != null)
-                return variable.ToEvaluateResponse();
+            if (item != null)
+                return item
+                    .ToVariable(variableManager, string.Empty, string.IsNullOrEmpty(typeHint) ? type : typeHint)
+                    .ToEvaluateResponse();
 
             return DebugAdapter.FailedEvaluation;
         }

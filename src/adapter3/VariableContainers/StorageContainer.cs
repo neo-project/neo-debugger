@@ -65,7 +65,7 @@ namespace NeoDebug.Neo3
 
         static readonly Regex storageRegex = new Regex(@"^\#storage\[([0-9a-fA-F]{8})\]\.(key|item|isConstant)$");
 
-        public Variable? Evaluate(IVariableManager manager, string expression, string typeHint)
+        public Neo.VM.Types.StackItem? Evaluate(string expression)
         {
             var match = storageRegex.Match(expression);
             if (match.Success
@@ -75,12 +75,9 @@ namespace NeoDebug.Neo3
                 {
                     return match.Groups[2].Value switch
                     {
-                        "key" => tuple.key.Key
-                            .ToVariable(manager, "key", typeHint),
-                        "item" => tuple.item.Value
-                            .ToVariable(manager, "item", typeHint),
-                        "isConstant" => tuple.item.IsConstant
-                            .ToVariable(manager, "isConstant", typeHint),
+                        "key" => tuple.key.Key,
+                        "item" => tuple.item.Value,
+                        "isConstant" => tuple.item.IsConstant,
                         _ => null,
                     };
                 }
