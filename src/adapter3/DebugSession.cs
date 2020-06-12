@@ -202,14 +202,8 @@ namespace NeoDebug.Neo3
             throw new InvalidOperationException();
         }
 
-        public EvaluateResponse Evaluate(EvaluateArguments args)
+        Variable? Evaluate(ExecutionContext context, string expression, string typeHint)
         {
-            if (!args.FrameId.HasValue)
-                return DebugAdapter.FailedEvaluation;
-
-            var context = engine.InvocationStack.ElementAt(args.FrameId.Value);
-
-            var (typeHint, expression) = VariableManager.ParsePrefix(args.Expression);
 
             if (expression.StartsWith("#arg"))
             {
@@ -239,7 +233,7 @@ namespace NeoDebug.Neo3
             if (debugInfoMap.TryGetValue(scriptHash, out var debugInfo)
                 && debugInfo.TryGetMethod(context.InstructionPointer, out var method))
             {
-                EvaluateResponse response;
+                Variable? response;
                 if (TryEvaluateSlot(context.Arguments, method.Parameters, out response))
                 {
                     return response;
@@ -250,8 +244,10 @@ namespace NeoDebug.Neo3
                     return response;
                 }
             }
-            
-            bool TryEvaluateSlot(Slot slot, IList<(string name, string type)> variables, out EvaluateResponse response)
+
+            return null;
+
+            bool TryEvaluateSlot(Slot slot, IList<(string name, string type)> variables, out Variable? response)
             {
                 for (int i = 0; i < variables.Count; i++)
                 {
@@ -261,8 +257,7 @@ namespace NeoDebug.Neo3
                         if (name == expression)
                         {
                             response = slot[i].ToVariable(variableManager, name, 
-                                string.IsNullOrEmpty(typeHint) ? type : typeHint)
-                                .ToEvaluateResponse();
+                                string.IsNullOrEmpty(typeHint) ? type : typeHint);
                             return true;
                         }
                     }
@@ -272,19 +267,31 @@ namespace NeoDebug.Neo3
                 return false;
             }
 
-
-            EvaluateResponse EvaluateSlot(Slot slot, string name, int count)
+            Variable? EvaluateSlot(Slot slot, string name, int count)
             {
                 if (int.TryParse(name.AsSpan().Slice(count), out int index)
                     && index < slot.Count)
                 {
                     return slot[index]
-                        .ToVariable(this.variableManager, name, typeHint)
-                        .ToEvaluateResponse();
+                        .ToVariable(this.variableManager, name, typeHint);
                 }
 
-                return DebugAdapter.FailedEvaluation;
+                return null;
             }
+        }
+
+        public EvaluateResponse Evaluate(EvaluateArguments args)
+        {
+            if (!args.FrameId.HasValue)
+                return DebugAdapter.FailedEvaluation;
+
+            var context = engine.InvocationStack.ElementAt(args.FrameId.Value);
+            var (typeHint, expression) = VariableManager.ParsePrefix(args.Expression);
+
+            var variable = Evaluate(context, expression, typeHint);
+
+            if (variable != null)
+                return variable.ToEvaluateResponse();
 
             return DebugAdapter.FailedEvaluation;
         }

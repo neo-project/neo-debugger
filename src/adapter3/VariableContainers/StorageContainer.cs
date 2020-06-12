@@ -65,7 +65,7 @@ namespace NeoDebug.Neo3
 
         static readonly Regex storageRegex = new Regex(@"^\#storage\[([0-9a-fA-F]{8})\]\.(key|item|isConstant)$");
 
-        public EvaluateResponse Evaluate(IVariableManager manager, string expression, string typeHint)
+        public Variable? Evaluate(IVariableManager manager, string expression, string typeHint)
         {
             var match = storageRegex.Match(expression);
             if (match.Success
@@ -76,20 +76,17 @@ namespace NeoDebug.Neo3
                     return match.Groups[2].Value switch
                     {
                         "key" => tuple.key.Key
-                            .ToVariable(manager, "key", typeHint)
-                            .ToEvaluateResponse(),
+                            .ToVariable(manager, "key", typeHint),
                         "item" => tuple.item.Value
-                            .ToVariable(manager, "item", typeHint)
-                            .ToEvaluateResponse(),
+                            .ToVariable(manager, "item", typeHint),
                         "isConstant" => tuple.item.IsConstant
-                            .ToVariable(manager, "isConstant", typeHint)
-                            .ToEvaluateResponse(),
-                        _ => DebugAdapter.FailedEvaluation,
+                            .ToVariable(manager, "isConstant", typeHint),
+                        _ => null,
                     };
                 }
             }
 
-            return DebugAdapter.FailedEvaluation;
+            return null;
         }
 
         class KvpContainer : IVariableContainer
