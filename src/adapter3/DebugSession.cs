@@ -27,7 +27,7 @@ namespace NeoDebug.Neo3
             this.engine = engine;
             this.sendEvent = sendEvent;
             this.disassemblyView = defaultDebugView == DebugView.Disassembly;
-            this.disassemblyManager = new DisassemblyManager(TryGetScript);
+            this.disassemblyManager = new DisassemblyManager(TryGetScript, TryGetDebugInfo);
             this.breakpointManager = new BreakpointManager(this.disassemblyManager, debugInfos);
             this.debugInfoMap = debugInfos.ToImmutableDictionary(d => d.ScriptHash);
         }
@@ -37,7 +37,7 @@ namespace NeoDebug.Neo3
             engine.Dispose();
         }
 
-        public bool TryGetScript(Neo.UInt160 scriptHash, [MaybeNullWhen(false)] out Neo.VM.Script script)
+        bool TryGetScript(Neo.UInt160 scriptHash, [MaybeNullWhen(false)] out Neo.VM.Script script)
         {
             var contractState = engine.Snapshot.Contracts.TryGet(scriptHash);
             if (contractState != null)
@@ -57,6 +57,11 @@ namespace NeoDebug.Neo3
 
             script = null;
             return false;
+        }
+
+        bool TryGetDebugInfo(Neo.UInt160 scriptHash, [MaybeNullWhen(false)] out DebugInfo debugInfo)
+        {
+            return debugInfoMap.TryGetValue(scriptHash, out debugInfo);
         }
 
         public void Start()
@@ -101,8 +106,7 @@ namespace NeoDebug.Neo3
 
                     if (disassemblyView)
                     {
-
-                        var disassembly = disassemblyManager.GetDisassembly(context.Script);
+                        var disassembly = disassemblyManager.GetDisassembly(context.Script, debugInfo);
                         var line = disassembly.AddressMap[context.InstructionPointer];
                         frame.Source = new Source()
                         {
