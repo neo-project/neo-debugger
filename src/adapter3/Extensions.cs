@@ -86,55 +86,30 @@ namespace NeoDebug.Neo3
             switch (typeHint)
             {
                 case "Boolean":
-                    return new Variable()
-                    {
-                        Name = name,
-                        Value = item.ToBoolean().ToString(),
-                        Type = "Boolean",
-                    };
+                    return MakeVariable(item.ToBoolean().ToString(), "Boolean");
                 case "Integer":
                 {
                     var value = item.IsNull ? "0" : 
                         ((Neo.VM.Types.Integer)item.ConvertTo(StackItemType.Integer)).ToBigInteger().ToString();
-                    return new Variable()
-                    {
-                        Name = name,
-                        Value = value,
-                        Type = "Integer",
-                    };
+                    return MakeVariable(value, "Integer");
                 }
                 case "String":
                 {
                     var value = item.IsNull ? "<null>" : 
                         Encoding.UTF8.GetString(((Neo.VM.Types.ByteString)item.ConvertTo(StackItemType.ByteString)).Span);
-                    return new Variable()
-                    {
-                        Name = name,
-                        Value = value,
-                        Type = "String",
-                    };
+                    return MakeVariable(value, "String");
                 }
                 case "HexString":
                 {
                     var value = item.IsNull ? "<null>" : 
                         ((Neo.VM.Types.ByteString)item.ConvertTo(StackItemType.ByteString)).Span.ToHexString();
-                    return new Variable()
-                    {
-                        Name = name,
-                        Value = value,
-                        Type = "HexString"
-                    };
+                    return MakeVariable(value, "HexString");
                 }
                 case "ByteArray":
                 {
                     if (item.IsNull)
                     {
-                        return new Variable()
-                        {
-                            Name = name,
-                            Value = "<null>",
-                            Type = "ByteString"
-                        };
+                        return MakeVariable("<null>", "ByteArray");
                     }
                     var byteString = (Neo.VM.Types.ByteString)item.ConvertTo(StackItemType.ByteString);
                     return ByteArrayContainer.Create(manager, byteString, name);
