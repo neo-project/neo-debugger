@@ -292,6 +292,34 @@ namespace NeoDebug.Neo3
             }
         }
 
+        static (StackItem? item, string type) ProcessRemaining(StackItem? item, string type, ReadOnlyMemory<char> remaining)
+        {
+            if (remaining.IsEmpty)
+            {
+                return (item, type);
+            }
+
+            if (remaining.Span[0] == '[')
+            {
+                var bracketIndex = remaining.Span.IndexOf(']');
+                if (bracketIndex >= 0
+                    && int.TryParse(remaining.Slice(1, bracketIndex - 1).Span, out var index))
+                {
+                    var newItem = item switch
+                    {
+                        Neo.VM.Types.Buffer buffer => (int)buffer.InnerBuffer[index], 
+                        Neo.VM.Types.ByteString byteString => (int)byteString.Span[index],
+                        Neo.VM.Types.Array array => array[index],
+                       _ => throw new InvalidOperationException(),
+                    };
+
+                    return ProcessRemaining(newItem, string.Empty, remaining.Slice(bracketIndex + 1));
+                }
+            }
+
+            throw new InvalidOperationException();
+        }
+
         public EvaluateResponse Evaluate(EvaluateArguments args)
         {
             if (!args.FrameId.HasValue)
@@ -302,11 +330,14 @@ namespace NeoDebug.Neo3
                 var context = engine.InvocationStack.ElementAt(args.FrameId.Value);
                 var (name, typeHint, remaining) = VariableManager.ParseEvalExpression(args.Expression);
                 var (item, type) = Evaluate(context, name);
+                (item, type) = ProcessRemaining(item, type, remaining);
 
                 if (item != null)
+                {
                     return item
                         .ToVariable(variableManager, string.Empty, string.IsNullOrEmpty(typeHint) ? type : typeHint)
                         .ToEvaluateResponse();
+                }
 
                 return DebugAdapter.FailedEvaluation;
             }
