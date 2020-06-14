@@ -31,6 +31,21 @@ namespace NeoDebug.Neo3
             return method != null;
         }
 
+        public static string? GetDocumentPath(this DebugInfo.SequencePoint? @this, DebugInfo? debugInfo)
+        {
+            if (@this != null && debugInfo != null && @this.Document < debugInfo.Documents.Count)
+            {
+                return debugInfo.Documents[@this.Document];
+            }
+
+            return null;
+        }
+
+        public static bool PathEquals(this DebugInfo.SequencePoint? @this, DebugInfo? debugInfo, string path)
+        {
+            return string.Equals(@this.GetDocumentPath(debugInfo), path, StringComparison.InvariantCultureIgnoreCase);
+        }
+
         public static DebugInfo.SequencePoint? GetCurrentSequencePoint(this DebugInfo.Method? method, int instructionPointer)
         {
             if (method != null)

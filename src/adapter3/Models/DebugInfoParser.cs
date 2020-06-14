@@ -93,7 +93,7 @@ namespace NeoDebug.Neo3
                 };
             }
 
-            static DebugInfo.SequencePoint ParseSequencePoint(string value, IList<string> documents)
+            static DebugInfo.SequencePoint ParseSequencePoint(string value)
             {
                 var matches = spRegex.Value.Match(value);
                 Debug.Assert(matches.Groups.Count == 7);
@@ -106,18 +106,18 @@ namespace NeoDebug.Neo3
                 return new DebugInfo.SequencePoint
                 {
                     Address = ParseGroup(1),
-                    Document = documents[ParseGroup(2)],
+                    Document = ParseGroup(2),
                     Start = (ParseGroup(3), ParseGroup(4)),
                     End = (ParseGroup(5), ParseGroup(6)),
                 };
             }
 
-            static DebugInfo.Method ParseMethod(JToken token, IList<string> documents)
+            static DebugInfo.Method ParseMethod(JToken token)
             {
                 var (ns, name) = SplitComma(token.Value<string>("name"));
                 var @params = token["params"].Select(t => SplitComma(t.Value<string>()));
                 var variables = token["variables"].Select(t => SplitComma(t.Value<string>()));
-                var sequencePoints = token["sequence-points"].Select(t => ParseSequencePoint(t.Value<string>(), documents));
+                var sequencePoints = token["sequence-points"].Select(t => ParseSequencePoint(t.Value<string>()));
                 var range = token.Value<string>("range").Split('-');
                 Debug.Assert(range.Length == 2);
 
@@ -127,21 +127,22 @@ namespace NeoDebug.Neo3
                     Name = name,
                     Namespace = ns,
                     Range = (int.Parse(range[0]), int.Parse(range[1])),
-                    Parameters = @params.ToList(),
+                    Parameters = @params.ToImmutableList(),
                     ReturnType = token.Value<string>("return"),
-                    Variables = variables.ToList(),
-                    SequencePoints = sequencePoints.ToList(),
+                    Variables = variables.ToImmutableList(),
+                    SequencePoints = sequencePoints.ToImmutableList(),
                 };
             }
 
             var hash = Neo.UInt160.Parse(json.Value<string>("hash"));
-            var documents = json["documents"].Select(documentResolver.ResolveDocument).ToList();
-            var events = json["events"].Select(ParseEvent).ToList();
-            var methods = json["methods"].Select(t => ParseMethod(t, documents)).ToList();
+            var documents = json["documents"].Select(documentResolver.ResolveDocument).ToImmutableList();
+            var events = json["events"].Select(ParseEvent).ToImmutableList();
+            var methods = json["methods"].Select(t => ParseMethod(t)).ToImmutableList();
 
             return new DebugInfo
             {
                 ScriptHash = hash,
+                Documents = documents,
                 Methods = methods,
                 Events = events,
             };

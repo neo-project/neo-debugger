@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 
 namespace NeoDebug.Neo3
@@ -8,7 +9,7 @@ namespace NeoDebug.Neo3
         public class SequencePoint
         {
             public int Address { get; set; }
-            public string Document { get; set; } = string.Empty;
+            public int Document { get; set; }
             public (int line, int column) Start { get; set; }
             public (int line, int column) End { get; set; }
         }
@@ -19,10 +20,13 @@ namespace NeoDebug.Neo3
             public string Namespace { get; set; } = string.Empty;
             public string Name { get; set; } = string.Empty;
             public (int Start, int End) Range { get; set; }
-            public IList<(string Name, string Type)> Parameters { get; set; } = new List<(string, string)>();
+            public IReadOnlyList<(string Name, string Type)> Parameters { get; set; } 
+                = ImmutableList<(string, string)>.Empty;
             public string ReturnType { get; set; } = string.Empty;
-            public IList<(string Name, string Type)> Variables { get; set; } = new List<(string, string)>();
-            public IList<SequencePoint> SequencePoints { get; set; } = new List<SequencePoint>();
+            public IReadOnlyList<(string Name, string Type)> Variables { get; set; } 
+                = ImmutableList<(string, string)>.Empty;
+            public IReadOnlyList<SequencePoint> SequencePoints { get; set; } 
+                = ImmutableList<SequencePoint>.Empty;
         }
 
         public class Event
@@ -30,12 +34,14 @@ namespace NeoDebug.Neo3
             public string Id { get; set; } = string.Empty;
             public string Namespace { get; set; } = string.Empty;
             public string Name { get; set; } = string.Empty;
-            public IList<(string Name, string Type)> Parameters { get; set; } = new List<(string, string)>();
+            public IReadOnlyList<(string Name, string Type)> Parameters { get; set; } 
+                = ImmutableList<(string, string)>.Empty;
         }
 
         public Neo.UInt160 ScriptHash { get; set; } = Neo.UInt160.Zero;
         // public string Entrypoint { get; set; } = string.Empty;
-        public IList<Method> Methods { get; set; } = new List<Method>();
-        public IList<Event> Events { get; set; } = new List<Event>();
+        public IReadOnlyList<string> Documents { get; set; } = ImmutableList<string>.Empty;
+        public IReadOnlyList<Method> Methods { get; set; } = ImmutableList<Method>.Empty;
+        public IReadOnlyList<Event> Events { get; set; } = ImmutableList<Event>.Empty;
     }
 }

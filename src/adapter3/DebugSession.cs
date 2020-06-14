@@ -125,11 +125,15 @@ namespace NeoDebug.Neo3
 
                         if (sequencePoint != null)
                         {
-                            frame.Source = new Source()
+                            var document = sequencePoint.GetDocumentPath(debugInfo);
+                            if (document != null)
                             {
-                                Name = System.IO.Path.GetFileName(sequencePoint.Document),
-                                Path = sequencePoint.Document
-                            };
+                                frame.Source = new Source()
+                                {
+                                    Name = System.IO.Path.GetFileName(document),
+                                    Path = document
+                                };
+                            }
                             frame.Line = sequencePoint.Start.line;
                             frame.Column = sequencePoint.Start.column;
 
@@ -262,7 +266,7 @@ namespace NeoDebug.Neo3
 
             return default;
 
-            bool TryEvaluateSlot(Slot slot, IList<(string name, string type)> variables, out (StackItem?, string) result)
+            bool TryEvaluateSlot(Slot slot, IReadOnlyList<(string name, string type)> variables, out (StackItem?, string) result)
             {
                 for (int i = 0; i < variables.Count; i++)
                 {

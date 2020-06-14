@@ -44,9 +44,11 @@ namespace NeoDebug.Neo3
             }
             else
             {
-                var sequencePoints = debugInfoList.SelectMany(d => d.Methods.SelectMany(m => m.SequencePoints))
-                    .Where(sp => sp.Document.Equals(source.Path, StringComparison.InvariantCultureIgnoreCase))
-                    .ToList();
+                var sequencePoints = debugInfoList
+                    .SelectMany(d => d.Methods.SelectMany(m => m.SequencePoints).Select(sp => (d, sp)))
+                    .Where(t => t.sp.PathEquals(t.d, source.Path))
+                    .Select(t => t.sp)
+                    .ToImmutableList();
                     
                 foreach (var sbp in sourceBreakpoints)
                 {
@@ -91,8 +93,8 @@ namespace NeoDebug.Neo3
                         {
                             var sequencePoints = debugInfo.Methods
                                 .SelectMany(m => m.SequencePoints)
-                                .Where(sp => sp.Document.Equals(kvp.Key, StringComparison.InvariantCultureIgnoreCase))
-                                .ToList();
+                                .Where(sp => sp.PathEquals(debugInfo, kvp.Key))
+                                .ToImmutableList();
 
                             foreach (var sbp in kvp.Value)
                             {

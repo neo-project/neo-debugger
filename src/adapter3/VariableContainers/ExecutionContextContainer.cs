@@ -27,7 +27,7 @@ namespace NeoDebug.Neo3
 
             return args.Concat(locals);
 
-            IEnumerable<Variable> EnumerateSlot(string prefix, IReadOnlyList<StackItem>? slot, IList<(string name, string type)>? variableInfo = null)
+            IEnumerable<Variable> EnumerateSlot(string prefix, IReadOnlyList<StackItem>? slot, IReadOnlyList<(string name, string type)>? variableInfo = null)
             {
                 variableInfo ??= new List<(string name, string type)>();
                 slot ??= new List<StackItem>();
