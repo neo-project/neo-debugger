@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace NeoDebug.Neo3
 {
@@ -92,22 +94,28 @@ namespace NeoDebug.Neo3
         {
             return GetSequenceHashCode(array.AsSpan());
         }
-        
-        public static string ToResult(this StackItem item)
+
+        public static JToken ToJson(this StackItem item)
         {
             return item switch
             {
-                Neo.VM.Types.Boolean _ => item.ToBoolean().ToString(),
-                Neo.VM.Types.Buffer buffer => "Buffer",
+                Neo.VM.Types.Boolean _ => item.ToBoolean(),
+                // Neo.VM.Types.Buffer buffer => "Buffer",
                 Neo.VM.Types.ByteString byteString => byteString.Span.ToHexString(), 
                 Neo.VM.Types.Integer @int => @int.ToBigInteger().ToString(),
                 // Neo.VM.Types.InteropInterface _ => MakeVariable("InteropInterface"),
                 // Neo.VM.Types.Map _ => MakeVariable("Map"),
-                Neo.VM.Types.Null _ => "<null>",
+                Neo.VM.Types.Null _ => new JValue((object?)null),
                 // Neo.VM.Types.Pointer _ => MakeVariable("Pointer"),
-                Neo.VM.Types.Array array => "NeoArray",
+                Neo.VM.Types.Array array => new JArray(array.Select(i => i.ToJson())),
                 _ => throw new NotImplementedException(),
             };
+
+        }
+
+        public static string ToResult(this StackItem item)
+        {
+            return item.ToJson().ToString(Formatting.Indented);
         }
 
         public static Variable ForEvaluation(this Variable @this, string prefix = "")

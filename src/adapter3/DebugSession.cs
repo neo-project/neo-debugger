@@ -32,7 +32,27 @@ namespace NeoDebug.Neo3
             this.disassemblyManager = new DisassemblyManager(TryGetScript, TryGetDebugInfo);
             this.breakpointManager = new BreakpointManager(this.disassemblyManager, debugInfos);
             this.debugInfoMap = debugInfos.ToImmutableDictionary(d => d.ScriptHash);
+
+            DebugApplicationEngine.Notify += OnNotify;
+            DebugApplicationEngine.Log += OnLog;
         }
+
+        void OnNotify(object? sender, Neo.SmartContract.NotifyEventArgs args)
+        {
+            sendEvent(new OutputEvent()
+            {
+                Output = $"Runtime.Notify: {args.ScriptHash} {args.State.ToResult()}\n",
+            });
+        }
+
+        void OnLog(object? sender, Neo.SmartContract.LogEventArgs args)
+        {
+            sendEvent(new OutputEvent()
+            {
+                Output = $"Runtime.Log: {args.ScriptHash} {args.Message}\n",
+            });
+        }
+
 
         public void Dispose()
         {
@@ -116,8 +136,7 @@ namespace NeoDebug.Neo3
                             Name = disassembly.Name,
                             Path = disassembly.Name,
                         };
-                        frame.Line = index == 0 ? line : line - 1;
-   
+                        frame.Line = line; //index == 0 ? line : line - 1;   
                     }
                     else
                     {
