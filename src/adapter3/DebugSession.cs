@@ -5,6 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
+using Neo.Persistence;
 using Neo.VM;
 using NeoDebug;
 
@@ -17,21 +18,21 @@ namespace NeoDebug.Neo3
         const VMState HALT_OR_FAULT = VMState.HALT | VMState.FAULT;
 
         private readonly DebugApplicationEngine engine;
+        private readonly IStore store;
         private readonly Action<DebugEvent> sendEvent;
         private bool disassemblyView;
         private readonly DisassemblyManager disassemblyManager;
         private readonly VariableManager variableManager = new VariableManager();
         private readonly BreakpointManager breakpointManager;
-        private readonly IReadOnlyDictionary<UInt160, DebugInfo> debugInfoMap;
-
-        public DebugSession(DebugApplicationEngine engine, Action<DebugEvent> sendEvent, IEnumerable<DebugInfo> debugInfos, DebugView defaultDebugView)
+        
+        public DebugSession(DebugApplicationEngine engine, IStore store, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
         {
             this.engine = engine;
+            this.store = store;
             this.sendEvent = sendEvent;
             this.disassemblyView = defaultDebugView == DebugView.Disassembly;
             this.disassemblyManager = new DisassemblyManager(TryGetScript, TryGetDebugInfo);
-            this.breakpointManager = new BreakpointManager(this.disassemblyManager, debugInfos);
-            this.debugInfoMap = debugInfos.ToImmutableDictionary(d => d.ScriptHash);
+            this.breakpointManager = new BreakpointManager(this.disassemblyManager, () => DebugInfo.Find(store));
 
             DebugApplicationEngine.Notify += OnNotify;
             DebugApplicationEngine.Log += OnLog;
@@ -83,7 +84,8 @@ namespace NeoDebug.Neo3
 
         bool TryGetDebugInfo(Neo.UInt160 scriptHash, [MaybeNullWhen(false)] out DebugInfo debugInfo)
         {
-            return debugInfoMap.TryGetValue(scriptHash, out debugInfo);
+            debugInfo = DebugInfo.TryGet(store, scriptHash)!;
+            return debugInfo != null;
         }
 
         public void Start()
@@ -115,7 +117,7 @@ namespace NeoDebug.Neo3
                     //       https://github.com/neo-project/neo/issues/1696
                     var scriptHash = Neo.SmartContract.Helper.ToScriptHash(context.Script);
                     DebugInfo.Method? method = null;
-                    if (debugInfoMap.TryGetValue(scriptHash, out var debugInfo))
+                    if (TryGetDebugInfo(scriptHash, out var debugInfo))
                     {
                         method = debugInfo.GetMethod(context.InstructionPointer);
                     }
@@ -187,7 +189,7 @@ namespace NeoDebug.Neo3
                 }
                 else
                 {
-                    var debugInfo = debugInfoMap.TryGetValue(scriptHash, out var di) ? di : null;
+                    var debugInfo = TryGetDebugInfo(scriptHash, out var di) ? di : null;
                     yield return AddScope("Variables", new ExecutionContextContainer(context, debugInfo));
                 }
 
@@ -268,7 +270,7 @@ namespace NeoDebug.Neo3
                 return (container.Evaluate(name), string.Empty);
             }
 
-            if (debugInfoMap.TryGetValue(scriptHash, out var debugInfo)
+            if (TryGetDebugInfo(scriptHash, out var debugInfo)
                 && debugInfo.TryGetMethod(context.InstructionPointer, out var method))
             {
                 (StackItem?, string) result;
@@ -454,7 +456,7 @@ namespace NeoDebug.Neo3
                 if (engine.CurrentContext != null) 
                 {
                     var ip = engine.CurrentContext.InstructionPointer;
-                    if (debugInfoMap.TryGetValue(engine.CurrentScriptHash, out var info))
+                    if (TryGetDebugInfo(engine.CurrentScriptHash, out var info))
                     {
                         var methods = info.Methods;
                         for (int i = 0; i < methods.Count; i++)

@@ -26,12 +26,13 @@ namespace NeoDebug.Neo3
             IStore memoryStore = new MemoryStore();
             var id = AddContract(memoryStore, contract, manifest);
             AddStorage(memoryStore, ParseStorage(id, config));
+            debugInfo.Put(memoryStore);
 
             var engine = new DebugApplicationEngine(new SnapshotView(memoryStore));
             var invokeScript = CreateLaunchScript(contract, config);
             engine.LoadScript(invokeScript);
 
-            return new DebugSession(engine, sendEvent, new DebugInfo[]{ debugInfo }, defaultDebugView);
+            return new DebugSession(engine, memoryStore, sendEvent, defaultDebugView);
 
             static void AddStorage(IStore store, IEnumerable<(StorageKey key, StorageItem item)> storages)
             {

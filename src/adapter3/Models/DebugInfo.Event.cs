@@ -30,9 +30,9 @@ namespace NeoDebug.Neo3
 
             public void Serialize(BinaryWriter writer)
             {
-                writer.Write(Id);
-                writer.Write(Namespace);
-                writer.Write(Name);
+                writer.WriteVarString(Id);
+                writer.WriteVarString(Namespace);
+                writer.WriteVarString(Name);
                 WriteTypes(writer, Parameters);
             }
         }

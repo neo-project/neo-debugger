@@ -41,15 +41,15 @@ namespace NeoDebug.Neo3
                 Range = (rs, re);
                 Parameters = ReadTypes(reader).ToImmutableList();
                 Variables = ReadTypes(reader).ToImmutableList();
-                SequencePoints = ReadVarEnumeration<SequencePoint>(reader).ToImmutableList();
+                SequencePoints = reader.ReadSerializableArray<SequencePoint>();
             }
 
             public void Serialize(BinaryWriter writer)
             {
-                writer.Write(Id);
-                writer.Write(Namespace);
-                writer.Write(Name);
-                writer.Write(ReturnType);
+                writer.WriteVarString(Id);
+                writer.WriteVarString(Namespace);
+                writer.WriteVarString(Name);
+                writer.WriteVarString(ReturnType);
                 writer.Write(Range.Start);
                 writer.Write(Range.End);
                 WriteTypes(writer, Parameters);

@@ -1,13 +1,71 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using Neo;
 using Neo.IO;
+using Neo.Persistence;
 
 namespace NeoDebug.Neo3
 {
     public partial class DebugInfo : ISerializable
     {
+        public UInt160 ScriptHash { get; set; } = UInt160.Zero;
+        public IReadOnlyList<string> Documents { get; set; } = ImmutableList<string>.Empty;
+        public IReadOnlyList<Method> Methods { get; set; } = ImmutableList<Method>.Empty;
+        public IReadOnlyList<Event> Events { get; set; } = ImmutableList<Event>.Empty;
+
+        const byte DEBUG_INFO_PREFIX = 0xf0;
+        public static DebugInfo? TryGet(IReadOnlyStore store, UInt160 scriptHash)
+        {
+            var value = store.TryGet(DEBUG_INFO_PREFIX, scriptHash.ToArray());
+            return value == null ? null : value.AsSerializable<DebugInfo>();
+        }
+
+        public void Put(IStore store)
+        {
+            store.Put(DEBUG_INFO_PREFIX, this.ScriptHash.ToArray(), this.ToArray());
+        }
+
+        public static IEnumerable<DebugInfo> Find(IReadOnlyStore store)
+        {
+            return store
+                .Find(DEBUG_INFO_PREFIX, Array.Empty<byte>())
+                .Select(t => t.Value.AsSerializable<DebugInfo>());
+        }
+
+        public int Size => ScriptHash.Size
+            + Documents.GetVarSize()
+            + Methods.GetVarSize()
+            + Events.GetVarSize();
+
+        public void Serialize(BinaryWriter writer)
+        {
+            writer.Write(ScriptHash);
+            writer.WriteVarInt(Documents.Count);
+            for (int i = 0; i < Documents.Count; i++)
+            {
+                writer.WriteVarString(Documents[i]);
+            }
+            writer.Write<Method>(Methods);
+            writer.Write<Event>(Events);
+        }
+
+        public void Deserialize(BinaryReader reader)
+        {
+            ScriptHash = reader.ReadSerializable<UInt160>();
+            var docCount = reader.ReadVarInt();
+            var builder = ImmutableList.CreateBuilder<string>();
+            for (ulong i = 0; i < docCount; i++)
+            {
+                builder.Add(reader.ReadVarString());
+            }
+            Documents = builder.ToImmutable();
+            Methods = reader.ReadSerializableArray<Method>();
+            Events = reader.ReadSerializableArray<Event>();
+        }
+
         static void WriteTypes(BinaryWriter writer, IReadOnlyList<(string, string)> types)
         {
             writer.Write(types.Count);
@@ -38,51 +96,6 @@ namespace NeoDebug.Neo3
                 size += types[i].Item2.GetVarSize();
             }
             return size;
-        }
-
-        static IEnumerable<T> ReadVarEnumeration<T>(BinaryReader reader) where T : ISerializable, new()
-        {
-            var count = reader.ReadInt32();
-            for (int i = 0; i < count; i++)
-            {
-                yield return reader.ReadSerializable<T>();
-            }
-        }
-
-        public Neo.UInt160 ScriptHash { get; set; } = Neo.UInt160.Zero;
-        public IReadOnlyList<string> Documents { get; set; } = ImmutableList<string>.Empty;
-        public IReadOnlyList<Method> Methods { get; set; } = ImmutableList<Method>.Empty;
-        public IReadOnlyList<Event> Events { get; set; } = ImmutableList<Event>.Empty;
-
-        public int Size => ScriptHash.Size
-            + Documents.GetVarSize()
-            + Methods.GetVarSize()
-            + Events.GetVarSize();
-
-        public void Serialize(BinaryWriter writer)
-        {
-            writer.Write(ScriptHash);
-            writer.WriteVarInt(Documents.Count);
-            for (int i = 0; i < Documents.Count; i++)
-            {
-                writer.WriteVarString(Documents[i]);
-            }
-            writer.Write<Method>(Methods);
-            writer.Write<Event>(Events);
-        }
-
-        public void Deserialize(BinaryReader reader)
-        {
-            ScriptHash = reader.ReadSerializable<Neo.UInt160>();
-            var docCount = reader.ReadVarInt();
-            var builder = ImmutableList.CreateBuilder<string>();
-            for (ulong i = 0; i < docCount; i++)
-            {
-                builder.Add(reader.ReadVarString());
-            }
-            Documents = builder.ToImmutable();
-            Methods = ReadVarEnumeration<Method>(reader).ToImmutableList();
-            Events = ReadVarEnumeration<Event>(reader).ToImmutableList();
         }
     }
 }

@@ -10,15 +10,14 @@ namespace NeoDebug.Neo3
     class BreakpointManager
     {
         private readonly DisassemblyManager disassemblyManager;
-        private readonly ImmutableList<DebugInfo> debugInfoList;
+        private readonly Func<IEnumerable<DebugInfo>> enumDebugInfo;
         private readonly Dictionary<UInt160, ImmutableHashSet<int>> breakpointCache = new Dictionary<UInt160, ImmutableHashSet<int>>();
         private readonly Dictionary<string, IReadOnlyList<SourceBreakpoint>> sourceBreakpointMap = new Dictionary<string, IReadOnlyList<SourceBreakpoint>>();
 
-        public BreakpointManager(DisassemblyManager disassemblyManager, IEnumerable<DebugInfo> debugInfo)
+        public BreakpointManager(DisassemblyManager disassemblyManager, Func<IEnumerable<DebugInfo>> enumDebugInfo)
         {
             this.disassemblyManager = disassemblyManager;
-
-            this.debugInfoList = debugInfo.ToImmutableList();
+            this.enumDebugInfo = enumDebugInfo;
         }
 
         public IEnumerable<Breakpoint> SetBreakpoints(Source source, IReadOnlyList<SourceBreakpoint> sourceBreakpoints)
@@ -44,7 +43,7 @@ namespace NeoDebug.Neo3
             }
             else
             {
-                var sequencePoints = debugInfoList
+                var sequencePoints = enumDebugInfo()
                     .SelectMany(d => d.Methods.SelectMany(m => m.SequencePoints).Select(sp => (d, sp)))
                     .Where(t => t.sp.PathEquals(t.d, source.Path))
                     .Select(t => t.sp)
@@ -89,7 +88,7 @@ namespace NeoDebug.Neo3
                     }
                     else
                     {
-                        foreach (var debugInfo in debugInfoList)
+                        foreach (var debugInfo in enumDebugInfo())
                         {
                             var sequencePoints = debugInfo.Methods
                                 .SelectMany(m => m.SequencePoints)
