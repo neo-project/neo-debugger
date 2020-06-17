@@ -24,16 +24,16 @@ namespace NeoDebug.Neo3
             var (contract, manifest) = LoadContract(program);
             var debugInfo = DebugInfoParser.Load(program);
 
-            IStore memoryStore = CreateBlockchainStorage(config);
-            var id = AddContract(memoryStore, contract, manifest);
-            AddStorage(memoryStore, ParseStorage(id, config));
-            debugInfo.Put(memoryStore);
+            IStore store = CreateBlockchainStorage(config);
+            var id = AddContract(store, contract, manifest);
+            AddStorage(store, ParseStorage(id, config));
+            debugInfo.Put(store);
 
-            var engine = new DebugApplicationEngine(new SnapshotView(memoryStore));
+            var engine = new DebugApplicationEngine(new SnapshotView(store));
             var invokeScript = CreateLaunchScript(contract, config);
             engine.LoadScript(invokeScript);
 
-            return new DebugSession(engine, memoryStore, sendEvent, defaultDebugView);
+            return new DebugSession(engine, store, sendEvent, defaultDebugView);
 
             static void AddStorage(IStore store, IEnumerable<(StorageKey key, StorageItem item)> storages)
             {
@@ -48,8 +48,13 @@ namespace NeoDebug.Neo3
             static int AddContract(IStore store, NefFile contract, ContractManifest manifest)
             {
                 var snapshotView = new SnapshotView(store);
+                var contractState = snapshotView.Contracts.TryGet(contract.ScriptHash);
+                if (contractState != null)
+                {
+                    return contractState.Id;
+                }
 
-                var contractState = new Neo.Ledger.ContractState
+                contractState = new Neo.Ledger.ContractState
                 {
                     Id = snapshotView.ContractId.GetAndChange().NextId++,
                     Script = contract.Script,
