@@ -1,16 +1,17 @@
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.Ledger;
 using Neo.Persistence;
+using Neo.Seattle.Persistence;
 using Neo.SmartContract;
 using Neo.SmartContract.Manifest;
 using Neo.VM;
 using Newtonsoft.Json.Linq;
+using Nito.Disposables;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace NeoDebug.Neo3
 {
@@ -23,7 +24,7 @@ namespace NeoDebug.Neo3
             var (contract, manifest) = LoadContract(program);
             var debugInfo = DebugInfoParser.Load(program);
 
-            IStore memoryStore = new MemoryStore();
+            IStore memoryStore = CreateBlockchainStorage(config);
             var id = AddContract(memoryStore, contract, manifest);
             AddStorage(memoryStore, ParseStorage(id, config));
             debugInfo.Put(memoryStore);
@@ -83,7 +84,37 @@ namespace NeoDebug.Neo3
             builder.EmitAppCall(contract.ScriptHash, operation, ParseArguments(config).ToArray());
             return builder.ToArray();
         }
-        
+
+        static IStore CreateBlockchainStorage(Dictionary<string, JToken> config)
+        {
+            if (config.TryGetValue("checkpoint", out var checkpoint))
+            {
+                string checkpointTempPath;
+                do
+                {
+                    checkpointTempPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+                }
+                while (Directory.Exists(checkpointTempPath));
+
+                var cleanup = AnonymousDisposable.Create(() => 
+                {
+                    if (Directory.Exists(checkpointTempPath))
+                    {
+                        Directory.Delete(checkpointTempPath);
+                    }
+                });
+
+                RocksDbStore.RestoreCheckpoint(checkpoint.Value<string>(), checkpointTempPath);
+                return new CheckpointStore(
+                    RocksDbStore.OpenReadOnly(checkpointTempPath),
+                    cleanup); 
+            }
+            else
+            {
+                return new MemoryStore();
+            }
+        }
+
         static IEnumerable<(StorageKey key, StorageItem item)> ParseStorage(int contractId, Dictionary<string, JToken> config)
         {
             if (config.TryGetValue("storage", out var token)
