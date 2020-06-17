@@ -168,26 +168,73 @@ namespace NeoDebug.Neo3
                 {
                     for (int i = 0; i < jArgs.Count; i++)
                     {
-                        yield return ParseArgument(jArgs[i]);
+                        yield return ParseArg(jArgs[i]);
                     }
                 }
                 else
                 {
-                    yield return ParseArgument(args);
+                    yield return ParseArg(args);
                 }
             }
         }
 
-        static ContractParameter ParseArgument(JToken arg)
+        // TODO: DRY out ParseArgs between NeoExpress + NeoDebugger
+        static ContractParameter ParseArg(string arg)
+        {
+            if (arg.StartsWith("@N"))
+            {
+                var hash = Neo.Wallets.Helper.ToScriptHash(arg.Substring(1));
+                return new ContractParameter()
+                {
+                    Type = ContractParameterType.Hash160,
+                    Value = hash
+                };
+            }
+
+            if (arg.StartsWith("0x")
+                && System.Numerics.BigInteger.TryParse(arg.AsSpan().Slice(2), System.Globalization.NumberStyles.HexNumber, null, out var bigInteger))
+            {
+                return new ContractParameter()
+                {
+                    Type = ContractParameterType.Integer,
+                    Value = bigInteger
+                };
+            }
+
+            return new ContractParameter()
+            {
+                Type = ContractParameterType.String,
+                Value = arg
+            };
+        }
+
+        static ContractParameter ParseArg(JToken arg)
         {
             return arg.Type switch
             {
-                JTokenType.Boolean => new ContractParameter(ContractParameterType.Boolean) { Value = arg.Value<bool>() },
-                JTokenType.Integer => new ContractParameter(ContractParameterType.Integer) { Value = new System.Numerics.BigInteger(arg.Value<int>()) },
-                JTokenType.Array => new ContractParameter(ContractParameterType.Array) { Value = arg.Select(ParseArgument).ToList() },
-                JTokenType.String => new ContractParameter(ContractParameterType.String) { Value = arg.Value<string>() },
-                _ => throw new ArgumentException(nameof(arg))
+                JTokenType.String => ParseArg(arg.Value<string>()),
+                JTokenType.Boolean => new ContractParameter()
+                {
+                    Type = ContractParameterType.Boolean,
+                    Value = arg.Value<bool>()
+                },
+                JTokenType.Integer => new ContractParameter()
+                {
+                    Type = ContractParameterType.Integer,
+                    Value = new System.Numerics.BigInteger(arg.Value<int>())
+                },
+                JTokenType.Array => new ContractParameter()
+                {
+                    Type = ContractParameterType.Array,
+                    Value = ((JArray)arg).Select(ParseArg).ToList(),
+                },
+                _ => throw new Exception()
             };
         }
+
+        static IEnumerable<ContractParameter> ParseArgs(JToken? args)
+            => args == null
+                ? Enumerable.Empty<ContractParameter>()
+                : args.Select(ParseArg);
     }
 }
