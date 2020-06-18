@@ -6,7 +6,7 @@
     <LangVersion>8</LangVersion>
     <Nullable>enable</Nullable>
     <OutputType>Exe</OutputType>
-    <PackageId>Neo.Debug.Adapter</PackageId>
+    <PackageId>Neo.Debug2.Adapter</PackageId>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/neo-project/neo-debugger</PackageProjectUrl>
     <PackageTags>Neo;Blockchain;Smart Contract;Debugger</PackageTags>
