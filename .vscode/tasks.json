@@ -52,7 +52,8 @@
                 "build adapter",
                 "build extension"
             ],
-            "group": "build"
+            "group": "build",
+            "problemMatcher": []
         },
         {
             "label": "package adapter",
@@ -82,8 +83,9 @@
             "group": "build",
             "path": "src/extension/",
             "dependsOn": [
-                "package adapter", "build extension"
+                "package adapter",
+                "build extension"
             ]
-        },
+        }
     ]
 }
