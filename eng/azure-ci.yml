@@ -26,10 +26,19 @@ steps:
     useGlobalJson: true
     
 - task: DotNetCoreCLI@2
-  displayName: 'dotnet pack neodebug adapter'
+  displayName: 'dotnet pack neodebug 2 adapter'
   inputs:
     command: 'pack'
-    packagesToPack: './src/adapter/*.csproj'
+    packagesToPack: './src/adapter2/*.csproj'
+    packDirectory: '$(Build.ArtifactStagingDirectory)/adapter'
+    includesymbols: true
+    versioningScheme: 'off'
+
+- task: DotNetCoreCLI@2
+  displayName: 'dotnet pack neodebug 3 adapter'
+  inputs:
+    command: 'pack'
+    packagesToPack: './src/adapter3/*.csproj'
     packDirectory: '$(Build.ArtifactStagingDirectory)/adapter'
     includesymbols: true
     versioningScheme: 'off'
@@ -44,7 +53,7 @@ steps:
   displayName: 'copy adapter nuget package into extension folder'
   inputs:
     SourceFolder: '$(Build.ArtifactStagingDirectory)/adapter'
-    Contents: 'Neo.Debug.Adapter.*.nupkg'
+    Contents: 'Neo.Debug?.Adapter.*.nupkg'
     TargetFolder: './src/extension'
 
 - task: DeleteFiles@1
