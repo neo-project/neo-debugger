@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <AssemblyName>neodebug-adapter</AssemblyName>
+    <AssemblyName>neodebug-2-adapter</AssemblyName>
     <Authors>Neo Global Development Seattle</Authors>
     <LangVersion>8</LangVersion>
     <Nullable>enable</Nullable>
