@@ -19,23 +19,25 @@ namespace NeoDebug.Neo3
 
         private readonly DebugApplicationEngine engine;
         private readonly IStore store;
+        private readonly IReadOnlyList<string> returnTypes;
         private readonly Action<DebugEvent> sendEvent;
         private bool disassemblyView;
         private readonly DisassemblyManager disassemblyManager;
         private readonly VariableManager variableManager = new VariableManager();
         private readonly BreakpointManager breakpointManager;
         
-        public DebugSession(DebugApplicationEngine engine, IStore store, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
+        public DebugSession(DebugApplicationEngine engine, IStore store, IReadOnlyList<string> returnTypes, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
         {
             this.engine = engine;
             this.store = store;
+            this.returnTypes = returnTypes;
             this.sendEvent = sendEvent;
             this.disassemblyView = defaultDebugView == DebugView.Disassembly;
             this.disassemblyManager = new DisassemblyManager(TryGetScript, TryGetDebugInfo);
             this.breakpointManager = new BreakpointManager(this.disassemblyManager, () => DebugInfo.Find(store));
 
-            DebugApplicationEngine.Notify += OnNotify;
-            DebugApplicationEngine.Log += OnLog;
+            this.engine.DebugNotify += OnNotify;
+            this.engine.DebugLog += OnLog;
         }
 
         void OnNotify(object? sender, Neo.SmartContract.NotifyEventArgs args)
@@ -411,11 +413,13 @@ namespace NeoDebug.Neo3
             {
                 for (var i = 0; i < engine.ResultStack.Count; i++)
                 {
+                    var typeHint = i < returnTypes.Count
+                        ? returnTypes[i] : string.Empty;
                     var result = engine.ResultStack.Peek(i);
                     sendEvent(new OutputEvent()
                     {
                         Category = OutputEvent.CategoryValue.Stdout,
-                        Output = $"Return: {result.ToResult()}\n",
+                        Output = $"Return: {result.ToResult(typeHint)}\n",
                     });
                 }
                 sendEvent(new ExitedEvent());

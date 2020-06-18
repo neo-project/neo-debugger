@@ -7,7 +7,7 @@ namespace NeoDebug.Neo3
 {
     public class VariableManager : IVariableManager
     {
-        static readonly IReadOnlyDictionary<string, string> CastOperations = new Dictionary<string, string>()
+        public static readonly IReadOnlyDictionary<string, string> CastOperations = new Dictionary<string, string>()
             {
                 { "int", "Integer" },
                 { "bool", "Boolean" },

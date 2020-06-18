@@ -11,6 +11,7 @@ namespace NeoDebug.Neo3
 {
     using StackItem = Neo.VM.Types.StackItem;
     using StackItemType = Neo.VM.Types.StackItemType;
+    using ByteString = Neo.VM.Types.ByteString;
 
     static class Extensions
     {
@@ -95,27 +96,30 @@ namespace NeoDebug.Neo3
             return GetSequenceHashCode(array.AsSpan());
         }
 
-        public static JToken ToJson(this StackItem item)
+        public static JToken ToJson(this StackItem item, string typeHint = "")
         {
-            return item switch
-            {
-                Neo.VM.Types.Boolean _ => item.ToBoolean(),
-                // Neo.VM.Types.Buffer buffer => "Buffer",
-                Neo.VM.Types.ByteString byteString => byteString.Span.ToHexString(), 
-                Neo.VM.Types.Integer @int => @int.ToBigInteger().ToString(),
-                // Neo.VM.Types.InteropInterface _ => MakeVariable("InteropInterface"),
-                // Neo.VM.Types.Map _ => MakeVariable("Map"),
-                Neo.VM.Types.Null _ => new JValue((object?)null),
-                // Neo.VM.Types.Pointer _ => MakeVariable("Pointer"),
-                Neo.VM.Types.Array array => new JArray(array.Select(i => i.ToJson())),
-                _ => throw new NotImplementedException(),
-            };
+            var stringRep = item.ToStringRep(typeHint);
 
+            return stringRep != null
+                ? (JToken)stringRep
+                : item switch
+                {
+                    Neo.VM.Types.Boolean _ => item.ToBoolean(),
+                    // Neo.VM.Types.Buffer buffer => "Buffer",
+                    Neo.VM.Types.ByteString byteString => byteString.Span.ToHexString(), 
+                    Neo.VM.Types.Integer @int => @int.ToBigInteger().ToString(),
+                    // Neo.VM.Types.InteropInterface _ => MakeVariable("InteropInterface"),
+                    // Neo.VM.Types.Map _ => MakeVariable("Map"),
+                    Neo.VM.Types.Null _ => new JValue((object?)null),
+                    // Neo.VM.Types.Pointer _ => MakeVariable("Pointer"),
+                    Neo.VM.Types.Array array => new JArray(array.Select(i => i.ToJson())),
+                    _ => throw new NotImplementedException(),
+                };
         }
 
-        public static string ToResult(this StackItem item)
+        public static string ToResult(this StackItem item, string typeHint = "")
         {
-            return item.ToJson().ToString(Formatting.Indented);
+            return item.ToJson(typeHint).ToString(Formatting.Indented);
         }
 
         public static Variable ForEvaluation(this Variable @this, string prefix = "")
@@ -129,49 +133,52 @@ namespace NeoDebug.Neo3
             return new EvaluateResponse(@this.Value, @this.VariablesReference);
         }
 
-        public static Variable ToVariable(this byte[] item, IVariableManager manager, string name, string? typeHint = null)
+        public static Variable ToVariable(this byte[] item, IVariableManager manager, string name, string typeHint = "")
         {
             return ToVariable((StackItem)item, manager, name, typeHint);
         }
 
-        public static Variable ToVariable(this bool item, IVariableManager manager, string name, string? typeHint = null)
+        public static Variable ToVariable(this bool item, IVariableManager manager, string name, string typeHint = "")
         {
             return ToVariable((StackItem)item, manager, name, typeHint);
         }
 
-        public static Variable ToVariable(this StackItem item, IVariableManager manager, string name, string? typeHint = null)
+        static string? ToStringRep(this StackItem item, string typeHint = "")
         {
-            switch (typeHint)
+            return typeHint switch
             {
-                case "Boolean":
-                    return MakeVariable(item.ToBoolean().ToString(), "Boolean");
-                case "Integer":
+                "Boolean" => item.ToBoolean().ToString(),
+                "Integer" => item.IsNull ? "0" : 
+                        ((Neo.VM.Types.Integer)item.ConvertTo(StackItemType.Integer)).ToBigInteger().ToString(),
+                "String" => item.IsNull ? "<null>" : 
+                        Encoding.UTF8.GetString(((ByteString)item.ConvertTo(StackItemType.ByteString)).Span),
+                "HexString" => ToHexString(item),
+                "ByteArray" => ToHexString(item),
+                _ => null
+            };
+
+            static string ToHexString(StackItem item) => item.IsNull 
+                ? "<null>" 
+                : ((ByteString)item.ConvertTo(StackItemType.ByteString)).Span.ToHexString();
+        }
+
+        public static Variable ToVariable(this StackItem item, IVariableManager manager, string name, string typeHint = "")
+        {
+            if (typeHint == "ByteArray")
+            {
+                if (item.IsNull) 
                 {
-                    var value = item.IsNull ? "0" : 
-                        ((Neo.VM.Types.Integer)item.ConvertTo(StackItemType.Integer)).ToBigInteger().ToString();
-                    return MakeVariable(value, "Integer");
+                    return MakeVariable("<null>", "ByteArray");
                 }
-                case "String":
-                {
-                    var value = item.IsNull ? "<null>" : 
-                        Encoding.UTF8.GetString(((Neo.VM.Types.ByteString)item.ConvertTo(StackItemType.ByteString)).Span);
-                    return MakeVariable(value, "String");
-                }
-                case "HexString":
-                {
-                    var value = item.IsNull ? "<null>" : 
-                        ((Neo.VM.Types.ByteString)item.ConvertTo(StackItemType.ByteString)).Span.ToHexString();
-                    return MakeVariable(value, "HexString");
-                }
-                case "ByteArray":
-                {
-                    if (item.IsNull)
-                    {
-                        return MakeVariable("<null>", "ByteArray");
-                    }
-                    var byteString = (Neo.VM.Types.ByteString)item.ConvertTo(StackItemType.ByteString);
-                    return ByteArrayContainer.Create(manager, byteString, name);
-                }
+
+                var byteString = (ByteString)item.ConvertTo(StackItemType.ByteString);
+                return ByteArrayContainer.Create(manager, byteString, name);
+            }
+
+            var stringRep = item.ToStringRep(typeHint);
+            if (stringRep != null)
+            {
+                return MakeVariable(stringRep, typeHint);
             }
 
             return item switch

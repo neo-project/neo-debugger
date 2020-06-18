@@ -9,6 +9,7 @@ using Newtonsoft.Json.Linq;
 using Nito.Disposables;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -33,7 +34,8 @@ namespace NeoDebug.Neo3
             var invokeScript = CreateLaunchScript(contract, config);
             engine.LoadScript(invokeScript);
 
-            return new DebugSession(engine, store, sendEvent, defaultDebugView);
+            var returnTypes = ParseReturnTypes(config).ToList();
+            return new DebugSession(engine, store, returnTypes, sendEvent, defaultDebugView);
 
             static void AddStorage(IStore store, IEnumerable<(StorageKey key, StorageItem item)> storages)
             {
@@ -117,6 +119,17 @@ namespace NeoDebug.Neo3
             else
             {
                 return new MemoryStore();
+            }
+        }
+
+        static IEnumerable<string> ParseReturnTypes(Dictionary<string, JToken> config)
+        {
+            if (config.TryGetValue("return-types", out var returnTypes))
+            {
+                foreach (var returnType in returnTypes)
+                {
+                    yield return VariableManager.CastOperations[returnType.Value<string>()];
+                }
             }
         }
 
