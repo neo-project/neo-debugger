@@ -21,9 +21,10 @@ namespace NeoDebug.Neo3
         public static DebugSession CreateDebugSession(LaunchArguments launchArguments, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
         {
             var config = launchArguments.ConfigurationProperties;
+            var sourceFileMap = ParseSourceFileMap(config);
             var program = config["program"].Value<string>();
             var (contract, manifest) = LoadContract(program);
-            var debugInfo = DebugInfoParser.Load(program);
+            var debugInfo = DebugInfoParser.Load(program, sourceFileMap);
 
             IStore store = CreateBlockchainStorage(config);
             var id = AddContract(store, contract, manifest);
@@ -171,6 +172,18 @@ namespace NeoDebug.Neo3
                 // }
                 return Encoding.UTF8.GetBytes(value);
             }
+        }
+
+        static IReadOnlyDictionary<string, string> ParseSourceFileMap(Dictionary<string, JToken> config)
+        {
+            if (config.TryGetValue("sourceFileMap", out var token)
+                && token.Type == JTokenType.Object)
+            {
+                var json = (IEnumerable<KeyValuePair<string, JToken?>>)token;
+                return json.ToDictionary(kvp => kvp.Key, kvp => kvp.Value?.Value<string>() ?? string.Empty);
+            }
+
+            return ImmutableDictionary<string, string>.Empty;
         }
 
         static IEnumerable<ContractParameter> ParseArguments(Dictionary<string, JToken> config)

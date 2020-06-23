@@ -16,7 +16,7 @@ namespace NeoDebug.Neo3
     {
         class DocumentResolver
         {
-            Dictionary<string, string> folderMap;
+            private readonly Dictionary<string, string> folderMap;
 
             public DocumentResolver(IReadOnlyDictionary<string, string> sourceFileMap)
             {
