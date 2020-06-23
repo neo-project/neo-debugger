@@ -41,6 +41,12 @@ namespace NeoDebug
         {
             switch (@this.OpCode)
             {
+                case OpCode.PUSH0:
+                case OpCode.PUSHF:
+                    return "PUSH0 and PUSHF use the same opcode value";
+                case OpCode.PUSH1:
+                case OpCode.PUSHT:
+                    return "PUSH1 and PUSHT use the same opcode value";
                 case OpCode opCode when opCode >= OpCode.PUSHBYTES1 && opCode <= OpCode.PUSHBYTES75:
                     {
                         return Encoding.UTF8.GetString(@this.Operand.Span);
