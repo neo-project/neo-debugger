@@ -1,4 +1,6 @@
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using Neo;
+using Neo.IO;
 using Neo.Ledger;
 using Neo.Persistence;
 using Neo.Seattle.Persistence;
@@ -12,6 +14,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 
 namespace NeoDebug.Neo3
@@ -165,12 +168,15 @@ namespace NeoDebug.Neo3
 
             static byte[] ConvertString(JToken? token)
             {
-                var value = token?.Value<string>() ?? string.Empty;
-                // if (value.TryParseBigInteger(out var bigInteger))
-                // {
-                //     return bigInteger.ToByteArray();
-                // }
-                return Encoding.UTF8.GetBytes(value);
+                var arg = ParseArg(token?.Value<string>() ?? string.Empty);
+
+                return arg.Type switch 
+                {
+                    ContractParameterType.Hash160 => ((UInt160)arg.Value).ToArray(),
+                    ContractParameterType.Integer => ((BigInteger)arg.Value).ToByteArray(),
+                    ContractParameterType.String => Encoding.UTF8.GetBytes((string)arg.Value),
+                    _ => throw new InvalidDataException(),
+                };
             }
         }
 
@@ -218,7 +224,7 @@ namespace NeoDebug.Neo3
             }
 
             if (arg.StartsWith("0x")
-                && System.Numerics.BigInteger.TryParse(arg.AsSpan().Slice(2), System.Globalization.NumberStyles.HexNumber, null, out var bigInteger))
+                && BigInteger.TryParse(arg.AsSpan().Slice(2), System.Globalization.NumberStyles.HexNumber, null, out var bigInteger))
             {
                 return new ContractParameter()
                 {
