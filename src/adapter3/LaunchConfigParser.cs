@@ -1,4 +1,6 @@
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using Neo;
+using Neo.IO;
 using Neo.Ledger;
 using Neo.Persistence;
 using Neo.Seattle.Persistence;
@@ -12,6 +14,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 
 namespace NeoDebug.Neo3
@@ -21,28 +24,39 @@ namespace NeoDebug.Neo3
         public static DebugSession CreateDebugSession(LaunchArguments launchArguments, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
         {
             var config = launchArguments.ConfigurationProperties;
-            var program = config["program"].Value<string>();
-            var (contract, manifest) = LoadContract(program);
-            var debugInfo = DebugInfoParser.Load(program);
+            var sourceFileMap = ParseSourceFileMap(config);
+            var (launchContract, _) = LoadContract(config["program"].Value<string>());
 
             IStore store = CreateBlockchainStorage(config);
-            var id = AddContract(store, contract, manifest);
-            AddStorage(store, ParseStorage(id, config));
-            debugInfo.Put(store);
+
+            foreach (var (path, storages) in ParseContracts(config))
+            {
+                var (contract, manifest) = LoadContract(path);
+                var debugInfo = DebugInfoParser.Load(path, sourceFileMap);
+
+                var id = AddContract(store, contract, manifest);
+                AddStorage(store, id, storages);
+                debugInfo.Put(store);
+            }
 
             var engine = new DebugApplicationEngine(new SnapshotView(store));
-            var invokeScript = CreateLaunchScript(contract, config);
+            var invokeScript = CreateLaunchScript(launchContract.ScriptHash, config);
             engine.LoadScript(invokeScript);
 
             var returnTypes = ParseReturnTypes(config).ToList();
             return new DebugSession(engine, store, returnTypes, sendEvent, defaultDebugView);
 
-            static void AddStorage(IStore store, IEnumerable<(StorageKey key, StorageItem item)> storages)
+            static void AddStorage(IStore store, int contractId, IEnumerable<(byte[] key, StorageItem item)> storages)
             {
                 var snapshotView = new SnapshotView(store);
                 foreach (var (key, item) in storages)
                 {
-                    snapshotView.Storages.Add(key, item);
+                    var storageKey = new StorageKey()
+                    {
+                        Id = contractId,
+                        Key = key
+                    };
+                    snapshotView.Storages.Add(storageKey, item);
                 }
                 snapshotView.Commit();
             }
@@ -76,19 +90,19 @@ namespace NeoDebug.Neo3
 
                 using var stream = File.OpenRead(contractPath);
                 using var reader = new BinaryReader(stream, Encoding.UTF8, false);
-                var nefFile = Neo.IO.Helper.ReadSerializable<NefFile>(reader);
+                var nefFile = reader.ReadSerializable<NefFile>();
 
                 return (nefFile, manifest);
             }
         }
 
-        static byte[] CreateLaunchScript(NefFile contract, Dictionary<string, JToken> config)
+        static byte[] CreateLaunchScript(UInt160 scriptHash, Dictionary<string, JToken> config)
         {
             var operation = config.TryGetValue("operation", out var op) 
                 ? op.Value<string>() : throw new InvalidDataException("missing operation config");
 
             using var builder = new ScriptBuilder();
-            builder.EmitAppCall(contract.ScriptHash, operation, ParseArguments(config).ToArray());
+            builder.EmitAppCall(scriptHash, operation, ParseArguments(config).ToArray());
             return builder.ToArray();
         }
 
@@ -122,6 +136,37 @@ namespace NeoDebug.Neo3
             }
         }
 
+        static IEnumerable<(string contractPath, IEnumerable<(byte[] key, StorageItem item)> storages)> ParseContracts(Dictionary<string, JToken> config)
+        {
+            var program = config["program"].Value<string>();
+            var programStorages = ParseStorage(config);
+
+            yield return (program, programStorages);
+
+            if (config.TryGetValue("stored-contracts", out var storedContracts))
+            {
+                foreach (var storedContract in storedContracts)
+                {
+                    if (storedContract.Type == JTokenType.String)
+                    {
+                        var path = storedContract.Value<string>();
+                        var storages = Enumerable.Empty<(byte[], StorageItem)>();
+                        yield return (path, storages);
+                    }
+                    else if (storedContract.Type == JTokenType.Object)
+                    {
+                        var path = storedContract.Value<string>("program");
+                        var storages = ParseStorage(storedContract["storage"]);
+                        yield return (path, storages);
+                    }
+                    else
+                    {
+                        throw new Exception("invalid stored-contract value");
+                    }
+                }
+            }
+        }
+
         static IEnumerable<string> ParseReturnTypes(Dictionary<string, JToken> config)
         {
             if (config.TryGetValue("return-types", out var returnTypes))
@@ -133,44 +178,52 @@ namespace NeoDebug.Neo3
             }
         }
 
-        static IEnumerable<(StorageKey key, StorageItem item)> ParseStorage(int contractId, Dictionary<string, JToken> config)
+        static IEnumerable<(byte[] key, StorageItem item)> ParseStorage(Dictionary<string, JToken> config)
         {
-            if (config.TryGetValue("storage", out var token)
-                && token != null)
-            {
-                return ParseStorage(contractId, token);
-            }
-
-            return Enumerable.Empty<(StorageKey key, StorageItem item)>();
+            return config.TryGetValue("storage", out var token)
+                ? ParseStorage(token)
+                : Enumerable.Empty<(byte[], StorageItem)>();
         }
 
-        static IEnumerable<(StorageKey key, StorageItem item)> ParseStorage(int contractId, JToken token)
+        static IEnumerable<(byte[] key, StorageItem item)> ParseStorage(JToken? token)
         {
-            return token.Select(t =>
-            {
-                var key = new StorageKey
-                {
-                    Id = contractId,
-                    Key = ConvertString(t["key"]),
-                };
-
-                var item = new StorageItem
-                {
-                    Value = ConvertString(t["value"]),
-                    IsConstant = t.Value<bool?>("constant") ?? false
-                };
-                return (key, item);
-            });
+            return token == null
+                ? Enumerable.Empty<(byte[], StorageItem)>()
+                : token.Select(t =>
+                    {
+                        var key = ConvertString(t["key"]);
+                        var item = new StorageItem
+                        {
+                            Value = ConvertString(t["value"]),
+                            IsConstant = t.Value<bool?>("constant") ?? false
+                        };
+                        return (key, item);
+                    });
 
             static byte[] ConvertString(JToken? token)
             {
-                var value = token?.Value<string>() ?? string.Empty;
-                // if (value.TryParseBigInteger(out var bigInteger))
-                // {
-                //     return bigInteger.ToByteArray();
-                // }
-                return Encoding.UTF8.GetBytes(value);
+                var arg = ParseArg(token?.Value<string>() ?? string.Empty);
+
+                return arg.Type switch 
+                {
+                    ContractParameterType.Hash160 => ((UInt160)arg.Value).ToArray(),
+                    ContractParameterType.Integer => ((BigInteger)arg.Value).ToByteArray(),
+                    ContractParameterType.String => Encoding.UTF8.GetBytes((string)arg.Value),
+                    _ => throw new InvalidDataException(),
+                };
             }
+        }
+
+        static IReadOnlyDictionary<string, string> ParseSourceFileMap(Dictionary<string, JToken> config)
+        {
+            if (config.TryGetValue("sourceFileMap", out var token)
+                && token.Type == JTokenType.Object)
+            {
+                var json = (IEnumerable<KeyValuePair<string, JToken?>>)token;
+                return json.ToDictionary(kvp => kvp.Key, kvp => kvp.Value?.Value<string>() ?? string.Empty);
+            }
+
+            return ImmutableDictionary<string, string>.Empty;
         }
 
         static IEnumerable<ContractParameter> ParseArguments(Dictionary<string, JToken> config)
@@ -205,7 +258,7 @@ namespace NeoDebug.Neo3
             }
 
             if (arg.StartsWith("0x")
-                && System.Numerics.BigInteger.TryParse(arg.AsSpan().Slice(2), System.Globalization.NumberStyles.HexNumber, null, out var bigInteger))
+                && BigInteger.TryParse(arg.AsSpan().Slice(2), System.Globalization.NumberStyles.HexNumber, null, out var bigInteger))
             {
                 return new ContractParameter()
                 {
