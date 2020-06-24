@@ -1,7 +1,9 @@
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
+using Neo.Cryptography.ECC;
 using Neo.IO;
 using Neo.Ledger;
+using Neo.Network.P2P.Payloads;
 using Neo.Persistence;
 using Neo.Seattle.Persistence;
 using Neo.SmartContract;
@@ -19,9 +21,6 @@ using System.Text;
 
 namespace NeoDebug.Neo3
 {
-    using NeoECPoint = Neo.Cryptography.ECC.ECPoint;
-    using NeoECCurve = Neo.Cryptography.ECC.ECCurve;
-
     static class LaunchConfigParser
     {
         public static DebugSession CreateDebugSession(LaunchArguments launchArguments, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
@@ -42,8 +41,21 @@ namespace NeoDebug.Neo3
                 debugInfo.Put(store);
             }
 
-            var engine = new DebugApplicationEngine(new SnapshotView(store));
             var invokeScript = CreateLaunchScript(launchContract.ScriptHash, config);
+
+            var tx = new Transaction
+            {
+                Version = 0,
+                Nonce = (uint)(new Random()).Next(),
+                Script = invokeScript,
+                Sender = UInt160.Zero,
+                ValidUntilBlock = Transaction.MaxValidUntilBlockIncrement,
+                Attributes = Array.Empty<TransactionAttribute>(),
+                Cosigners = Array.Empty<Cosigner>(),
+                Witnesses = Array.Empty<Witness>()
+            };
+
+            var engine = new DebugApplicationEngine(tx, new SnapshotView(store));
             engine.LoadScript(invokeScript);
 
             var returnTypes = ParseReturnTypes(config).ToList();
@@ -315,7 +327,7 @@ namespace NeoDebug.Neo3
                 ContractParameterType.Integer => BigInteger.Parse(arg.Value<string>("value")),
                 ContractParameterType.Hash160 => UInt160.Parse(arg.Value<string>("value")),
                 ContractParameterType.Hash256 => UInt256.Parse(arg.Value<string>("value")),
-                ContractParameterType.PublicKey => NeoECPoint.Parse(arg.Value<string>("value"), NeoECCurve.Secp256r1),
+                ContractParameterType.PublicKey => ECPoint.Parse(arg.Value<string>("value"), ECCurve.Secp256r1),
                 ContractParameterType.String => arg.Value<string>("value"),
                 ContractParameterType.Array => arg["value"].Select(ParseArg).ToArray(),
                 ContractParameterType.Map => arg["value"].Select(ParseMapElement).ToArray(),

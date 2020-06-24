@@ -1,12 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Linq;
 using System.Text;
-using Neo;
-using Neo.IO;
-using Neo.IO.Caching;
-using Neo.Ledger;
+using Neo.Network.P2P.Payloads;
 using Neo.Persistence;
 using Neo.SmartContract;
 using Neo.VM;
@@ -38,7 +33,7 @@ namespace NeoDebug.Neo3
         public event EventHandler<NotifyEventArgs>? DebugNotify;
         public event EventHandler<LogEventArgs>? DebugLog;
 
-        public DebugApplicationEngine(StoreView storeView) : base(TriggerType.Application, null, storeView, 0, true)
+        public DebugApplicationEngine(IVerifiable container, StoreView storeView) : base(TriggerType.Application, container, storeView, 0, true)
         {
         }
         
