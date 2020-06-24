@@ -27,6 +27,12 @@ namespace NeoDebug.Neo3
         {
             var config = launchArguments.ConfigurationProperties;
             var sourceFileMap = ParseSourceFileMap(config);
+            var (trigger, witnessChecker) = ParseRuntime(config);
+            if (trigger != TriggerType.Application)
+            {
+                throw new Exception($"Trigger Type {trigger} not supported");
+            }
+
             var (launchContract, _) = LoadContract(config["program"].Value<string>());
 
             IStore store = CreateBlockchainStorage(config);
@@ -55,7 +61,7 @@ namespace NeoDebug.Neo3
                 Witnesses = Array.Empty<Witness>()
             };
 
-            var engine = new DebugApplicationEngine(tx, new SnapshotView(store));
+            var engine = new DebugApplicationEngine(tx, new SnapshotView(store), witnessChecker);
             engine.LoadScript(invokeScript);
 
             var returnTypes = ParseReturnTypes(config).ToList();
@@ -190,6 +196,43 @@ namespace NeoDebug.Neo3
                 {
                     yield return VariableManager.CastOperations[returnType.Value<string>()];
                 }
+            }
+        }
+
+        static (TriggerType trigger, WitnessChecker witnessChecker) ParseRuntime(Dictionary<string, JToken> config)
+        {
+            if (config.TryGetValue("runtime", out var token))
+            {
+                var trigger = "verification".Equals(token.Value<string>("trigger"), StringComparison.InvariantCultureIgnoreCase)
+                    ? TriggerType.Verification : TriggerType.Application;
+
+                var witnesses = token["witnesses"];
+                if (witnesses?.Type == JTokenType.Object)
+                {
+                    var checkResult = witnesses.Value<bool>("check-result");
+                    var witnessChecker = new WitnessChecker(checkResult);
+                    return (trigger, witnessChecker);
+                }
+                else if (witnesses?.Type == JTokenType.Array)
+                {
+                    var witnessChecker = new WitnessChecker(witnesses.Select(ParseWitness));
+                    return (trigger, witnessChecker);
+                }
+
+                return (trigger, WitnessChecker.Default);
+            }
+
+            return (TriggerType.Application, WitnessChecker.Default);
+
+            static UInt160 ParseWitness(JToken json)
+            {
+                var witness = json.Value<string>();
+                if (witness.StartsWith("@N"))
+                {
+                    return Neo.Wallets.Helper.ToScriptHash(witness.Substring(1));
+                }
+
+                throw new Exception($"invalid witness \"{witness}\"");
             }
         }
 
