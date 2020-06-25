@@ -1,12 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Linq;
 using System.Text;
 using Neo;
-using Neo.IO;
-using Neo.IO.Caching;
-using Neo.Ledger;
+using Neo.Cryptography.ECC;
+using Neo.Network.P2P.Payloads;
 using Neo.Persistence;
 using Neo.SmartContract;
 using Neo.VM;
@@ -37,9 +34,11 @@ namespace NeoDebug.Neo3
 
         public event EventHandler<NotifyEventArgs>? DebugNotify;
         public event EventHandler<LogEventArgs>? DebugLog;
+        private readonly WitnessChecker witnessChecker;
 
-        public DebugApplicationEngine(StoreView storeView) : base(TriggerType.Application, null, storeView, 0, true)
+        public DebugApplicationEngine(IVerifiable container, StoreView storeView, WitnessChecker witnessChecker) : base(TriggerType.Application, container, storeView, 0, true)
         {
+            this.witnessChecker = witnessChecker;
         }
         
         public void ExecuteInstruction() => ExecuteNext();
@@ -67,10 +66,18 @@ namespace NeoDebug.Neo3
             this.DebugLog?.Invoke(this, log);
         }
 
-        private static bool Runtime_CheckWitness(uint methodHash, ApplicationEngine engine)
+        private static bool Runtime_CheckWitness(uint methodHash, DebugApplicationEngine engine)
         {
-            var _ = engine.CurrentContext.EvaluationStack.Pop().GetSpan();
-            engine.CurrentContext.EvaluationStack.Push(true);
+            ReadOnlySpan<byte> hashOrPubkey = engine.CurrentContext.EvaluationStack.Pop().GetSpan();
+            var hash = hashOrPubkey.Length switch
+            {
+                20 => new UInt160(hashOrPubkey),
+                33 => Contract.CreateSignatureRedeemScript(ECPoint.DecodePoint(hashOrPubkey, ECCurve.Secp256r1)).ToScriptHash(),
+                _ => null
+            };
+            if (hash is null) return false;
+
+            engine.CurrentContext.EvaluationStack.Push(engine.witnessChecker.Check(hash));
             return true;
         }
 

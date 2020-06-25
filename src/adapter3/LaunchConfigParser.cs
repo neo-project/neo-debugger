@@ -1,7 +1,9 @@
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
+using Neo.Cryptography.ECC;
 using Neo.IO;
 using Neo.Ledger;
+using Neo.Network.P2P.Payloads;
 using Neo.Persistence;
 using Neo.Seattle.Persistence;
 using Neo.SmartContract;
@@ -25,6 +27,12 @@ namespace NeoDebug.Neo3
         {
             var config = launchArguments.ConfigurationProperties;
             var sourceFileMap = ParseSourceFileMap(config);
+            var (trigger, witnessChecker) = ParseRuntime(config);
+            if (trigger != TriggerType.Application)
+            {
+                throw new Exception($"Trigger Type {trigger} not supported");
+            }
+
             var (launchContract, _) = LoadContract(config["program"].Value<string>());
 
             IStore store = CreateBlockchainStorage(config);
@@ -39,8 +47,21 @@ namespace NeoDebug.Neo3
                 debugInfo.Put(store);
             }
 
-            var engine = new DebugApplicationEngine(new SnapshotView(store));
             var invokeScript = CreateLaunchScript(launchContract.ScriptHash, config);
+
+            var tx = new Transaction
+            {
+                Version = 0,
+                Nonce = (uint)(new Random()).Next(),
+                Script = invokeScript,
+                Sender = UInt160.Zero,
+                ValidUntilBlock = Transaction.MaxValidUntilBlockIncrement,
+                Attributes = Array.Empty<TransactionAttribute>(),
+                Cosigners = Array.Empty<Cosigner>(),
+                Witnesses = Array.Empty<Witness>()
+            };
+
+            var engine = new DebugApplicationEngine(tx, new SnapshotView(store), witnessChecker);
             engine.LoadScript(invokeScript);
 
             var returnTypes = ParseReturnTypes(config).ToList();
@@ -178,6 +199,43 @@ namespace NeoDebug.Neo3
             }
         }
 
+        static (TriggerType trigger, WitnessChecker witnessChecker) ParseRuntime(Dictionary<string, JToken> config)
+        {
+            if (config.TryGetValue("runtime", out var token))
+            {
+                var trigger = "verification".Equals(token.Value<string>("trigger"), StringComparison.InvariantCultureIgnoreCase)
+                    ? TriggerType.Verification : TriggerType.Application;
+
+                var witnesses = token["witnesses"];
+                if (witnesses?.Type == JTokenType.Object)
+                {
+                    var checkResult = witnesses.Value<bool>("check-result");
+                    var witnessChecker = new WitnessChecker(checkResult);
+                    return (trigger, witnessChecker);
+                }
+                else if (witnesses?.Type == JTokenType.Array)
+                {
+                    var witnessChecker = new WitnessChecker(witnesses.Select(ParseWitness));
+                    return (trigger, witnessChecker);
+                }
+
+                return (trigger, WitnessChecker.Default);
+            }
+
+            return (TriggerType.Application, WitnessChecker.Default);
+
+            static UInt160 ParseWitness(JToken json)
+            {
+                var witness = json.Value<string>();
+                if (witness.StartsWith("@N"))
+                {
+                    return Neo.Wallets.Helper.ToScriptHash(witness.Substring(1));
+                }
+
+                throw new Exception($"invalid witness \"{witness}\"");
+            }
+        }
+
         static IEnumerable<(byte[] key, StorageItem item)> ParseStorage(Dictionary<string, JToken> config)
         {
             return config.TryGetValue("storage", out var token)
@@ -202,7 +260,7 @@ namespace NeoDebug.Neo3
 
             static byte[] ConvertString(JToken? token)
             {
-                var arg = ParseArg(token?.Value<string>() ?? string.Empty);
+                var arg = ParseStringArg(token?.Value<string>() ?? string.Empty);
 
                 return arg.Type switch 
                 {
@@ -245,7 +303,32 @@ namespace NeoDebug.Neo3
         }
 
         // TODO: DRY out ParseArgs between NeoExpress + NeoDebugger
-        static ContractParameter ParseArg(string arg)
+        static ContractParameter ParseArg(JToken arg)
+        {
+            return arg.Type switch
+            {
+                JTokenType.String => ParseStringArg(arg.Value<string>()),
+                JTokenType.Boolean => new ContractParameter()
+                {
+                    Type = ContractParameterType.Boolean,
+                    Value = arg.Value<bool>()
+                },
+                JTokenType.Integer => new ContractParameter()
+                {
+                    Type = ContractParameterType.Integer,
+                    Value = new System.Numerics.BigInteger(arg.Value<int>())
+                },
+                JTokenType.Array => new ContractParameter()
+                {
+                    Type = ContractParameterType.Array,
+                    Value = ((JArray)arg).Select(ParseArg).ToList(),
+                },
+                JTokenType.Object => ParseObjectArg((JObject)arg),
+                _ => throw new Exception()
+            };
+        }
+
+        static ContractParameter ParseStringArg(string arg)
         {
             if (arg.StartsWith("@N"))
             {
@@ -274,33 +357,37 @@ namespace NeoDebug.Neo3
             };
         }
 
-        static ContractParameter ParseArg(JToken arg)
+
+        static ContractParameter ParseObjectArg(JObject arg)
         {
-            return arg.Type switch
+            var type = Enum.Parse<ContractParameterType>(arg.Value<string>("type"));
+            object value = type switch
             {
-                JTokenType.String => ParseArg(arg.Value<string>()),
-                JTokenType.Boolean => new ContractParameter()
-                {
-                    Type = ContractParameterType.Boolean,
-                    Value = arg.Value<bool>()
-                },
-                JTokenType.Integer => new ContractParameter()
-                {
-                    Type = ContractParameterType.Integer,
-                    Value = new System.Numerics.BigInteger(arg.Value<int>())
-                },
-                JTokenType.Array => new ContractParameter()
-                {
-                    Type = ContractParameterType.Array,
-                    Value = ((JArray)arg).Select(ParseArg).ToList(),
-                },
-                _ => throw new Exception()
+                // TODO: support hex encoding such as hex for byte array and signature
+                ContractParameterType.ByteArray => Convert.FromBase64String(arg.Value<string>("value")),
+                ContractParameterType.Signature => Convert.FromBase64String(arg.Value<string>("value")),
+                ContractParameterType.Boolean => arg.Value<bool>("value"),
+                ContractParameterType.Integer => BigInteger.Parse(arg.Value<string>("value")),
+                ContractParameterType.Hash160 => UInt160.Parse(arg.Value<string>("value")),
+                ContractParameterType.Hash256 => UInt256.Parse(arg.Value<string>("value")),
+                ContractParameterType.PublicKey => ECPoint.Parse(arg.Value<string>("value"), ECCurve.Secp256r1),
+                ContractParameterType.String => arg.Value<string>("value"),
+                ContractParameterType.Array => arg["value"].Select(ParseArg).ToArray(),
+                ContractParameterType.Map => arg["value"].Select(ParseMapElement).ToArray(),
+                _ => throw new ArgumentException(nameof(arg) + $" {type}"),
             };
+
+            return new ContractParameter()
+            {
+                Type = type,
+                Value = value,
+            };
+
+            static KeyValuePair<ContractParameter, ContractParameter> ParseMapElement(JToken json) => 
+                KeyValuePair.Create(
+                    ParseArg(json["key"] ?? throw new InvalidOperationException()), 
+                    ParseArg(json["value"] ?? throw new InvalidOperationException()));
         }
 
-        static IEnumerable<ContractParameter> ParseArgs(JToken? args)
-            => args == null
-                ? Enumerable.Empty<ContractParameter>()
-                : args.Select(ParseArg);
     }
 }
