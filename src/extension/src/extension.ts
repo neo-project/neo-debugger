@@ -109,9 +109,9 @@ class NeoContractDebugConfigurationProvider implements vscode.DebugConfiguration
                 request: "launch",
                 program: programPath && folder 
                     ? join("${workspaceFolder}", relative(folder.uri.fsPath, programPath)) 
-                    : "${workspaceFolder}",
+                    : "${workspaceFolder}/<insert path to contract here>",
                 operation: (programPath ? extname(programPath) : "") === ".nef" 
-                    ? "" 
+                    ? "<insert operation here>" 
                     : undefined,
                 args: [],
                 storage: [],
