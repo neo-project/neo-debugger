@@ -109,7 +109,10 @@ class NeoContractDebugConfigurationProvider implements vscode.DebugConfiguration
                 request: "launch",
                 program: programPath && folder 
                     ? join("${workspaceFolder}", relative(folder.uri.fsPath, programPath)) 
-                    : "${workspaceFolder}",
+                    : "${workspaceFolder}/<insert path to contract here>",
+                operation: (programPath ? extname(programPath) : "") === ".nef" 
+                    ? "<insert operation here>" 
+                    : undefined,
                 args: [],
                 storage: [],
                 runtime: {
@@ -122,7 +125,7 @@ class NeoContractDebugConfigurationProvider implements vscode.DebugConfiguration
         
         if (folder)
         {
-            var neoVmFiles = await vscode.workspace.findFiles(new vscode.RelativePattern(folder, "**/*.{avm,nvm}"));
+            var neoVmFiles = await vscode.workspace.findFiles(new vscode.RelativePattern(folder, "**/*.{avm,nef}"));
             if (neoVmFiles.length > 0) {
                 return neoVmFiles.map(f => createConfig(f.fsPath));
             }
