@@ -31,7 +31,7 @@ namespace NeoDebug.Neo3
         public static IEnumerable<DebugInfo> Find(IReadOnlyStore store)
         {
             return store
-                .Find(DEBUG_INFO_PREFIX, Array.Empty<byte>())
+                .Seek(DEBUG_INFO_PREFIX, Array.Empty<byte>(), Neo.IO.Caching.SeekDirection.Forward)
                 .Select(t => t.Value.AsSerializable<DebugInfo>());
         }
 

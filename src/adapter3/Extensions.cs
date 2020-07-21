@@ -104,10 +104,10 @@ namespace NeoDebug.Neo3
                 ? (JToken)stringRep
                 : item switch
                 {
-                    Neo.VM.Types.Boolean _ => item.ToBoolean(),
+                    Neo.VM.Types.Boolean _ => item.GetBoolean(),
                     // Neo.VM.Types.Buffer buffer => "Buffer",
-                    Neo.VM.Types.ByteString byteString => byteString.Span.ToHexString(), 
-                    Neo.VM.Types.Integer @int => @int.ToBigInteger().ToString(),
+                    Neo.VM.Types.ByteString byteString => byteString.GetSpan().ToHexString(), 
+                    Neo.VM.Types.Integer @int => @int.GetInteger().ToString(),
                     // Neo.VM.Types.InteropInterface _ => MakeVariable("InteropInterface"),
                     // Neo.VM.Types.Map _ => MakeVariable("Map"),
                     Neo.VM.Types.Null _ => new JValue((object?)null),
@@ -147,11 +147,11 @@ namespace NeoDebug.Neo3
         {
             return typeHint switch
             {
-                "Boolean" => item.ToBoolean().ToString(),
+                "Boolean" => item.GetBoolean().ToString(),
                 "Integer" => item.IsNull ? "0" : 
-                        ((Neo.VM.Types.Integer)item.ConvertTo(StackItemType.Integer)).ToBigInteger().ToString(),
+                        ((Neo.VM.Types.Integer)item.ConvertTo(StackItemType.Integer)).GetInteger().ToString(),
                 "String" => item.IsNull ? "<null>" : 
-                        Encoding.UTF8.GetString(((ByteString)item.ConvertTo(StackItemType.ByteString)).Span),
+                        Encoding.UTF8.GetString(((ByteString)item.ConvertTo(StackItemType.ByteString)).GetSpan()),
                 "HexString" => ToHexString(item),
                 "ByteArray" => ToHexString(item),
                 _ => null
@@ -159,7 +159,7 @@ namespace NeoDebug.Neo3
 
             static string ToHexString(StackItem item) => item.IsNull 
                 ? "<null>" 
-                : ((ByteString)item.ConvertTo(StackItemType.ByteString)).Span.ToHexString();
+                : ((ByteString)item.ConvertTo(StackItemType.ByteString)).GetSpan().ToHexString();
         }
 
         public static Variable ToVariable(this StackItem item, IVariableManager manager, string name, string typeHint = "")
@@ -183,10 +183,10 @@ namespace NeoDebug.Neo3
 
             return item switch
             {
-                Neo.VM.Types.Boolean _ => MakeVariable($"{item.ToBoolean()}", "Boolean"),
+                Neo.VM.Types.Boolean _ => MakeVariable($"{item.GetBoolean()}", "Boolean"),
                 Neo.VM.Types.Buffer buffer => ByteArrayContainer.Create(manager, buffer, name),
                 Neo.VM.Types.ByteString byteString => ByteArrayContainer.Create(manager, byteString, name),
-                Neo.VM.Types.Integer @int => MakeVariable($"{@int.ToBigInteger()}", "Integer"),
+                Neo.VM.Types.Integer @int => MakeVariable($"{@int.GetInteger()}", "Integer"),
                 Neo.VM.Types.InteropInterface _ => MakeVariable("InteropInterface"),
                 Neo.VM.Types.Map _ => MakeVariable("Map"),
                 Neo.VM.Types.Null _ => MakeVariable("null", "Null"),

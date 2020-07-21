@@ -22,8 +22,8 @@ namespace NeoDebug.Neo3
 
         static DisassemblyManager()
         {
-            sysCallNames = InteropService.SupportedMethods()
-                .ToImmutableDictionary(d => d.Hash, d => d.Method);
+            sysCallNames = ApplicationEngine.Services
+                .ToImmutableDictionary(kvp => kvp.Value.Hash, kvp => kvp.Value.Name);
         }
 
         public readonly struct Disassembly
