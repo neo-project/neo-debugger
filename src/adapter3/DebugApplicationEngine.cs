@@ -1,36 +1,39 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Reflection;
+using System.Diagnostics;
 using System.Text;
-using Neo;
-using Neo.Cryptography.ECC;
+using Neo.Cryptography;
 using Neo.Network.P2P.Payloads;
 using Neo.Persistence;
 using Neo.SmartContract;
-using Neo.VM;
+using StackItem = Neo.VM.Types.StackItem;
+using NeoArray = Neo.VM.Types.Array;
 
 namespace NeoDebug.Neo3
 {
+    using ServiceMethod = Func<DebugApplicationEngine, IReadOnlyList<InteropParameterDescriptor>, StackItem?>;
+
     class DebugApplicationEngine : ApplicationEngine
     {
-
-        readonly static IReadOnlyDictionary<uint, InteropDescriptor> services = new Dictionary<uint, InteropDescriptor>();
+        readonly static IReadOnlyDictionary<uint, ServiceMethod> debugServices;
 
         static DebugApplicationEngine()
         {
-            // Register("System.Runtime.CheckWitness", Runtime_CheckWitness);
-            // Register("System.Blockchain.GetBlock", Blockchain_GetBlock);
-            // Register("System.Blockchain.GetTransactionFromBlock", Blockchain_GetTransactionFromBlock);
-            // Register("System.Runtime.Log", Runtime_Log);
-            // Register("System.Runtime.Notify", Runtime_Notify);
+            var debugServices = new Dictionary<uint, ServiceMethod>();
 
-            // DebugApplicationEngine.methods = methods;
-            
-            // void Register(string name, string handler)
-            // {
-            //     var hash = BitConverter.ToUInt32(Encoding.ASCII.GetBytes(name).Sha256(), 0);
-            //     methods.Add(hash, func);
-            // }
+            Register("System.Runtime.CheckWitness", Debug_CheckWitness);
+            Register("System.Blockchain.GetBlock", Debug_GetBlock);
+            Register("System.Blockchain.GetTransactionFromBlock", Debug_GetTransactionFromBlock);
+            Register("System.Runtime.Log", Debug_RuntimeLog);
+            Register("System.Runtime.Notify", Debug_RuntimeNotify);
+
+            DebugApplicationEngine.debugServices = debugServices;
+
+            void Register(string name, ServiceMethod method)
+            {
+                var hash = BitConverter.ToUInt32(Encoding.ASCII.GetBytes(name).Sha256(), 0);
+                debugServices.Add(hash, method);
+            }
         }
 
         public event EventHandler<NotifyEventArgs>? DebugNotify;
@@ -41,76 +44,97 @@ namespace NeoDebug.Neo3
         {
             this.witnessChecker = witnessChecker;
         }
-        
+
         public void ExecuteInstruction() => ExecuteNext();
 
         protected override void OnSysCall(uint methodHash)
         {
-            // if (methods.TryGetValue(methodHash, out var method))
-            // {
-            //     method(methodHash, this);
-            // }
-            // else
-            // {
-            //     base.OnSysCall(methodHash);
-            // }
-        }
-
-        private void BaseOnSysCall(uint methodHash) => base.OnSysCall(methodHash);
-
-        private void InvokeDebugLog(string message)
-        {
-            var log = new LogEventArgs(this.ScriptContainer, this.CurrentScriptHash, message);
-            this.DebugLog?.Invoke(this, log);
-        }
-
-
-        // internal bool CheckWitness(byte[] hashOrPubkey)
-        private static bool Runtime_CheckWitness(uint methodHash, DebugApplicationEngine engine)
-        {
-            ReadOnlySpan<byte> hashOrPubkey = engine.CurrentContext.EvaluationStack.Pop().GetSpan();
-            var hash = hashOrPubkey.Length switch
+            if (debugServices.TryGetValue(methodHash, out var method))
             {
-                20 => new UInt160(hashOrPubkey),
-                33 => Contract.CreateSignatureRedeemScript(ECPoint.DecodePoint(hashOrPubkey, ECCurve.Secp256r1)).ToScriptHash(),
-                _ => null
-            };
-            if (hash is null) return false;
+                InteropDescriptor descriptor = Services[methodHash];
+                ValidateCallFlags(descriptor);
+                AddGas(descriptor.FixedPrice);
 
-            engine.CurrentContext.EvaluationStack.Push(engine.witnessChecker.Check(hash));
-            return true;
+                var result = method(this, descriptor.Parameters);
+                if (result != null)
+                {
+                    Push(result);
+                }
+            }
+            else
+            {
+                base.OnSysCall(methodHash);
+            }
         }
 
-        // internal void RuntimeNotify(byte[] eventName, Array state)
-        // private static bool Runtime_Notify(uint methodHash, DebugApplicationEngine engine)
-        // {
-        //     // var state = engine.CurrentContext.EvaluationStack.Peek(0);
-        //     // var notification = new NotifyEventArgs(engine.ScriptContainer, engine.CurrentScriptHash, state);
-        //     // engine.DebugNotify?.Invoke(engine, notification);
-        //     // return engine.BaseOnSysCall(methodHash);
-        // }
+        private static StackItem? Debug_CheckWitness(
+            DebugApplicationEngine engine,
+            IReadOnlyList<InteropParameterDescriptor> paramDescriptors)
+        {
+            Debug.Assert(paramDescriptors.Count == 1);
+            _ = (byte[])engine.Convert(engine.Pop(), paramDescriptors[0]);
 
-        // internal void RuntimeLog(byte[] state)
-        // private static bool Runtime_Log(uint methodHash, DebugApplicationEngine engine)
-        // {
-        //     // ReadOnlySpan<byte> state = engine.CurrentContext.EvaluationStack.Peek(0).GetSpan();
-        //     // string message = Encoding.UTF8.GetString(state);
-        //     // engine.InvokeDebugLog(message);
-        //     // return engine.BaseOnSysCall(methodHash);
-        // }
+            return engine.witnessChecker.Check(Neo.UInt160.Zero);
+        }
 
-        // internal Transaction GetTransactionFromBlock(byte[] blockIndexOrHash, int txIndex)
-        // private static bool Blockchain_GetTransactionFromBlock(uint methodHash, DebugApplicationEngine engine)
-        // {
-        //     engine.InvokeDebugLog("System.Blockchain.GetTransactionFromBlock not supported in debugger");
-        //     return false;
-        // }
+        private static StackItem? Debug_RuntimeNotify(
+            DebugApplicationEngine engine,
+            IReadOnlyList<InteropParameterDescriptor> paramDescriptors)
+        {
+            Debug.Assert(paramDescriptors.Count == 2);
 
-        // internal Block GetBlock(byte[] indexOrHash)
-        // private static bool Blockchain_GetBlock(uint methodHash, DebugApplicationEngine engine)
-        // {
-        //     engine.InvokeDebugLog("System.Blockchain.GetBlock not supported in debugger");
-        //     return false;
-        // }
+            var eventName = (byte[])engine.Convert(engine.Pop(), paramDescriptors[0]);
+            var state = (NeoArray)(byte[])engine.Convert(engine.Pop(), paramDescriptors[1]);
+
+            NotifyEventArgs args = new NotifyEventArgs(
+                engine.ScriptContainer,
+                engine.CurrentScriptHash,
+                Neo.Utility.StrictUTF8.GetString(eventName), 
+                (NeoArray)state.DeepCopy());
+            engine.DebugNotify?.Invoke(engine, args);
+
+            engine.RuntimeNotify(eventName, state);
+            return null;
+        }
+
+        private static StackItem? Debug_RuntimeLog(
+            DebugApplicationEngine engine,
+            IReadOnlyList<InteropParameterDescriptor> paramDescriptors)
+        {
+            Debug.Assert(paramDescriptors.Count == 1);
+
+            var state = (byte[])engine.Convert(engine.Pop(), paramDescriptors[0]);
+            var args = new LogEventArgs(
+                engine.ScriptContainer,
+                engine.CurrentScriptHash,
+                Neo.Utility.StrictUTF8.GetString(state));
+            engine.DebugLog?.Invoke(engine, args);
+
+            engine.RuntimeLog(state);
+            return null;
+        }
+
+        private static StackItem? Debug_GetBlock(
+            DebugApplicationEngine engine,
+            IReadOnlyList<InteropParameterDescriptor> paramDescriptors)
+        {
+            Debug.Assert(paramDescriptors.Count == 1);
+
+            _ = (byte[])engine.Convert(engine.Pop(), paramDescriptors[0]); // indexOrHash
+
+            throw new InvalidOperationException("System.Blockchain.GetBlock not supported in debugger");
+        }
+
+        private static StackItem? Debug_GetTransactionFromBlock(
+            DebugApplicationEngine engine,
+            IReadOnlyList<InteropParameterDescriptor> paramDescriptors)
+        {
+            Debug.Assert(paramDescriptors.Count == 2);
+
+            _ = (byte[])engine.Convert(engine.Pop(), paramDescriptors[0]); // blockIndexOrHash
+            _ = (int)engine.Convert(engine.Pop(), paramDescriptors[1]); // txIndex
+
+            throw new InvalidOperationException("System.Blockchain.GetTransactionFromBlock not supported in debugger");
+        }
     }
 }
