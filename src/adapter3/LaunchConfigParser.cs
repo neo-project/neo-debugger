@@ -259,7 +259,7 @@ namespace NeoDebug.Neo3
 
             static byte[] ConvertString(JToken? token)
             {
-                var arg = ParseStringArg(token?.Value<string>() ?? string.Empty);
+                var arg = ContractParameterParser.ParseStringParam(token?.Value<string>() ?? string.Empty);
 
                 return arg.Type switch 
                 {
@@ -285,108 +285,9 @@ namespace NeoDebug.Neo3
 
         static IEnumerable<ContractParameter> ParseArguments(Dictionary<string, JToken> config)
         {
-            if (config.TryGetValue("args", out var args))
-            {
-                if (args is JArray jArgs)
-                {
-                    for (int i = 0; i < jArgs.Count; i++)
-                    {
-                        yield return ParseArg(jArgs[i]);
-                    }
-                }
-                else
-                {
-                    yield return ParseArg(args);
-                }
-            }
+            return config.TryGetValue("args", out var args)
+                ? ContractParameterParser.ParseParams(args)
+                : Enumerable.Empty<ContractParameter>();
         }
-
-        // TODO: DRY out ParseArgs between NeoExpress + NeoDebugger
-        static ContractParameter ParseArg(JToken arg)
-        {
-            return arg.Type switch
-            {
-                JTokenType.String => ParseStringArg(arg.Value<string>()),
-                JTokenType.Boolean => new ContractParameter()
-                {
-                    Type = ContractParameterType.Boolean,
-                    Value = arg.Value<bool>()
-                },
-                JTokenType.Integer => new ContractParameter()
-                {
-                    Type = ContractParameterType.Integer,
-                    Value = new System.Numerics.BigInteger(arg.Value<int>())
-                },
-                JTokenType.Array => new ContractParameter()
-                {
-                    Type = ContractParameterType.Array,
-                    Value = ((JArray)arg).Select(ParseArg).ToList(),
-                },
-                JTokenType.Object => ParseObjectArg((JObject)arg),
-                _ => throw new Exception()
-            };
-        }
-
-        static ContractParameter ParseStringArg(string arg)
-        {
-            if (arg.StartsWith("@N"))
-            {
-                var hash = Neo.Wallets.Helper.ToScriptHash(arg.Substring(1));
-                return new ContractParameter()
-                {
-                    Type = ContractParameterType.Hash160,
-                    Value = hash
-                };
-            }
-
-            if (arg.StartsWith("0x")
-                && BigInteger.TryParse(arg.AsSpan().Slice(2), System.Globalization.NumberStyles.HexNumber, null, out var bigInteger))
-            {
-                return new ContractParameter()
-                {
-                    Type = ContractParameterType.Integer,
-                    Value = bigInteger
-                };
-            }
-
-            return new ContractParameter()
-            {
-                Type = ContractParameterType.String,
-                Value = arg
-            };
-        }
-
-
-        static ContractParameter ParseObjectArg(JObject arg)
-        {
-            var type = Enum.Parse<ContractParameterType>(arg.Value<string>("type"));
-            object value = type switch
-            {
-                // TODO: support hex encoding such as hex for byte array and signature
-                ContractParameterType.ByteArray => Convert.FromBase64String(arg.Value<string>("value")),
-                ContractParameterType.Signature => Convert.FromBase64String(arg.Value<string>("value")),
-                ContractParameterType.Boolean => arg.Value<bool>("value"),
-                ContractParameterType.Integer => BigInteger.Parse(arg.Value<string>("value")),
-                ContractParameterType.Hash160 => UInt160.Parse(arg.Value<string>("value")),
-                ContractParameterType.Hash256 => UInt256.Parse(arg.Value<string>("value")),
-                ContractParameterType.PublicKey => ECPoint.Parse(arg.Value<string>("value"), ECCurve.Secp256r1),
-                ContractParameterType.String => arg.Value<string>("value"),
-                ContractParameterType.Array => arg["value"].Select(ParseArg).ToArray(),
-                ContractParameterType.Map => arg["value"].Select(ParseMapElement).ToArray(),
-                _ => throw new ArgumentException(nameof(arg) + $" {type}"),
-            };
-
-            return new ContractParameter()
-            {
-                Type = type,
-                Value = value,
-            };
-
-            static KeyValuePair<ContractParameter, ContractParameter> ParseMapElement(JToken json) => 
-                KeyValuePair.Create(
-                    ParseArg(json["key"] ?? throw new InvalidOperationException()), 
-                    ParseArg(json["value"] ?? throw new InvalidOperationException()));
-        }
-
     }
 }
