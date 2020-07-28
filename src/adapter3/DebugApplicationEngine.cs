@@ -8,6 +8,9 @@ using Neo.Persistence;
 using Neo.SmartContract;
 using StackItem = Neo.VM.Types.StackItem;
 using NeoArray = Neo.VM.Types.Array;
+using Neo;
+using System.Numerics;
+using System.Linq;
 
 namespace NeoDebug.Neo3
 {
@@ -39,10 +42,15 @@ namespace NeoDebug.Neo3
         public event EventHandler<NotifyEventArgs>? DebugNotify;
         public event EventHandler<LogEventArgs>? DebugLog;
         private readonly WitnessChecker witnessChecker;
+        private readonly IReadOnlyDictionary<uint, UInt256> blockHashMap;
 
         public DebugApplicationEngine(IVerifiable container, StoreView storeView, WitnessChecker witnessChecker) : base(TriggerType.Application, container, storeView, 0, true)
         {
             this.witnessChecker = witnessChecker;
+            this.blockHashMap = storeView.Blocks.Find()
+                .ToDictionary(
+                    t => t.Value.Index, 
+                    t => t.Value.Hash == t.Key ? t.Key : throw new Exception("invalid hash"));
         }
 
         public void ExecuteInstruction() => ExecuteNext();
@@ -120,9 +128,13 @@ namespace NeoDebug.Neo3
         {
             Debug.Assert(paramDescriptors.Count == 1);
 
-            _ = (byte[])engine.Convert(engine.Pop(), paramDescriptors[0]); // indexOrHash
+            var indexOrHash = (byte[])engine.Convert(engine.Pop(), paramDescriptors[0]); 
+            var hash = engine.GetBlockHash(indexOrHash);
 
-            throw new InvalidOperationException("System.Blockchain.GetBlock not supported in debugger");
+            if (hash is null) return StackItem.Null;
+            Block block = engine.Snapshot.GetBlock(hash);
+            if (block is null) return StackItem.Null;
+            return block.ToStackItem(engine.ReferenceCounter);
         }
 
         private static StackItem? Debug_GetTransactionFromBlock(
@@ -131,10 +143,39 @@ namespace NeoDebug.Neo3
         {
             Debug.Assert(paramDescriptors.Count == 2);
 
-            _ = (byte[])engine.Convert(engine.Pop(), paramDescriptors[0]); // blockIndexOrHash
-            _ = (int)engine.Convert(engine.Pop(), paramDescriptors[1]); // txIndex
+            var blockIndexOrHash = (byte[])engine.Convert(engine.Pop(), paramDescriptors[0]);
+            var txIndex = (int)engine.Convert(engine.Pop(), paramDescriptors[1]);
 
-            throw new InvalidOperationException("System.Blockchain.GetTransactionFromBlock not supported in debugger");
+            var hash = engine.GetBlockHash(blockIndexOrHash);
+
+            if (hash is null) return StackItem.Null;
+            var block = engine.Snapshot.Blocks.TryGet(hash);
+            if (block is null) return StackItem.Null;
+            if (txIndex < 0 || txIndex >= block.Hashes.Length - 1)
+                throw new ArgumentOutOfRangeException(nameof(txIndex));
+            return engine.Snapshot.GetTransaction(block.Hashes[txIndex + 1])
+                .ToStackItem(engine.ReferenceCounter);
+        }
+
+        private UInt256? GetBlockHash(byte[] indexOrHash)
+        {
+            if (indexOrHash.Length == UInt256.Length)
+            {
+                return new UInt256(indexOrHash);
+            }
+
+            if (indexOrHash.Length < UInt256.Length)
+            {
+                var index = new BigInteger(indexOrHash);
+                if (index < uint.MinValue || index > uint.MaxValue)
+                    throw new ArgumentOutOfRangeException(nameof(indexOrHash));
+                if (blockHashMap.TryGetValue((uint)index, out var hash))
+                {
+                    return hash;
+                }
+            }
+
+            throw new ArgumentException();
         }
     }
 }
