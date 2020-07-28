@@ -92,7 +92,7 @@ namespace NeoDebug.Neo3
             Debug.Assert(paramDescriptors.Count == 2);
 
             var eventName = (byte[])engine.Convert(engine.Pop(), paramDescriptors[0]);
-            var state = (NeoArray)(byte[])engine.Convert(engine.Pop(), paramDescriptors[1]);
+            var state = (NeoArray)engine.Convert(engine.Pop(), paramDescriptors[1]);
 
             NotifyEventArgs args = new NotifyEventArgs(
                 engine.ScriptContainer,
