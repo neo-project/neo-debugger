@@ -207,7 +207,9 @@ namespace NeoDebug.Neo3
                         return $"as text: {Encoding.UTF8.GetString(instruction.Operand.Span)}";
                     }
                 case OpCode.SYSCALL:
-                    return $"{sysCallNames[instruction.TokenU32]}";
+                    return sysCallNames.TryGetValue(instruction.TokenU32, out var name)
+                        ? name
+                        : $"Unknown SysCall {instruction.TokenU32}";
                 case OpCode.INITSLOT:
                     return $"{instruction.TokenU8} local variables, {instruction.TokenU8_1} arguments";
                 case OpCode.JMP_L:
