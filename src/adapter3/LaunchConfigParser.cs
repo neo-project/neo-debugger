@@ -55,7 +55,7 @@ namespace NeoDebug.Neo3
                 Version = 0,
                 Nonce = (uint)(new Random()).Next(),
                 Script = invokeScript,
-                Signers = Array.Empty<Signer>(),
+                Signers = new[]{ new Signer() { Account = UInt160.Zero } },
                 ValidUntilBlock = Transaction.MaxValidUntilBlockIncrement,
                 Attributes = Array.Empty<TransactionAttribute>(),
                 Witnesses = Array.Empty<Witness>()
