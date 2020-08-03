@@ -29,7 +29,7 @@
     <PackageReference Include="Neo.Fx" Version="1.0.2" />
     <PackageReference Include="Neo.Fx.RocksDb" Version="1.0.2" />
 
-    <PackageReference Include="Microsoft.VisualStudio.Shared.VsCodeDebugProtocol" Version="16.6.40406.1">
+    <PackageReference Include="Microsoft.VisualStudio.Shared.VsCodeDebugProtocol" Version="16.7.40526.2">
       <NoWarn>NU1701</NoWarn>
     </PackageReference>
     <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
