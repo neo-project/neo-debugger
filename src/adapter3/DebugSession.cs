@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Text;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
 using Neo.Persistence;
@@ -12,7 +13,9 @@ using NeoDebug;
 
 namespace NeoDebug.Neo3
 {
+    using ByteString = Neo.VM.Types.ByteString;
     using StackItem = Neo.VM.Types.StackItem;
+    using StackItemType = Neo.VM.Types.StackItemType;
 
     class DebugSession : IDebugSession, IDisposable
     {
@@ -91,6 +94,8 @@ namespace NeoDebug.Neo3
 
         public void Start()
         {
+            variableManager.Clear();
+
             if (disassemblyView)
             {
                 FireStoppedEvent(StoppedEvent.ReasonValue.Entry);
@@ -365,13 +370,14 @@ namespace NeoDebug.Neo3
 
         public void SetExceptionBreakpoints(IReadOnlyList<string> filters)
         {
-            
         }
-
 
         public string GetExceptionInfo()
         {
-            return string.Empty;
+            var item = engine.CurrentContext?.EvaluationStack.Peek();
+            return item == null || item.IsNull 
+                ? "<null>"
+                : Encoding.UTF8.GetString(((ByteString)item.ConvertTo(StackItemType.ByteString)).GetSpan());
         }
 
         public void SetDebugView(DebugView debugView)
@@ -394,63 +400,57 @@ namespace NeoDebug.Neo3
         private void FireStoppedEvent(StoppedEvent.ReasonValue reasonValue)
         {
             variableManager.Clear();
-
-            if (engine.State == VMState.FAULT)
-            {
-                sendEvent(new OutputEvent()
-                {
-                    Category = OutputEvent.CategoryValue.Stderr,
-                    Output = "Engine State Faulted\n",
-                });
-                sendEvent(new TerminatedEvent());
-            }
-            else if (engine.State == VMState.HALT)
-            {
-                for (var i = 0; i < engine.ResultStack.Count; i++)
-                {
-                    var typeHint = i < returnTypes.Count
-                        ? returnTypes[i] : string.Empty;
-                    var result = engine.ResultStack.Peek(i);
-                    sendEvent(new OutputEvent()
-                    {
-                        Category = OutputEvent.CategoryValue.Stdout,
-                        Output = $"Return: {result.ToResult(typeHint)}\n",
-                    });
-                }
-                sendEvent(new ExitedEvent());
-                sendEvent(new TerminatedEvent());
-            }
-            else
-            {
-                sendEvent(new StoppedEvent(reasonValue) { ThreadId = 1 });
-            }
+            sendEvent(new StoppedEvent(reasonValue) { ThreadId = 1 });
         }
 
-        void Step(Func<int, int, bool> compare)
+        private void Step(Func<int, bool> compareStepDepth)
         {
-            var originalStackCount = engine.InvocationStack.Count;
-            while (engine.State != VMState.FAULT && engine.State != VMState.HALT)
+            while (true)
             {
+                if (engine.State == VMState.FAULT)
+                {
+                    sendEvent(new OutputEvent()
+                    {
+                        Category = OutputEvent.CategoryValue.Stderr,
+                        Output = "Engine State Faulted\n",
+                    });
+                    sendEvent(new TerminatedEvent());
+                    return;
+                }
+
+                if (engine.State == VMState.HALT)
+                {
+                    for (var i = 0; i < engine.ResultStack.Count; i++)
+                    {
+                        var typeHint = i < returnTypes.Count
+                            ? returnTypes[i] : string.Empty;
+                        var result = engine.ResultStack.Peek(i);
+                        sendEvent(new OutputEvent()
+                        {
+                            Category = OutputEvent.CategoryValue.Stdout,
+                            Output = $"Return: {result.ToResult(typeHint)}\n",
+                        });
+                    }
+                    sendEvent(new ExitedEvent());
+                    sendEvent(new TerminatedEvent());
+                    return;
+                }
+
                 if (engine.CurrentContext?.CurrentInstruction.OpCode == OpCode.THROW)
                 {
-                    sendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Exception)
-                    {
-                        ThreadId = 1,
-                    });
-
+                    FireStoppedEvent(StoppedEvent.ReasonValue.Exception);
                     return;
                 }
 
                 engine.ExecuteInstruction();
 
-                if (engine.CurrentContext != null &&
-                    breakpointManager.CheckBreakpoint(engine.CurrentScriptHash, engine.CurrentContext.InstructionPointer))
+                if (breakpointManager.CheckBreakpoint(engine.CurrentScriptHash, engine.CurrentContext?.InstructionPointer))
                 {
                     FireStoppedEvent(StoppedEvent.ReasonValue.Breakpoint);
                     return;
                 }
 
-                if (compare(engine.InvocationStack.Count, originalStackCount)
+                if (compareStepDepth(engine.InvocationStack.Count)
                     && (disassemblyView || CheckSequencePoint()))
                 {
                     FireStoppedEvent(StoppedEvent.ReasonValue.Step);
@@ -481,33 +481,24 @@ namespace NeoDebug.Neo3
 
         public void Continue()
         {
-            while (engine.State != VMState.FAULT && engine.State != VMState.HALT)
-            {
-                engine.ExecuteInstruction();
-
-                if (engine.CurrentContext != null &&
-                    breakpointManager.CheckBreakpoint(engine.CurrentScriptHash, engine.CurrentContext.InstructionPointer))
-                {
-                    break;
-                }
-            }
-
-            FireStoppedEvent(StoppedEvent.ReasonValue.Breakpoint);
+            Step((_) => false);
         }
 
         public void StepIn()
         {
-            Step((_, __) => true);
+            Step((_) => true);
         }
 
         public void StepOut()
         {
-            Step((currentStackCount, originalStackCount) => currentStackCount < originalStackCount);
+            var originalStackCount = engine.InvocationStack.Count;
+            Step((currentStackCount) => currentStackCount < originalStackCount);
         }
 
         public void StepOver()
         {
-            Step((currentStackCount, originalStackCount) => currentStackCount <= originalStackCount);
+            var originalStackCount = engine.InvocationStack.Count;
+            Step((currentStackCount) => currentStackCount <= originalStackCount);
         }
     }
 }
