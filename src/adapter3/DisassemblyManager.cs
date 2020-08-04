@@ -200,11 +200,13 @@ namespace NeoDebug.Neo3
                 case OpCode.PUSHDATA2:
                 case OpCode.PUSHDATA4:
                     {
+                        var text = Encoding.UTF8.GetString(instruction.Operand.Span)
+                            .Replace("\r", "\"\\r\"").Replace("\n", "\"\\n\"");
                         if (instruction.Operand.Length == 20)
                         {
-                            return $"as script hash: {new UInt160(instruction.Operand.Span)}, as text: {Encoding.UTF8.GetString(instruction.Operand.Span)}";
+                            return $"as script hash: {new UInt160(instruction.Operand.Span)}, as text: \"{text}\"";
                         }
-                        return $"as text: {Encoding.UTF8.GetString(instruction.Operand.Span)}";
+                        return $"as text: \"{text}\"";
                     }
                 case OpCode.SYSCALL:
                     return sysCallNames.TryGetValue(instruction.TokenU32, out var name)
