@@ -109,86 +109,86 @@ namespace NeoDebug.Neo3
         {
             System.Diagnostics.Debug.Assert(args.ThreadId == 1);
 
-                foreach (var (context, index) in engine.InvocationStack.Select((c, i) => (c, i)))
-                {
-                    // TODO: ExecutionContext needs a mechanism to retrieve script hash 
-                    //       https://github.com/neo-project/neo/issues/1696
-                    var scriptHash = Neo.SmartContract.Helper.ToScriptHash(context.Script);
-                    DebugInfo.Method? method = null;
-                    if (TryGetDebugInfo(scriptHash, out var debugInfo))
-                    {
-                        method = debugInfo.GetMethod(context.InstructionPointer);
-                    }
-
-                    var frame = new StackFrame()
-                    {
-                        Id = index,
-                        Name = method?.Name ?? $"frame {engine.InvocationStack.Count - index}",
-                    };
-
-                    if (disassemblyView)
-                    {
-                        var disassembly = disassemblyManager.GetDisassembly(context.Script, debugInfo);
-                        var line = disassembly.AddressMap[context.InstructionPointer];
-                        frame.Source = new Source()
-                        {
-                            SourceReference = disassembly.SourceReference,
-                            Name = disassembly.Name,
-                            Path = disassembly.Name,
-                        };
-                        frame.Line = line; //index == 0 ? line : line - 1;   
-                    }
-                    else
-                    {
-                        var sequencePoint = method.GetCurrentSequencePoint(context.InstructionPointer);
-
-                        if (sequencePoint != null)
-                        {
-                            var document = sequencePoint.GetDocumentPath(debugInfo);
-                            if (document != null)
-                            {
-                                frame.Source = new Source()
-                                {
-                                    Name = System.IO.Path.GetFileName(document),
-                                    Path = document
-                                };
-                            }
-                            frame.Line = sequencePoint.Start.line;
-                            frame.Column = sequencePoint.Start.column;
-
-                            if (sequencePoint.Start != sequencePoint.End)
-                            {
-                                frame.EndLine = sequencePoint.End.line;
-                                frame.EndColumn = sequencePoint.End.column;
-                            }
-                        }
-                    }
-
-                    yield return frame;
-                }
-            }
-
-        public IEnumerable<Scope> GetScopes(ScopesArguments args)
-        {
-                var context = engine.InvocationStack.ElementAt(args.FrameId);
+            foreach (var (context, index) in engine.InvocationStack.Select((c, i) => (c, i)))
+            {
                 // TODO: ExecutionContext needs a mechanism to retrieve script hash 
                 //       https://github.com/neo-project/neo/issues/1696
                 var scriptHash = Neo.SmartContract.Helper.ToScriptHash(context.Script);
+                DebugInfo.Method? method = null;
+                if (TryGetDebugInfo(scriptHash, out var debugInfo))
+                {
+                    method = debugInfo.GetMethod(context.InstructionPointer);
+                }
+
+                var frame = new StackFrame()
+                {
+                    Id = index,
+                    Name = method?.Name ?? $"frame {engine.InvocationStack.Count - index}",
+                };
 
                 if (disassemblyView)
                 {
-                    yield return AddScope("Evaluation Stack", new EvaluationStackContainer(context.EvaluationStack));
-                    yield return AddScope("Locals", new SlotContainer("local", context.LocalVariables));
-                    yield return AddScope("Statics", new SlotContainer("static", context.StaticFields));
-                    yield return AddScope("Arguments", new SlotContainer("arg", context.Arguments));
+                    var disassembly = disassemblyManager.GetDisassembly(context.Script, debugInfo);
+                    var line = disassembly.AddressMap[context.InstructionPointer];
+                    frame.Source = new Source()
+                    {
+                        SourceReference = disassembly.SourceReference,
+                        Name = disassembly.Name,
+                        Path = disassembly.Name,
+                    };
+                    frame.Line = line; //index == 0 ? line : line - 1;   
                 }
                 else
                 {
-                    var debugInfo = TryGetDebugInfo(scriptHash, out var di) ? di : null;
-                    yield return AddScope("Variables", new ExecutionContextContainer(context, debugInfo));
+                    var sequencePoint = method.GetCurrentSequencePoint(context.InstructionPointer);
+
+                    if (sequencePoint != null)
+                    {
+                        var document = sequencePoint.GetDocumentPath(debugInfo);
+                        if (document != null)
+                        {
+                            frame.Source = new Source()
+                            {
+                                Name = System.IO.Path.GetFileName(document),
+                                Path = document
+                            };
+                        }
+                        frame.Line = sequencePoint.Start.line;
+                        frame.Column = sequencePoint.Start.column;
+
+                        if (sequencePoint.Start != sequencePoint.End)
+                        {
+                            frame.EndLine = sequencePoint.End.line;
+                            frame.EndColumn = sequencePoint.End.column;
+                        }
+                    }
                 }
 
-                yield return AddScope("Storage", new StorageContainer(scriptHash, engine.Snapshot));
+                yield return frame;
+            }
+        }
+
+        public IEnumerable<Scope> GetScopes(ScopesArguments args)
+        {
+            var context = engine.InvocationStack.ElementAt(args.FrameId);
+            // TODO: ExecutionContext needs a mechanism to retrieve script hash 
+            //       https://github.com/neo-project/neo/issues/1696
+            var scriptHash = Neo.SmartContract.Helper.ToScriptHash(context.Script);
+
+            if (disassemblyView)
+            {
+                yield return AddScope("Evaluation Stack", new EvaluationStackContainer(context.EvaluationStack));
+                yield return AddScope("Locals", new SlotContainer("local", context.LocalVariables));
+                yield return AddScope("Statics", new SlotContainer("static", context.StaticFields));
+                yield return AddScope("Arguments", new SlotContainer("arg", context.Arguments));
+            }
+            else
+            {
+                var debugInfo = TryGetDebugInfo(scriptHash, out var di) ? di : null;
+                yield return AddScope("Variables", new ExecutionContextContainer(context, debugInfo));
+            }
+
+            yield return AddScope("Storage", new StorageContainer(scriptHash, engine.Snapshot));
 
             Scope AddScope(string name, IVariableContainer container)
             {
@@ -199,10 +199,10 @@ namespace NeoDebug.Neo3
 
         public IEnumerable<Variable> GetVariables(VariablesArguments args)
         {
-                if (variableManager.TryGet(args.VariablesReference, out var container))
-                {
-                    return container.Enumerate(variableManager);
-                }
+            if (variableManager.TryGet(args.VariablesReference, out var container))
+            {
+                return container.Enumerate(variableManager);
+            }
 
             return Enumerable.Empty<Variable>();
         }
