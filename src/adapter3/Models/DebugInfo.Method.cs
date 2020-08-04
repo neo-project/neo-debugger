@@ -25,7 +25,7 @@ namespace NeoDebug.Neo3
                 + Namespace.GetVarSize()
                 + Name.GetVarSize()
                 + ReturnType.GetVarSize()
-                + sizeof(int) * 2
+                + (sizeof(int) * 2)
                 + SizeTypes(Parameters)
                 + SizeTypes(Variables)
                 + SequencePoints.GetVarSize();
@@ -54,7 +54,7 @@ namespace NeoDebug.Neo3
                 writer.Write(Range.End);
                 WriteTypes(writer, Parameters);
                 WriteTypes(writer, Variables);
-                writer.Write<SequencePoint>(SequencePoints);
+                writer.Write(SequencePoints);
             }
         }
     }
