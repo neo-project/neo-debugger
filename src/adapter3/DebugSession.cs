@@ -25,7 +25,7 @@ namespace NeoDebug.Neo3
         private readonly DisassemblyManager disassemblyManager;
         private readonly VariableManager variableManager = new VariableManager();
         private readonly BreakpointManager breakpointManager;
-        
+
         public DebugSession(DebugApplicationEngine engine, IStore store, IReadOnlyList<string> returnTypes, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
         {
             this.engine = engine;
@@ -280,7 +280,7 @@ namespace NeoDebug.Neo3
                 {
                     return result;
                 }
-                
+
                 if (TryEvaluateSlot(context.LocalVariables, method.Variables, out result))
                 {
                     return result;
@@ -334,10 +334,10 @@ namespace NeoDebug.Neo3
                 {
                     var newItem = item switch
                     {
-                        Neo.VM.Types.Buffer buffer => (int)buffer.InnerBuffer[index], 
+                        Neo.VM.Types.Buffer buffer => (int)buffer.InnerBuffer[index],
                         Neo.VM.Types.ByteString byteString => (int)byteString.GetSpan()[index],
                         Neo.VM.Types.Array array => array[index],
-                       _ => throw new InvalidOperationException(),
+                        _ => throw new InvalidOperationException(),
                     };
 
                     return ProcessRemaining(newItem, string.Empty, remaining.Slice(bracketIndex + 1));
@@ -439,7 +439,7 @@ namespace NeoDebug.Neo3
             {
                 engine.ExecuteInstruction();
 
-                if (engine.CurrentContext != null && 
+                if (engine.CurrentContext != null &&
                     breakpointManager.CheckBreakpoint(engine.CurrentScriptHash, engine.CurrentContext.InstructionPointer))
                 {
                     stopReason = StoppedEvent.ReasonValue.Breakpoint;
@@ -457,7 +457,7 @@ namespace NeoDebug.Neo3
 
             bool CheckSequencePoint()
             {
-                if (engine.CurrentContext != null) 
+                if (engine.CurrentContext != null)
                 {
                     var ip = engine.CurrentContext.InstructionPointer;
                     if (TryGetDebugInfo(engine.CurrentScriptHash, out var info))
@@ -473,7 +473,7 @@ namespace NeoDebug.Neo3
                     }
                 }
                 return false;
-            } 
+            }
         }
 
         public void Continue()
@@ -482,7 +482,7 @@ namespace NeoDebug.Neo3
             {
                 engine.ExecuteInstruction();
 
-                if (engine.CurrentContext != null && 
+                if (engine.CurrentContext != null &&
                     breakpointManager.CheckBreakpoint(engine.CurrentScriptHash, engine.CurrentContext.InstructionPointer))
                 {
                     break;

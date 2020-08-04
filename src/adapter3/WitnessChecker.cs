@@ -29,7 +29,7 @@ namespace NeoDebug.Neo3
 
         public static WitnessChecker Default => _default.Value;
 
-        public bool Check(Neo.UInt160 hash) 
+        public bool Check(Neo.UInt160 hash)
             => bypassCheck ? checkResult : witnesses.Contains(hash);
     }
 }

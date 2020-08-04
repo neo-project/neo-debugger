@@ -18,7 +18,7 @@ namespace NeoDebug.Neo3
         public static bool StartsWith<T>(this ReadOnlyMemory<T> @this, ReadOnlySpan<T> value)
             where T : IEquatable<T>
         {
-            return @this.Length >= value.Length 
+            return @this.Length >= value.Length
                 && @this.Slice(0, value.Length).Span.SequenceEqual(value);
         }
 
@@ -106,7 +106,7 @@ namespace NeoDebug.Neo3
                 {
                     Neo.VM.Types.Boolean _ => item.GetBoolean(),
                     // Neo.VM.Types.Buffer buffer => "Buffer",
-                    Neo.VM.Types.ByteString byteString => byteString.GetSpan().ToHexString(), 
+                    Neo.VM.Types.ByteString byteString => byteString.GetSpan().ToHexString(),
                     Neo.VM.Types.Integer @int => @int.GetInteger().ToString(),
                     // Neo.VM.Types.InteropInterface _ => MakeVariable("InteropInterface"),
                     // Neo.VM.Types.Map _ => MakeVariable("Map"),
@@ -126,7 +126,7 @@ namespace NeoDebug.Neo3
         {
             @this.EvaluateName = prefix + @this.Name;
             return @this;
-        }        
+        }
 
         public static EvaluateResponse ToEvaluateResponse(this Variable @this)
         {
@@ -148,17 +148,17 @@ namespace NeoDebug.Neo3
             return typeHint switch
             {
                 "Boolean" => item.GetBoolean().ToString(),
-                "Integer" => item.IsNull ? "0" : 
+                "Integer" => item.IsNull ? "0" :
                         ((Neo.VM.Types.Integer)item.ConvertTo(StackItemType.Integer)).GetInteger().ToString(),
-                "String" => item.IsNull ? "<null>" : 
+                "String" => item.IsNull ? "<null>" :
                         Encoding.UTF8.GetString(((ByteString)item.ConvertTo(StackItemType.ByteString)).GetSpan()),
                 "HexString" => ToHexString(item),
                 "ByteArray" => ToHexString(item),
                 _ => null
             };
 
-            static string ToHexString(StackItem item) => item.IsNull 
-                ? "<null>" 
+            static string ToHexString(StackItem item) => item.IsNull
+                ? "<null>"
                 : ((ByteString)item.ConvertTo(StackItemType.ByteString)).GetSpan().ToHexString();
         }
 
@@ -166,7 +166,7 @@ namespace NeoDebug.Neo3
         {
             if (typeHint == "ByteArray")
             {
-                if (item.IsNull) 
+                if (item.IsNull)
                 {
                     return MakeVariable("<null>", "ByteArray");
                 }

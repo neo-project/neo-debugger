@@ -35,8 +35,8 @@ namespace NeoDebug.Neo3
                 {
                     var (name, type) = variableInfo[i];
                     if (name.Contains(':')) continue;
-                    var v = i < slot.Count 
-                        ? slot[i].ToVariable(manager, name, type) 
+                    var v = i < slot.Count
+                        ? slot[i].ToVariable(manager, name, type)
                         : StackItem.Null.ToVariable(manager, name, type);
 
                     yield return v.ForEvaluation();

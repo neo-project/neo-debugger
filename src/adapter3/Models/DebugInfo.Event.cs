@@ -12,7 +12,7 @@ namespace NeoDebug.Neo3
             public string Id { get; set; } = string.Empty;
             public string Namespace { get; set; } = string.Empty;
             public string Name { get; set; } = string.Empty;
-            public IReadOnlyList<(string Name, string Type)> Parameters { get; set; } 
+            public IReadOnlyList<(string Name, string Type)> Parameters { get; set; }
                 = ImmutableList<(string, string)>.Empty;
 
             public int Size => Id.GetVarSize()

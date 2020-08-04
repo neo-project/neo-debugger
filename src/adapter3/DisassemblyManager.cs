@@ -54,7 +54,7 @@ namespace NeoDebug.Neo3
             this.tryGetDebugInfo = tryGetDebugInfo;
         }
 
-        public Disassembly GetDisassembly(Script script, DebugInfo? debugInfo) 
+        public Disassembly GetDisassembly(Script script, DebugInfo? debugInfo)
             => disassemblies.GetOrAdd(script.GetHashCode(), sourceRef => ToDisassembly(sourceRef, script, debugInfo));
 
         public bool TryGetDisassembly(UInt160 scriptHash, out Disassembly disassembly)
@@ -70,7 +70,7 @@ namespace NeoDebug.Neo3
             return false;
         }
 
-        public bool TryGetDisassembly(int sourceRef, out Disassembly disassembly) 
+        public bool TryGetDisassembly(int sourceRef, out Disassembly disassembly)
             => disassemblies.TryGetValue(sourceRef, out disassembly);
 
         static Disassembly ToDisassembly(int sourceRef, Script script, DebugInfo? debugInfo)

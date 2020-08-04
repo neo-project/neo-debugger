@@ -49,7 +49,7 @@ namespace NeoDebug.Neo3
             this.witnessChecker = witnessChecker;
             this.blockHashMap = storeView.Blocks.Find()
                 .ToDictionary(
-                    t => t.Value.Index, 
+                    t => t.Value.Index,
                     t => t.Value.Hash == t.Key ? t.Key : throw new Exception("invalid hash"));
         }
 
@@ -97,7 +97,7 @@ namespace NeoDebug.Neo3
             NotifyEventArgs args = new NotifyEventArgs(
                 engine.ScriptContainer,
                 engine.CurrentScriptHash,
-                Neo.Utility.StrictUTF8.GetString(eventName), 
+                Neo.Utility.StrictUTF8.GetString(eventName),
                 (NeoArray)state.DeepCopy());
             engine.DebugNotify?.Invoke(engine, args);
 
@@ -128,7 +128,7 @@ namespace NeoDebug.Neo3
         {
             Debug.Assert(paramDescriptors.Count == 1);
 
-            var indexOrHash = (byte[])engine.Convert(engine.Pop(), paramDescriptors[0]); 
+            var indexOrHash = (byte[])engine.Convert(engine.Pop(), paramDescriptors[0]);
             var hash = engine.GetBlockHash(indexOrHash);
 
             if (hash is null) return StackItem.Null;
