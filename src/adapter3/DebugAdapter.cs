@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
@@ -11,14 +12,14 @@ namespace NeoDebug.Neo3
                                                           Action<DebugEvent> sendEvent,
                                                           DebugView defaultDebugView);
 
-        class DebugViewRequest : DebugRequest<DebugViewArguments>
+        private class DebugViewRequest : DebugRequest<DebugViewArguments>
         {
             public DebugViewRequest() : base("debugview")
             {
             }
         }
 
-        class DebugViewArguments : DebugRequestArguments
+        private class DebugViewArguments : DebugRequestArguments
         {
             [Newtonsoft.Json.JsonProperty("debugView")]
             public string DebugView { get; set; } = string.Empty;
@@ -42,10 +43,7 @@ namespace NeoDebug.Neo3
             InitializeProtocolClient(@in, @out);
             Protocol.LogMessage += (sender, args) => this.logger(args.Category, args.Message);
 
-            Protocol.RegisterRequestType<DebugViewRequest, DebugViewArguments>(a =>
-            {
-                HandleDebugViewRequest(a.Arguments);
-            });
+            Protocol.RegisterRequestType<DebugViewRequest, DebugViewArguments>(a => HandleDebugViewRequest(a.Arguments));
         }
 
         public void Run()
@@ -53,7 +51,7 @@ namespace NeoDebug.Neo3
             Protocol.Run();
         }
 
-        void Log(string message, LogCategory category = LogCategory.DebugAdapterOutput)
+        private void Log(string message, LogCategory category = LogCategory.DebugAdapterOutput)
         {
             logger(category, message);
         }
@@ -65,6 +63,18 @@ namespace NeoDebug.Neo3
             return new InitializeResponse()
             {
                 SupportsEvaluateForHovers = true,
+                SupportsExceptionInfoRequest = true,
+                ExceptionBreakpointFilters = new List<ExceptionBreakpointsFilter>
+                {
+                    new ExceptionBreakpointsFilter("caught", "Caught Exceptions")
+                    {
+                        Default = false
+                    },
+                    new ExceptionBreakpointsFilter("uncaught", "Uncaught Exceptions")
+                    {
+                        Default = true
+                    }
+                }
             };
         }
 
@@ -90,7 +100,7 @@ namespace NeoDebug.Neo3
             }
         }
 
-        void HandleDebugViewRequest(DebugViewArguments arguments)
+        private void HandleDebugViewRequest(DebugViewArguments arguments)
         {
             try
             {
@@ -114,6 +124,25 @@ namespace NeoDebug.Neo3
         protected override SetExceptionBreakpointsResponse HandleSetExceptionBreakpointsRequest(SetExceptionBreakpointsArguments arguments)
         {
             return new SetExceptionBreakpointsResponse();
+        }
+
+        protected override ExceptionInfoResponse HandleExceptionInfoRequest(ExceptionInfoArguments arguments)
+        {
+            try
+            {
+                if (session == null) throw new InvalidOperationException();
+                var exceptionInfo = session.GetExceptionInfo();
+
+                return new ExceptionInfoResponse()
+                {
+                    Description = exceptionInfo
+                };
+            }
+            catch (Exception ex)
+            {
+                Log(ex.Message, LogCategory.DebugAdapterOutput);
+                throw new ProtocolException(ex.Message, ex);
+            }
         }
 
         protected override SourceResponse HandleSourceRequest(SourceArguments arguments)

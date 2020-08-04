@@ -6,6 +6,7 @@ using System.Linq;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
 using Neo.Persistence;
+using Neo.SmartContract;
 using Neo.VM;
 using NeoDebug;
 
@@ -71,7 +72,7 @@ namespace NeoDebug.Neo3
 
             foreach (var context in engine.InvocationStack)
             {
-                if (scriptHash == Neo.SmartContract.Helper.ToScriptHash(context.Script))
+                if (scriptHash == context.GetScriptHash())
                 {
                     script = context.Script;
                     return true;
@@ -111,9 +112,7 @@ namespace NeoDebug.Neo3
 
             foreach (var (context, index) in engine.InvocationStack.Select((c, i) => (c, i)))
             {
-                // TODO: ExecutionContext needs a mechanism to retrieve script hash 
-                //       https://github.com/neo-project/neo/issues/1696
-                var scriptHash = Neo.SmartContract.Helper.ToScriptHash(context.Script);
+                var scriptHash = context.GetScriptHash();
                 DebugInfo.Method? method = null;
                 if (TryGetDebugInfo(scriptHash, out var debugInfo))
                 {
@@ -140,7 +139,7 @@ namespace NeoDebug.Neo3
                 }
                 else
                 {
-                    var sequencePoint = method.GetCurrentSequencePoint(context.InstructionPointer);
+                    var sequencePoint = method?.GetCurrentSequencePoint(context.InstructionPointer);
 
                     if (sequencePoint != null)
                     {
@@ -171,9 +170,7 @@ namespace NeoDebug.Neo3
         public IEnumerable<Scope> GetScopes(ScopesArguments args)
         {
             var context = engine.InvocationStack.ElementAt(args.FrameId);
-            // TODO: ExecutionContext needs a mechanism to retrieve script hash 
-            //       https://github.com/neo-project/neo/issues/1696
-            var scriptHash = Neo.SmartContract.Helper.ToScriptHash(context.Script);
+            var scriptHash = context.GetScriptHash();
 
             if (disassemblyView)
             {
@@ -251,9 +248,7 @@ namespace NeoDebug.Neo3
                 return (EvaluateSlot(context.StaticFields, 7), string.Empty);
             }
 
-            // TODO: ExecutionContext needs a mechanism to retrieve script hash 
-            //       https://github.com/neo-project/neo/issues/1696
-            var scriptHash = Neo.SmartContract.Helper.ToScriptHash(context.Script);
+            var scriptHash = context.GetScriptHash();
 
             if (name.StartsWith("#storage"))
             {
@@ -308,7 +303,7 @@ namespace NeoDebug.Neo3
             }
         }
 
-        static (StackItem? item, string type) ProcessRemaining(StackItem? item, string type, ReadOnlyMemory<char> remaining)
+        private static (StackItem? item, string type) EvaluateRemaining(StackItem? item, string type, ReadOnlyMemory<char> remaining)
         {
             if (remaining.IsEmpty)
             {
@@ -319,7 +314,7 @@ namespace NeoDebug.Neo3
             {
                 var bracketIndex = remaining.Span.IndexOf(']');
                 if (bracketIndex >= 0
-                    && int.TryParse(remaining.Slice(1, bracketIndex - 1).Span, out var index))
+                    && int.TryParse(remaining[1..bracketIndex].Span, out var index))
                 {
                     var newItem = item switch
                     {
@@ -329,7 +324,7 @@ namespace NeoDebug.Neo3
                         _ => throw new InvalidOperationException(),
                     };
 
-                    return ProcessRemaining(newItem, string.Empty, remaining.Slice(bracketIndex + 1));
+                    return EvaluateRemaining(newItem, string.Empty, remaining.Slice(bracketIndex + 1));
                 }
             }
 
@@ -346,7 +341,7 @@ namespace NeoDebug.Neo3
                 var context = engine.InvocationStack.ElementAt(args.FrameId.Value);
                 var (name, typeHint, remaining) = VariableManager.ParseEvalExpression(args.Expression);
                 var (item, type) = Evaluate(context, name);
-                (item, type) = ProcessRemaining(item, type, remaining);
+                (item, type) = EvaluateRemaining(item, type, remaining);
 
                 if (item != null)
                 {
@@ -423,26 +418,34 @@ namespace NeoDebug.Neo3
         void Step(Func<int, int, bool> compare)
         {
             var originalStackCount = engine.InvocationStack.Count;
-            var stopReason = StoppedEvent.ReasonValue.Step;
             while (engine.State != VMState.FAULT && engine.State != VMState.HALT)
             {
+                if (engine.CurrentContext?.CurrentInstruction.OpCode == OpCode.THROW)
+                {
+                    sendEvent(new StoppedEvent(StoppedEvent.ReasonValue.Exception)
+                    {
+                        ThreadId = 1,
+                    });
+
+                    return;
+                }
+
                 engine.ExecuteInstruction();
 
                 if (engine.CurrentContext != null &&
                     breakpointManager.CheckBreakpoint(engine.CurrentScriptHash, engine.CurrentContext.InstructionPointer))
                 {
-                    stopReason = StoppedEvent.ReasonValue.Breakpoint;
-                    break;
+                    FireStoppedEvent(StoppedEvent.ReasonValue.Breakpoint);
+                    return;
                 }
 
                 if (compare(engine.InvocationStack.Count, originalStackCount)
                     && (disassemblyView || CheckSequencePoint()))
                 {
-                    break;
+                    FireStoppedEvent(StoppedEvent.ReasonValue.Step);
+                    return;
                 }
             }
-
-            FireStoppedEvent(stopReason);
 
             bool CheckSequencePoint()
             {

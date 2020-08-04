@@ -7,6 +7,7 @@ namespace NeoDebug.Neo3
     {
         void Continue();
         EvaluateResponse Evaluate(EvaluateArguments args);
+        string GetExceptionInfo();
         IEnumerable<Scope> GetScopes(ScopesArguments args);
         SourceResponse GetSource(SourceArguments arguments);
         IEnumerable<StackFrame> GetStackFrames(StackTraceArguments args);
