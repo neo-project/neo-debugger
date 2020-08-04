@@ -438,8 +438,12 @@ namespace NeoDebug.Neo3
 
                 if (engine.CurrentContext?.CurrentInstruction.OpCode == OpCode.THROW)
                 {
-                    FireStoppedEvent(StoppedEvent.ReasonValue.Exception);
-                    return;
+                    var handled = engine.CatchBlockOnStack();
+                    if (!handled)
+                    {
+                        FireStoppedEvent(StoppedEvent.ReasonValue.Exception);
+                        return;
+                    }
                 }
 
                 engine.ExecuteInstruction();

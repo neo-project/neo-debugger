@@ -11,6 +11,7 @@ using NeoArray = Neo.VM.Types.Array;
 using Neo;
 using System.Numerics;
 using System.Linq;
+using Neo.VM;
 
 namespace NeoDebug.Neo3
 {
@@ -54,6 +55,22 @@ namespace NeoDebug.Neo3
         }
 
         public void ExecuteInstruction() => ExecuteNext();
+
+        public bool CatchBlockOnStack()
+        {
+            foreach (var executionContext in InvocationStack)
+            {
+                foreach (var tryContext in executionContext.TryStack ?? Enumerable.Empty<ExceptionHandlingContext>())
+                {
+                    if (tryContext.HasCatch)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
 
         protected override void OnSysCall(uint methodHash)
         {
