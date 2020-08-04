@@ -15,8 +15,6 @@ namespace NeoDebug.Neo3
 
     class DebugSession : IDebugSession, IDisposable
     {
-        const VMState HALT_OR_FAULT = VMState.HALT | VMState.FAULT;
-
         private readonly DebugApplicationEngine engine;
         private readonly IStore store;
         private readonly IReadOnlyList<string> returnTypes;
@@ -111,8 +109,6 @@ namespace NeoDebug.Neo3
         {
             System.Diagnostics.Debug.Assert(args.ThreadId == 1);
 
-            if ((engine.State & HALT_OR_FAULT) == 0)
-            {
                 foreach (var (context, index) in engine.InvocationStack.Select((c, i) => (c, i)))
                 {
                     // TODO: ExecutionContext needs a mechanism to retrieve script hash 
@@ -171,12 +167,9 @@ namespace NeoDebug.Neo3
                     yield return frame;
                 }
             }
-        }
 
         public IEnumerable<Scope> GetScopes(ScopesArguments args)
         {
-            if ((engine.State & HALT_OR_FAULT) == 0)
-            {
                 var context = engine.InvocationStack.ElementAt(args.FrameId);
                 // TODO: ExecutionContext needs a mechanism to retrieve script hash 
                 //       https://github.com/neo-project/neo/issues/1696
@@ -196,7 +189,6 @@ namespace NeoDebug.Neo3
                 }
 
                 yield return AddScope("Storage", new StorageContainer(scriptHash, engine.Snapshot));
-            }
 
             Scope AddScope(string name, IVariableContainer container)
             {
@@ -207,13 +199,10 @@ namespace NeoDebug.Neo3
 
         public IEnumerable<Variable> GetVariables(VariablesArguments args)
         {
-            if ((engine.State & HALT_OR_FAULT) == 0)
-            {
                 if (variableManager.TryGet(args.VariablesReference, out var container))
                 {
                     return container.Enumerate(variableManager);
                 }
-            }
 
             return Enumerable.Empty<Variable>();
         }
@@ -400,7 +389,7 @@ namespace NeoDebug.Neo3
         {
             variableManager.Clear();
 
-            if ((engine.State & VMState.FAULT) != 0)
+            if (engine.State == VMState.FAULT)
             {
                 sendEvent(new OutputEvent()
                 {
@@ -409,7 +398,7 @@ namespace NeoDebug.Neo3
                 });
                 sendEvent(new TerminatedEvent());
             }
-            if ((engine.State & VMState.HALT) != 0)
+            else if (engine.State == VMState.HALT)
             {
                 for (var i = 0; i < engine.ResultStack.Count; i++)
                 {
@@ -435,7 +424,7 @@ namespace NeoDebug.Neo3
         {
             var originalStackCount = engine.InvocationStack.Count;
             var stopReason = StoppedEvent.ReasonValue.Step;
-            while ((engine.State & HALT_OR_FAULT) == 0)
+            while (engine.State != VMState.FAULT && engine.State != VMState.HALT)
             {
                 engine.ExecuteInstruction();
 
@@ -478,7 +467,7 @@ namespace NeoDebug.Neo3
 
         public void Continue()
         {
-            while ((engine.State & HALT_OR_FAULT) == 0)
+            while (engine.State != VMState.FAULT && engine.State != VMState.HALT)
             {
                 engine.ExecuteInstruction();
 
