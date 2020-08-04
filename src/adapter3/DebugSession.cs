@@ -363,6 +363,12 @@ namespace NeoDebug.Neo3
             return breakpointManager.SetBreakpoints(source, sourceBreakpoints);
         }
 
+        public void SetExceptionBreakpoints(IReadOnlyList<string> filters)
+        {
+            
+        }
+
+
         public string GetExceptionInfo()
         {
             return string.Empty;

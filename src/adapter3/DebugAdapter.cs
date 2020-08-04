@@ -121,11 +121,6 @@ namespace NeoDebug.Neo3
             return new DisconnectResponse();
         }
 
-        protected override SetExceptionBreakpointsResponse HandleSetExceptionBreakpointsRequest(SetExceptionBreakpointsArguments arguments)
-        {
-            return new SetExceptionBreakpointsResponse();
-        }
-
         protected override ExceptionInfoResponse HandleExceptionInfoRequest(ExceptionInfoArguments arguments)
         {
             try
@@ -325,5 +320,22 @@ namespace NeoDebug.Neo3
                 throw new ProtocolException(ex.Message, ex);
             }
         }
+
+        protected override SetExceptionBreakpointsResponse HandleSetExceptionBreakpointsRequest(SetExceptionBreakpointsArguments arguments)
+        {
+            try
+            {
+                if (session == null) throw new InvalidOperationException();
+
+                session.SetExceptionBreakpoints(arguments.Filters);
+                return new SetExceptionBreakpointsResponse();
+            }
+            catch (Exception ex)
+            {
+                Log(ex.Message, LogCategory.DebugAdapterOutput);
+                throw new ProtocolException(ex.Message, ex);
+            }
+        }
+
     }
 }

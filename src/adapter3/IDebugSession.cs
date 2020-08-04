@@ -15,6 +15,7 @@ namespace NeoDebug.Neo3
         IEnumerable<Variable> GetVariables(VariablesArguments args);
         IEnumerable<Breakpoint> SetBreakpoints(Source source, IReadOnlyList<SourceBreakpoint> sourceBreakpoints);
         void SetDebugView(DebugView debugView);
+        void SetExceptionBreakpoints(IReadOnlyList<string> filters);
         void Start();
         void StepIn();
         void StepOut();
