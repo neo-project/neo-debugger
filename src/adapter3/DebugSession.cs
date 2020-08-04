@@ -363,6 +363,11 @@ namespace NeoDebug.Neo3
             return breakpointManager.SetBreakpoints(source, sourceBreakpoints);
         }
 
+        public string GetExceptionInfo()
+        {
+            return string.Empty;
+        }
+
         public void SetDebugView(DebugView debugView)
         {
             var original = disassemblyView;
