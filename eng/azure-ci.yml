@@ -65,7 +65,7 @@ steps:
 - task: Npm@1
   displayName: 'npm install'
   inputs:
-    command: 'install'
+    command: 'ci'
     workingDir: './src/extension' 
 
 - task: Npm@1
