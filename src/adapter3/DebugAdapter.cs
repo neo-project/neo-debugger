@@ -336,6 +336,5 @@ namespace NeoDebug.Neo3
                 throw new ProtocolException(ex.Message, ex);
             }
         }
-
     }
 }

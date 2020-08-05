@@ -434,17 +434,17 @@ namespace NeoDebug.Neo3
                     return;
                 }
 
+                engine.ExecuteInstruction();
+
                 if (engine.CurrentContext?.CurrentInstruction.OpCode == OpCode.THROW)
                 {
-                    var handled = engine.CatchBlockOnStack();
-                    if (!handled)
+                    // var handled = engine.CatchBlockOnStack();
+                    // if (!handled)
                     {
                         FireStoppedEvent(StoppedEvent.ReasonValue.Exception);
                         return;
                     }
                 }
-
-                engine.ExecuteInstruction();
 
                 if (breakpointManager.CheckBreakpoint(engine.CurrentScriptHash, engine.CurrentContext?.InstructionPointer))
                 {
