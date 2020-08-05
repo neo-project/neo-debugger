@@ -145,6 +145,7 @@ namespace NeoDebug.Neo3
                         Path = disassembly.Name,
                     };
                     frame.Line = line; //index == 0 ? line : line - 1;   
+                    frame.Column = 1;
                 }
                 else
                 {
