@@ -17,7 +17,7 @@ namespace NeoDebug.Neo3
     using StackItem = Neo.VM.Types.StackItem;
     using StackItemType = Neo.VM.Types.StackItemType;
 
-    class DebugSession : IDebugSession, IDisposable
+    internal class DebugSession : IDebugSession, IDisposable
     {
         private readonly DebugApplicationEngine engine;
         private readonly IStore store;
@@ -42,7 +42,7 @@ namespace NeoDebug.Neo3
             this.engine.DebugLog += OnLog;
         }
 
-        void OnNotify(object? sender, Neo.SmartContract.NotifyEventArgs args)
+        private void OnNotify(object? sender, Neo.SmartContract.NotifyEventArgs args)
         {
             sendEvent(new OutputEvent()
             {
@@ -50,7 +50,7 @@ namespace NeoDebug.Neo3
             });
         }
 
-        void OnLog(object? sender, Neo.SmartContract.LogEventArgs args)
+        private void OnLog(object? sender, Neo.SmartContract.LogEventArgs args)
         {
             sendEvent(new OutputEvent()
             {
@@ -58,13 +58,12 @@ namespace NeoDebug.Neo3
             });
         }
 
-
         public void Dispose()
         {
             engine.Dispose();
         }
 
-        bool TryGetScript(Neo.UInt160 scriptHash, [MaybeNullWhen(false)] out Neo.VM.Script script)
+        private bool TryGetScript(UInt160 scriptHash, [MaybeNullWhen(false)] out Neo.VM.Script script)
         {
             var contractState = engine.Snapshot.Contracts.TryGet(scriptHash);
             if (contractState != null)
@@ -86,7 +85,7 @@ namespace NeoDebug.Neo3
             return false;
         }
 
-        bool TryGetDebugInfo(Neo.UInt160 scriptHash, [MaybeNullWhen(false)] out DebugInfo debugInfo)
+        private bool TryGetDebugInfo(UInt160 scriptHash, [MaybeNullWhen(false)] out DebugInfo debugInfo)
         {
             debugInfo = DebugInfo.TryGet(store, scriptHash)!;
             return debugInfo != null;
@@ -222,7 +221,7 @@ namespace NeoDebug.Neo3
             throw new InvalidOperationException();
         }
 
-        (StackItem? item, string typeHint) Evaluate(ExecutionContext context, ReadOnlyMemory<char> name)
+        private (StackItem? item, string typeHint) Evaluate(ExecutionContext context, ReadOnlyMemory<char> name)
         {
             if (name.StartsWith("#eval"))
             {
@@ -264,8 +263,7 @@ namespace NeoDebug.Neo3
             if (TryGetDebugInfo(scriptHash, out var debugInfo)
                 && debugInfo.TryGetMethod(context.InstructionPointer, out var method))
             {
-                (StackItem?, string) result;
-                if (TryEvaluateSlot(context.Arguments, method.Parameters, out result))
+                if (TryEvaluateSlot(context.Arguments, method.Parameters, out (StackItem?, string) result))
                 {
                     return result;
                 }
@@ -375,7 +373,7 @@ namespace NeoDebug.Neo3
         public string GetExceptionInfo()
         {
             var item = engine.CurrentContext?.EvaluationStack.Peek();
-            return item == null || item.IsNull 
+            return item?.IsNull != false
                 ? "<null>"
                 : Encoding.UTF8.GetString(((ByteString)item.ConvertTo(StackItemType.ByteString)).GetSpan());
         }
