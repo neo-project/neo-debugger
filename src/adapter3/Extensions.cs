@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
@@ -132,23 +133,31 @@ namespace NeoDebug.Neo3
             return ToVariable((StackItem)item, manager, name, typeHint);
         }
 
-        public static string? ToStringRep(this StackItem item, string typeHint = "")
+        public static string ToStrictUTF8String(this byte[] @this) => Neo.Utility.StrictUTF8.GetString(@this);
+
+        public static string ToStrictUTF8String(this StackItem item) => item.IsNull
+            ? "<null>"
+            : Neo.Utility.StrictUTF8.GetString(((ByteString)item.ConvertTo(StackItemType.ByteString)).GetSpan());
+
+        public static string ToHexString(this StackItem item) => item.IsNull
+            ? "<null>"
+            : ((ByteString)item.ConvertTo(StackItemType.ByteString)).GetSpan().ToHexString();
+
+        public static BigInteger ToBigInteger(this StackItem item) => item.IsNull
+            ? BigInteger.Zero
+            : ((Neo.VM.Types.Integer)item.ConvertTo(StackItemType.Integer)).GetInteger();
+
+        private static string? ToStringRep(this StackItem item, string typeHint = "")
         {
             return typeHint switch
             {
                 "Boolean" => item.GetBoolean().ToString(),
-                "Integer" => item.IsNull ? "0" :
-                        ((Neo.VM.Types.Integer)item.ConvertTo(StackItemType.Integer)).GetInteger().ToString(),
-                "String" => item.IsNull ? "<null>" :
-                        Encoding.UTF8.GetString(((ByteString)item.ConvertTo(StackItemType.ByteString)).GetSpan()),
-                "HexString" => ToHexString(item),
-                "ByteArray" => ToHexString(item),
+                "Integer" => item.ToBigInteger().ToString(),
+                "String" => item.ToStrictUTF8String(),
+                "HexString" => item.ToHexString(),
+                "ByteArray" => item.ToHexString(),
                 _ => null
             };
-
-            static string ToHexString(StackItem item) => item.IsNull
-                ? "<null>"
-                : ((ByteString)item.ConvertTo(StackItemType.ByteString)).GetSpan().ToHexString();
         }
 
         public static Variable ToVariable(this StackItem item, IVariableManager manager, string name, string typeHint = "")

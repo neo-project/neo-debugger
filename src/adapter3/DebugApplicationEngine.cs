@@ -137,7 +137,7 @@ namespace NeoDebug.Neo3
             NotifyEventArgs args = new NotifyEventArgs(
                 engine.ScriptContainer,
                 engine.CurrentScriptHash,
-                Neo.Utility.StrictUTF8.GetString(eventName),
+                eventName.ToStrictUTF8String(),
                 (NeoArray)state.DeepCopy());
             engine.DebugNotify?.Invoke(engine, args);
 
@@ -155,7 +155,7 @@ namespace NeoDebug.Neo3
             var args = new LogEventArgs(
                 engine.ScriptContainer,
                 engine.CurrentScriptHash,
-                Neo.Utility.StrictUTF8.GetString(state));
+                state.ToStrictUTF8String());
             engine.DebugLog?.Invoke(engine, args);
 
             engine.RuntimeLog(state);

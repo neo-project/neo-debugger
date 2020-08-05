@@ -381,9 +381,8 @@ namespace NeoDebug.Neo3
         public string GetExceptionInfo()
         {
             var item = engine.CurrentContext?.EvaluationStack.Peek();
-            return item?.IsNull != false
-                ? "<null>"
-                : Encoding.UTF8.GetString(((ByteString)item.ConvertTo(StackItemType.ByteString)).GetSpan());
+            return item?.ToStrictUTF8String()
+                ?? throw new InvalidOperationException("missing exception information");
         }
 
         public void SetDebugView(DebugView debugView)
@@ -415,10 +414,14 @@ namespace NeoDebug.Neo3
             {
                 if (engine.State == VMState.FAULT)
                 {
+                    var output = engine.UncaughtException == null
+                        ? "Engine State Faulted\n"
+                        : $"Uncaught Exception: {engine.UncaughtException.ToStrictUTF8String()}\n";
+
                     sendEvent(new OutputEvent()
                     {
                         Category = OutputEvent.CategoryValue.Stderr,
-                        Output = "Engine State Faulted\n",
+                        Output = output
                     });
                     sendEvent(new TerminatedEvent());
                     return;
