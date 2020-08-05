@@ -54,7 +54,30 @@ namespace NeoDebug.Neo3
                     t => t.Value.Hash == t.Key ? t.Key : throw new Exception("invalid hash"));
         }
 
-        public void ExecuteInstruction() => ExecuteNext();
+        private int lastThrowAddress = -1;
+
+        public bool ExecuteInstruction()
+        {
+            // ExecutionEngine does not provide a mechanism to halt execution
+            // after an exception is thrown but before it has been handled.
+            // The debugger needs to be able to treat the exception throw and
+            // handling as separate operations. So DebugApplicationEngine inserts
+            // a dummy instruction execution when it detects a THROW opcode.
+            // The THROW operation address is used to ensure only a single dummy
+            // instruction is executed. The ExecuteInstruction return value
+            // indicates that a dummy THROW instruction has been inserted.
+
+            if (CurrentContext.CurrentInstruction.OpCode == OpCode.THROW
+                && CurrentContext.InstructionPointer != lastThrowAddress)
+            {
+                lastThrowAddress = CurrentContext.InstructionPointer;
+                return true;
+            }
+
+            ExecuteNext();
+            lastThrowAddress = -1;
+            return false;
+        }
 
         public bool CatchBlockOnStack()
         {

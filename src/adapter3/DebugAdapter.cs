@@ -66,11 +66,15 @@ namespace NeoDebug.Neo3
                 SupportsExceptionInfoRequest = true,
                 ExceptionBreakpointFilters = new List<ExceptionBreakpointsFilter>
                 {
-                    new ExceptionBreakpointsFilter("caught", "Caught Exceptions")
+                    new ExceptionBreakpointsFilter(
+                        DebugSession.CAUGHT_EXCEPTION_FILTER,
+                        "Caught Exceptions")
                     {
                         Default = false
                     },
-                    new ExceptionBreakpointsFilter("uncaught", "Uncaught Exceptions")
+                    new ExceptionBreakpointsFilter(
+                        DebugSession.UNCAUGHT_EXCEPTION_FILTER,
+                        "Uncaught Exceptions")
                     {
                         Default = true
                     }

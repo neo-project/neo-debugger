@@ -19,6 +19,9 @@ namespace NeoDebug.Neo3
 
     internal class DebugSession : IDebugSession, IDisposable
     {
+        public const string CAUGHT_EXCEPTION_FILTER = "caught";
+        public const string UNCAUGHT_EXCEPTION_FILTER = "uncaught";
+
         private readonly DebugApplicationEngine engine;
         private readonly IStore store;
         private readonly IReadOnlyList<string> returnTypes;
@@ -27,6 +30,8 @@ namespace NeoDebug.Neo3
         private readonly DisassemblyManager disassemblyManager;
         private readonly VariableManager variableManager = new VariableManager();
         private readonly BreakpointManager breakpointManager;
+        private bool breakOnCaughtExceptions;
+        private bool breakOnUncaughtExceptions = true;
 
         public DebugSession(DebugApplicationEngine engine, IStore store, IReadOnlyList<string> returnTypes, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
         {
@@ -368,6 +373,8 @@ namespace NeoDebug.Neo3
 
         public void SetExceptionBreakpoints(IReadOnlyList<string> filters)
         {
+            breakOnCaughtExceptions = filters.Any(f => f == CAUGHT_EXCEPTION_FILTER);
+            breakOnUncaughtExceptions = filters.Any(f => f == UNCAUGHT_EXCEPTION_FILTER);
         }
 
         public string GetExceptionInfo()
@@ -434,12 +441,13 @@ namespace NeoDebug.Neo3
                     return;
                 }
 
-                engine.ExecuteInstruction();
+                var exceptionThrown = engine.ExecuteInstruction();
 
-                if (engine.CurrentContext?.CurrentInstruction.OpCode == OpCode.THROW)
+                if (exceptionThrown)
                 {
-                    // var handled = engine.CatchBlockOnStack();
-                    // if (!handled)
+                    var handled = engine.CatchBlockOnStack();
+                    if ((handled && breakOnCaughtExceptions)
+                        || (!handled && breakOnUncaughtExceptions))
                     {
                         FireStoppedEvent(StoppedEvent.ReasonValue.Exception);
                         return;
