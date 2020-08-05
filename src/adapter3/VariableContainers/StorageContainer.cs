@@ -68,20 +68,20 @@ namespace NeoDebug.Neo3
         {
             bool TryGetKeyHash(out int value)
             {
-                if (expression.Length >= 18    
+                if (expression.Length >= 18
                     && expression.StartsWith("#storage[")
                     && expression.Span[17] == ']'
                     && expression.Span[18] == '.'
                     && int.TryParse(expression.Slice(9, 8).Span, NumberStyles.HexNumber, null, out value))
                 {
-                    return true;   
+                    return true;
                 }
 
                 value = default;
                 return false;
             }
 
-            if (TryGetKeyHash(out var keyHash) 
+            if (TryGetKeyHash(out var keyHash)
                 && TryFind(keyHash, out var tuple))
             {
                 var remain = expression.Slice(19);

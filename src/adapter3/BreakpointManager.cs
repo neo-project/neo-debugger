@@ -48,7 +48,7 @@ namespace NeoDebug.Neo3
                     .Where(t => t.sp.PathEquals(t.d, source.Path))
                     .Select(t => t.sp)
                     .ToImmutableList();
-                    
+
                 foreach (var sbp in sourceBreakpoints)
                 {
                     yield return new Breakpoint()
@@ -115,7 +115,8 @@ namespace NeoDebug.Neo3
             return breakpoints;
         }
 
-        public bool CheckBreakpoint(UInt160 scriptHash, int instructionPointer)
-            => GetBreakpoints(scriptHash).Contains(instructionPointer);
+        public bool CheckBreakpoint(UInt160 scriptHash, int? instructionPointer)
+            => instructionPointer.HasValue
+                && GetBreakpoints(scriptHash).Contains(instructionPointer.Value);
     }
 }

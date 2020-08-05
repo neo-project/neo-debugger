@@ -117,7 +117,9 @@ namespace NeoDebug.Neo3
                 var (ns, name) = SplitComma(token.Value<string>("name"));
                 var @params = token["params"].Select(t => SplitComma(t.Value<string>()));
                 var variables = token["variables"].Select(t => SplitComma(t.Value<string>()));
-                var sequencePoints = token["sequence-points"].Select(t => ParseSequencePoint(t.Value<string>()));
+                var sequencePoints = token["sequence-points"]
+                    .Select(t => ParseSequencePoint(t.Value<string>()))
+                    .OrderBy(sp => sp.Address);
                 var range = token.Value<string>("range").Split('-');
                 Debug.Assert(range.Length == 2);
 

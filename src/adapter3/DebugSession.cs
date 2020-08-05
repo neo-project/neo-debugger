@@ -3,19 +3,24 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Text;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
 using Neo.Persistence;
+using Neo.SmartContract;
 using Neo.VM;
 using NeoDebug;
 
 namespace NeoDebug.Neo3
 {
+    using ByteString = Neo.VM.Types.ByteString;
     using StackItem = Neo.VM.Types.StackItem;
+    using StackItemType = Neo.VM.Types.StackItemType;
 
-    class DebugSession : IDebugSession, IDisposable
+    internal class DebugSession : IDebugSession, IDisposable
     {
-        const VMState HALT_OR_FAULT = VMState.HALT | VMState.FAULT;
+        public const string CAUGHT_EXCEPTION_FILTER = "caught";
+        public const string UNCAUGHT_EXCEPTION_FILTER = "uncaught";
 
         private readonly DebugApplicationEngine engine;
         private readonly IStore store;
@@ -25,7 +30,9 @@ namespace NeoDebug.Neo3
         private readonly DisassemblyManager disassemblyManager;
         private readonly VariableManager variableManager = new VariableManager();
         private readonly BreakpointManager breakpointManager;
-        
+        private bool breakOnCaughtExceptions;
+        private bool breakOnUncaughtExceptions = true;
+
         public DebugSession(DebugApplicationEngine engine, IStore store, IReadOnlyList<string> returnTypes, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
         {
             this.engine = engine;
@@ -40,7 +47,7 @@ namespace NeoDebug.Neo3
             this.engine.DebugLog += OnLog;
         }
 
-        void OnNotify(object? sender, Neo.SmartContract.NotifyEventArgs args)
+        private void OnNotify(object? sender, Neo.SmartContract.NotifyEventArgs args)
         {
             sendEvent(new OutputEvent()
             {
@@ -48,7 +55,7 @@ namespace NeoDebug.Neo3
             });
         }
 
-        void OnLog(object? sender, Neo.SmartContract.LogEventArgs args)
+        private void OnLog(object? sender, Neo.SmartContract.LogEventArgs args)
         {
             sendEvent(new OutputEvent()
             {
@@ -56,13 +63,12 @@ namespace NeoDebug.Neo3
             });
         }
 
-
         public void Dispose()
         {
             engine.Dispose();
         }
 
-        bool TryGetScript(Neo.UInt160 scriptHash, [MaybeNullWhen(false)] out Neo.VM.Script script)
+        private bool TryGetScript(UInt160 scriptHash, [MaybeNullWhen(false)] out Neo.VM.Script script)
         {
             var contractState = engine.Snapshot.Contracts.TryGet(scriptHash);
             if (contractState != null)
@@ -73,7 +79,7 @@ namespace NeoDebug.Neo3
 
             foreach (var context in engine.InvocationStack)
             {
-                if (scriptHash == Neo.SmartContract.Helper.ToScriptHash(context.Script))
+                if (scriptHash == context.GetScriptHash())
                 {
                     script = context.Script;
                     return true;
@@ -84,7 +90,7 @@ namespace NeoDebug.Neo3
             return false;
         }
 
-        bool TryGetDebugInfo(Neo.UInt160 scriptHash, [MaybeNullWhen(false)] out DebugInfo debugInfo)
+        private bool TryGetDebugInfo(UInt160 scriptHash, [MaybeNullWhen(false)] out DebugInfo debugInfo)
         {
             debugInfo = DebugInfo.TryGet(store, scriptHash)!;
             return debugInfo != null;
@@ -92,6 +98,8 @@ namespace NeoDebug.Neo3
 
         public void Start()
         {
+            variableManager.Clear();
+
             if (disassemblyView)
             {
                 FireStoppedEvent(StoppedEvent.ReasonValue.Entry);
@@ -111,92 +119,83 @@ namespace NeoDebug.Neo3
         {
             System.Diagnostics.Debug.Assert(args.ThreadId == 1);
 
-            if ((engine.State & HALT_OR_FAULT) == 0)
+            foreach (var (context, index) in engine.InvocationStack.Select((c, i) => (c, i)))
             {
-                foreach (var (context, index) in engine.InvocationStack.Select((c, i) => (c, i)))
+                var scriptHash = context.GetScriptHash();
+                DebugInfo.Method? method = null;
+                if (TryGetDebugInfo(scriptHash, out var debugInfo))
                 {
-                    // TODO: ExecutionContext needs a mechanism to retrieve script hash 
-                    //       https://github.com/neo-project/neo/issues/1696
-                    var scriptHash = Neo.SmartContract.Helper.ToScriptHash(context.Script);
-                    DebugInfo.Method? method = null;
-                    if (TryGetDebugInfo(scriptHash, out var debugInfo))
-                    {
-                        method = debugInfo.GetMethod(context.InstructionPointer);
-                    }
+                    method = debugInfo.GetMethod(context.InstructionPointer);
+                }
 
-                    var frame = new StackFrame()
+                var frame = new StackFrame()
+                {
+                    Id = index,
+                    Name = method?.Name ?? $"frame {engine.InvocationStack.Count - index}",
+                };
+
+                if (disassemblyView)
+                {
+                    var disassembly = disassemblyManager.GetDisassembly(context.Script, debugInfo);
+                    var line = disassembly.AddressMap[context.InstructionPointer];
+                    frame.Source = new Source()
                     {
-                        Id = index,
-                        Name = method?.Name ?? $"frame {engine.InvocationStack.Count - index}",
+                        SourceReference = disassembly.SourceReference,
+                        Name = disassembly.Name,
+                        Path = disassembly.Name,
                     };
+                    frame.Line = line; //index == 0 ? line : line - 1;   
+                    frame.Column = 1;
+                }
+                else
+                {
+                    var sequencePoint = method?.GetCurrentSequencePoint(context.InstructionPointer);
 
-                    if (disassemblyView)
+                    if (sequencePoint != null)
                     {
-                        var disassembly = disassemblyManager.GetDisassembly(context.Script, debugInfo);
-                        var line = disassembly.AddressMap[context.InstructionPointer];
-                        frame.Source = new Source()
+                        var document = sequencePoint.GetDocumentPath(debugInfo);
+                        if (document != null)
                         {
-                            SourceReference = disassembly.SourceReference,
-                            Name = disassembly.Name,
-                            Path = disassembly.Name,
-                        };
-                        frame.Line = line; //index == 0 ? line : line - 1;   
-                    }
-                    else
-                    {
-                        var sequencePoint = method.GetCurrentSequencePoint(context.InstructionPointer);
+                            frame.Source = new Source()
+                            {
+                                Name = System.IO.Path.GetFileName(document),
+                                Path = document
+                            };
+                        }
+                        frame.Line = sequencePoint.Start.line;
+                        frame.Column = sequencePoint.Start.column;
 
-                        if (sequencePoint != null)
+                        if (sequencePoint.Start != sequencePoint.End)
                         {
-                            var document = sequencePoint.GetDocumentPath(debugInfo);
-                            if (document != null)
-                            {
-                                frame.Source = new Source()
-                                {
-                                    Name = System.IO.Path.GetFileName(document),
-                                    Path = document
-                                };
-                            }
-                            frame.Line = sequencePoint.Start.line;
-                            frame.Column = sequencePoint.Start.column;
-
-                            if (sequencePoint.Start != sequencePoint.End)
-                            {
-                                frame.EndLine = sequencePoint.End.line;
-                                frame.EndColumn = sequencePoint.End.column;
-                            }
+                            frame.EndLine = sequencePoint.End.line;
+                            frame.EndColumn = sequencePoint.End.column;
                         }
                     }
-
-                    yield return frame;
                 }
+
+                yield return frame;
             }
         }
 
         public IEnumerable<Scope> GetScopes(ScopesArguments args)
         {
-            if ((engine.State & HALT_OR_FAULT) == 0)
+            var context = engine.InvocationStack.ElementAt(args.FrameId);
+            var scriptHash = context.GetScriptHash();
+
+            if (disassemblyView)
             {
-                var context = engine.InvocationStack.ElementAt(args.FrameId);
-                // TODO: ExecutionContext needs a mechanism to retrieve script hash 
-                //       https://github.com/neo-project/neo/issues/1696
-                var scriptHash = Neo.SmartContract.Helper.ToScriptHash(context.Script);
-
-                if (disassemblyView)
-                {
-                    yield return AddScope("Evaluation Stack", new EvaluationStackContainer(context.EvaluationStack));
-                    yield return AddScope("Locals", new SlotContainer("local", context.LocalVariables));
-                    yield return AddScope("Statics", new SlotContainer("static", context.StaticFields));
-                    yield return AddScope("Arguments", new SlotContainer("arg", context.Arguments));
-                }
-                else
-                {
-                    var debugInfo = TryGetDebugInfo(scriptHash, out var di) ? di : null;
-                    yield return AddScope("Variables", new ExecutionContextContainer(context, debugInfo));
-                }
-
-                yield return AddScope("Storage", new StorageContainer(scriptHash, engine.Snapshot));
+                yield return AddScope("Evaluation Stack", new EvaluationStackContainer(context.EvaluationStack));
+                yield return AddScope("Locals", new SlotContainer("local", context.LocalVariables));
+                yield return AddScope("Statics", new SlotContainer("static", context.StaticFields));
+                yield return AddScope("Arguments", new SlotContainer("arg", context.Arguments));
             }
+            else
+            {
+                var debugInfo = TryGetDebugInfo(scriptHash, out var di) ? di : null;
+                yield return AddScope("Variables", new ExecutionContextContainer(context, debugInfo));
+            }
+
+            yield return AddScope("Storage", new StorageContainer(scriptHash, engine.Snapshot));
 
             Scope AddScope(string name, IVariableContainer container)
             {
@@ -207,12 +206,9 @@ namespace NeoDebug.Neo3
 
         public IEnumerable<Variable> GetVariables(VariablesArguments args)
         {
-            if ((engine.State & HALT_OR_FAULT) == 0)
+            if (variableManager.TryGet(args.VariablesReference, out var container))
             {
-                if (variableManager.TryGet(args.VariablesReference, out var container))
-                {
-                    return container.Enumerate(variableManager);
-                }
+                return container.Enumerate(variableManager);
             }
 
             return Enumerable.Empty<Variable>();
@@ -231,7 +227,7 @@ namespace NeoDebug.Neo3
             throw new InvalidOperationException();
         }
 
-        (StackItem? item, string typeHint) Evaluate(ExecutionContext context, ReadOnlyMemory<char> name)
+        private (StackItem? item, string typeHint) Evaluate(ExecutionContext context, ReadOnlyMemory<char> name)
         {
             if (name.StartsWith("#eval"))
             {
@@ -262,9 +258,7 @@ namespace NeoDebug.Neo3
                 return (EvaluateSlot(context.StaticFields, 7), string.Empty);
             }
 
-            // TODO: ExecutionContext needs a mechanism to retrieve script hash 
-            //       https://github.com/neo-project/neo/issues/1696
-            var scriptHash = Neo.SmartContract.Helper.ToScriptHash(context.Script);
+            var scriptHash = context.GetScriptHash();
 
             if (name.StartsWith("#storage"))
             {
@@ -275,12 +269,11 @@ namespace NeoDebug.Neo3
             if (TryGetDebugInfo(scriptHash, out var debugInfo)
                 && debugInfo.TryGetMethod(context.InstructionPointer, out var method))
             {
-                (StackItem?, string) result;
-                if (TryEvaluateSlot(context.Arguments, method.Parameters, out result))
+                if (TryEvaluateSlot(context.Arguments, method.Parameters, out (StackItem?, string) result))
                 {
                     return result;
                 }
-                
+
                 if (TryEvaluateSlot(context.LocalVariables, method.Variables, out result))
                 {
                     return result;
@@ -319,7 +312,7 @@ namespace NeoDebug.Neo3
             }
         }
 
-        static (StackItem? item, string type) ProcessRemaining(StackItem? item, string type, ReadOnlyMemory<char> remaining)
+        private static (StackItem? item, string type) EvaluateRemaining(StackItem? item, string type, ReadOnlyMemory<char> remaining)
         {
             if (remaining.IsEmpty)
             {
@@ -330,17 +323,17 @@ namespace NeoDebug.Neo3
             {
                 var bracketIndex = remaining.Span.IndexOf(']');
                 if (bracketIndex >= 0
-                    && int.TryParse(remaining.Slice(1, bracketIndex - 1).Span, out var index))
+                    && int.TryParse(remaining[1..bracketIndex].Span, out var index))
                 {
                     var newItem = item switch
                     {
-                        Neo.VM.Types.Buffer buffer => (int)buffer.InnerBuffer[index], 
+                        Neo.VM.Types.Buffer buffer => (int)buffer.InnerBuffer[index],
                         Neo.VM.Types.ByteString byteString => (int)byteString.GetSpan()[index],
                         Neo.VM.Types.Array array => array[index],
-                       _ => throw new InvalidOperationException(),
+                        _ => throw new InvalidOperationException(),
                     };
 
-                    return ProcessRemaining(newItem, string.Empty, remaining.Slice(bracketIndex + 1));
+                    return EvaluateRemaining(newItem, string.Empty, remaining.Slice(bracketIndex + 1));
                 }
             }
 
@@ -357,7 +350,7 @@ namespace NeoDebug.Neo3
                 var context = engine.InvocationStack.ElementAt(args.FrameId.Value);
                 var (name, typeHint, remaining) = VariableManager.ParseEvalExpression(args.Expression);
                 var (item, type) = Evaluate(context, name);
-                (item, type) = ProcessRemaining(item, type, remaining);
+                (item, type) = EvaluateRemaining(item, type, remaining);
 
                 if (item != null)
                 {
@@ -377,6 +370,19 @@ namespace NeoDebug.Neo3
         public IEnumerable<Breakpoint> SetBreakpoints(Source source, IReadOnlyList<SourceBreakpoint> sourceBreakpoints)
         {
             return breakpointManager.SetBreakpoints(source, sourceBreakpoints);
+        }
+
+        public void SetExceptionBreakpoints(IReadOnlyList<string> filters)
+        {
+            breakOnCaughtExceptions = filters.Any(f => f == CAUGHT_EXCEPTION_FILTER);
+            breakOnUncaughtExceptions = filters.Any(f => f == UNCAUGHT_EXCEPTION_FILTER);
+        }
+
+        public string GetExceptionInfo()
+        {
+            var item = engine.CurrentContext?.EvaluationStack.Peek();
+            return item?.ToStrictUTF8String()
+                ?? throw new InvalidOperationException("missing exception information");
         }
 
         public void SetDebugView(DebugView debugView)
@@ -399,65 +405,76 @@ namespace NeoDebug.Neo3
         private void FireStoppedEvent(StoppedEvent.ReasonValue reasonValue)
         {
             variableManager.Clear();
-
-            if ((engine.State & VMState.FAULT) != 0)
-            {
-                sendEvent(new OutputEvent()
-                {
-                    Category = OutputEvent.CategoryValue.Stderr,
-                    Output = "Engine State Faulted\n",
-                });
-                sendEvent(new TerminatedEvent());
-            }
-            if ((engine.State & VMState.HALT) != 0)
-            {
-                for (var i = 0; i < engine.ResultStack.Count; i++)
-                {
-                    var typeHint = i < returnTypes.Count
-                        ? returnTypes[i] : string.Empty;
-                    var result = engine.ResultStack.Peek(i);
-                    sendEvent(new OutputEvent()
-                    {
-                        Category = OutputEvent.CategoryValue.Stdout,
-                        Output = $"Return: {result.ToResult(typeHint)}\n",
-                    });
-                }
-                sendEvent(new ExitedEvent());
-                sendEvent(new TerminatedEvent());
-            }
-            else
-            {
-                sendEvent(new StoppedEvent(reasonValue) { ThreadId = 1 });
-            }
+            sendEvent(new StoppedEvent(reasonValue) { ThreadId = 1 });
         }
 
-        void Step(Func<int, int, bool> compare)
+        private void Step(Func<int, bool> compareStepDepth)
         {
-            var originalStackCount = engine.InvocationStack.Count;
-            var stopReason = StoppedEvent.ReasonValue.Step;
-            while ((engine.State & HALT_OR_FAULT) == 0)
+            while (true)
             {
-                engine.ExecuteInstruction();
-
-                if (engine.CurrentContext != null && 
-                    breakpointManager.CheckBreakpoint(engine.CurrentScriptHash, engine.CurrentContext.InstructionPointer))
+                if (engine.State == VMState.FAULT)
                 {
-                    stopReason = StoppedEvent.ReasonValue.Breakpoint;
-                    break;
+                    var output = engine.UncaughtException == null
+                        ? "Engine State Faulted\n"
+                        : $"Uncaught Exception: {engine.UncaughtException.ToStrictUTF8String()}\n";
+
+                    sendEvent(new OutputEvent()
+                    {
+                        Category = OutputEvent.CategoryValue.Stderr,
+                        Output = output
+                    });
+                    sendEvent(new TerminatedEvent());
+                    return;
                 }
 
-                if (compare(engine.InvocationStack.Count, originalStackCount)
+                if (engine.State == VMState.HALT)
+                {
+                    for (var i = 0; i < engine.ResultStack.Count; i++)
+                    {
+                        var typeHint = i < returnTypes.Count
+                            ? returnTypes[i] : string.Empty;
+                        var result = engine.ResultStack.Peek(i);
+                        sendEvent(new OutputEvent()
+                        {
+                            Category = OutputEvent.CategoryValue.Stdout,
+                            Output = $"Return: {result.ToResult(typeHint)}\n",
+                        });
+                    }
+                    sendEvent(new ExitedEvent());
+                    sendEvent(new TerminatedEvent());
+                    return;
+                }
+
+                var exceptionThrown = engine.ExecuteInstruction();
+
+                if (exceptionThrown)
+                {
+                    var handled = engine.CatchBlockOnStack();
+                    if ((handled && breakOnCaughtExceptions)
+                        || (!handled && breakOnUncaughtExceptions))
+                    {
+                        FireStoppedEvent(StoppedEvent.ReasonValue.Exception);
+                        return;
+                    }
+                }
+
+                if (breakpointManager.CheckBreakpoint(engine.CurrentScriptHash, engine.CurrentContext?.InstructionPointer))
+                {
+                    FireStoppedEvent(StoppedEvent.ReasonValue.Breakpoint);
+                    return;
+                }
+
+                if (compareStepDepth(engine.InvocationStack.Count)
                     && (disassemblyView || CheckSequencePoint()))
                 {
-                    break;
+                    FireStoppedEvent(StoppedEvent.ReasonValue.Step);
+                    return;
                 }
             }
-
-            FireStoppedEvent(stopReason);
 
             bool CheckSequencePoint()
             {
-                if (engine.CurrentContext != null) 
+                if (engine.CurrentContext != null)
                 {
                     var ip = engine.CurrentContext.InstructionPointer;
                     if (TryGetDebugInfo(engine.CurrentScriptHash, out var info))
@@ -473,38 +490,29 @@ namespace NeoDebug.Neo3
                     }
                 }
                 return false;
-            } 
+            }
         }
 
         public void Continue()
         {
-            while ((engine.State & HALT_OR_FAULT) == 0)
-            {
-                engine.ExecuteInstruction();
-
-                if (engine.CurrentContext != null && 
-                    breakpointManager.CheckBreakpoint(engine.CurrentScriptHash, engine.CurrentContext.InstructionPointer))
-                {
-                    break;
-                }
-            }
-
-            FireStoppedEvent(StoppedEvent.ReasonValue.Breakpoint);
+            Step((_) => false);
         }
 
         public void StepIn()
         {
-            Step((_, __) => true);
+            Step((_) => true);
         }
 
         public void StepOut()
         {
-            Step((currentStackCount, originalStackCount) => currentStackCount < originalStackCount);
+            var originalStackCount = engine.InvocationStack.Count;
+            Step((currentStackCount) => currentStackCount < originalStackCount);
         }
 
         public void StepOver()
         {
-            Step((currentStackCount, originalStackCount) => currentStackCount <= originalStackCount);
+            var originalStackCount = engine.InvocationStack.Count;
+            Step((currentStackCount) => currentStackCount <= originalStackCount);
         }
     }
 }

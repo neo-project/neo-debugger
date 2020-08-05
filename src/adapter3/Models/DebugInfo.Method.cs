@@ -14,18 +14,18 @@ namespace NeoDebug.Neo3
             public string Name { get; set; } = string.Empty;
             public (int Start, int End) Range { get; set; }
             public string ReturnType { get; set; } = string.Empty;
-            public IReadOnlyList<(string Name, string Type)> Parameters { get; set; } 
+            public IReadOnlyList<(string Name, string Type)> Parameters { get; set; }
                 = ImmutableList<(string, string)>.Empty;
-            public IReadOnlyList<(string Name, string Type)> Variables { get; set; } 
+            public IReadOnlyList<(string Name, string Type)> Variables { get; set; }
                 = ImmutableList<(string, string)>.Empty;
-            public IReadOnlyList<SequencePoint> SequencePoints { get; set; } 
+            public IReadOnlyList<SequencePoint> SequencePoints { get; set; }
                 = ImmutableList<SequencePoint>.Empty;
 
             public int Size => Id.GetVarSize()
                 + Namespace.GetVarSize()
                 + Name.GetVarSize()
                 + ReturnType.GetVarSize()
-                + sizeof(int) * 2
+                + (sizeof(int) * 2)
                 + SizeTypes(Parameters)
                 + SizeTypes(Variables)
                 + SequencePoints.GetVarSize();
@@ -54,7 +54,7 @@ namespace NeoDebug.Neo3
                 writer.Write(Range.End);
                 WriteTypes(writer, Parameters);
                 WriteTypes(writer, Variables);
-                writer.Write<SequencePoint>(SequencePoints);
+                writer.Write(SequencePoints);
             }
         }
     }

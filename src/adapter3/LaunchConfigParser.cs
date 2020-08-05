@@ -55,7 +55,7 @@ namespace NeoDebug.Neo3
                 Version = 0,
                 Nonce = (uint)(new Random()).Next(),
                 Script = invokeScript,
-                Signers = new[]{ new Signer() { Account = UInt160.Zero } },
+                Signers = new[] { new Signer() { Account = UInt160.Zero } },
                 ValidUntilBlock = Transaction.MaxValidUntilBlockIncrement,
                 Attributes = Array.Empty<TransactionAttribute>(),
                 Witnesses = Array.Empty<Witness>()
@@ -119,7 +119,7 @@ namespace NeoDebug.Neo3
 
         static byte[] CreateLaunchScript(UInt160 scriptHash, Dictionary<string, JToken> config)
         {
-            var operation = config.TryGetValue("operation", out var op) 
+            var operation = config.TryGetValue("operation", out var op)
                 ? op.Value<string>() : throw new InvalidDataException("missing operation config");
 
             using var builder = new ScriptBuilder();
@@ -138,7 +138,7 @@ namespace NeoDebug.Neo3
                 }
                 while (Directory.Exists(checkpointTempPath));
 
-                var cleanup = AnonymousDisposable.Create(() => 
+                var cleanup = AnonymousDisposable.Create(() =>
                 {
                     if (Directory.Exists(checkpointTempPath))
                     {
@@ -283,7 +283,7 @@ namespace NeoDebug.Neo3
             {
                 var arg = ContractParameterParser.ParseStringParam(token?.Value<string>() ?? string.Empty);
 
-                return arg.Type switch 
+                return arg.Type switch
                 {
                     ContractParameterType.Hash160 => ((UInt160)arg.Value).ToArray(),
                     ContractParameterType.Integer => ((BigInteger)arg.Value).ToByteArray(),

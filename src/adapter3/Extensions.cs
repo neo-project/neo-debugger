@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
@@ -13,12 +14,12 @@ namespace NeoDebug.Neo3
     using StackItemType = Neo.VM.Types.StackItemType;
     using ByteString = Neo.VM.Types.ByteString;
 
-    static class Extensions
+    internal static class Extensions
     {
         public static bool StartsWith<T>(this ReadOnlyMemory<T> @this, ReadOnlySpan<T> value)
             where T : IEquatable<T>
         {
-            return @this.Length >= value.Length 
+            return @this.Length >= value.Length
                 && @this.Slice(0, value.Length).Span.SequenceEqual(value);
         }
 
@@ -49,33 +50,22 @@ namespace NeoDebug.Neo3
             return string.Equals(@this.GetDocumentPath(debugInfo), path, StringComparison.InvariantCultureIgnoreCase);
         }
 
-        public static DebugInfo.SequencePoint? GetCurrentSequencePoint(this DebugInfo.Method? method, int instructionPointer)
+        public static DebugInfo.SequencePoint GetCurrentSequencePoint(this DebugInfo.Method method, int instructionPointer)
         {
-            if (method != null)
+            var sequencePoints = method.SequencePoints;
+            if (sequencePoints.Count == 0)
             {
-                var sequencePoints = method.SequencePoints.OrderBy(sp => sp.Address).ToArray();
-                if (sequencePoints.Length > 0)
-                {
-                    for (int i = 0; i < sequencePoints.Length; i++)
-                    {
-                        if (instructionPointer == sequencePoints[i].Address)
-                            return sequencePoints[i];
-                    }
-
-                    if (instructionPointer <= sequencePoints[0].Address)
-                        return sequencePoints[0];
-
-                    for (int i = 0; i < sequencePoints.Length - 1; i++)
-                    {
-                        if (instructionPointer > sequencePoints[i].Address && instructionPointer <= sequencePoints[i + 1].Address)
-                            return sequencePoints[i];
-                    }
-                }
+                throw new InvalidOperationException($"{method.Name} has no sequence points");
             }
 
-            return null;
-        }
+            for (int i = sequencePoints.Count - 1; i >= 0; i--)
+            {
+                if (instructionPointer >= sequencePoints[i].Address)
+                    return sequencePoints[i];
+            }
 
+            return sequencePoints[0];
+        }
 
         //https://stackoverflow.com/a/1646913
         public static int GetSequenceHashCode(this ReadOnlySpan<byte> span)
@@ -85,7 +75,7 @@ namespace NeoDebug.Neo3
                 int hash = 17;
                 for (int i = 0; i < span.Length; i++)
                 {
-                    hash = hash * 31 + span[i];
+                    hash = (hash * 31) + span[i];
                 }
                 return hash;
             }
@@ -106,14 +96,14 @@ namespace NeoDebug.Neo3
                 {
                     Neo.VM.Types.Boolean _ => item.GetBoolean(),
                     // Neo.VM.Types.Buffer buffer => "Buffer",
-                    Neo.VM.Types.ByteString byteString => byteString.GetSpan().ToHexString(), 
+                    Neo.VM.Types.ByteString byteString => byteString.GetSpan().ToHexString(),
                     Neo.VM.Types.Integer @int => @int.GetInteger().ToString(),
                     // Neo.VM.Types.InteropInterface _ => MakeVariable("InteropInterface"),
                     // Neo.VM.Types.Map _ => MakeVariable("Map"),
                     Neo.VM.Types.Null _ => new JValue((object?)null),
                     // Neo.VM.Types.Pointer _ => MakeVariable("Pointer"),
                     Neo.VM.Types.Array array => new JArray(array.Select(i => i.ToJson())),
-                    _ => throw new NotImplementedException(),
+                    _ => throw new NotSupportedException(),
                 };
         }
 
@@ -126,7 +116,7 @@ namespace NeoDebug.Neo3
         {
             @this.EvaluateName = prefix + @this.Name;
             return @this;
-        }        
+        }
 
         public static EvaluateResponse ToEvaluateResponse(this Variable @this)
         {
@@ -143,30 +133,38 @@ namespace NeoDebug.Neo3
             return ToVariable((StackItem)item, manager, name, typeHint);
         }
 
-        static string? ToStringRep(this StackItem item, string typeHint = "")
+        public static string ToStrictUTF8String(this byte[] @this) => Neo.Utility.StrictUTF8.GetString(@this);
+
+        public static string ToStrictUTF8String(this StackItem item) => item.IsNull
+            ? "<null>"
+            : Neo.Utility.StrictUTF8.GetString(((ByteString)item.ConvertTo(StackItemType.ByteString)).GetSpan());
+
+        public static string ToHexString(this StackItem item) => item.IsNull
+            ? "<null>"
+            : ((ByteString)item.ConvertTo(StackItemType.ByteString)).GetSpan().ToHexString();
+
+        public static BigInteger ToBigInteger(this StackItem item) => item.IsNull
+            ? BigInteger.Zero
+            : ((Neo.VM.Types.Integer)item.ConvertTo(StackItemType.Integer)).GetInteger();
+
+        private static string? ToStringRep(this StackItem item, string typeHint = "")
         {
             return typeHint switch
             {
                 "Boolean" => item.GetBoolean().ToString(),
-                "Integer" => item.IsNull ? "0" : 
-                        ((Neo.VM.Types.Integer)item.ConvertTo(StackItemType.Integer)).GetInteger().ToString(),
-                "String" => item.IsNull ? "<null>" : 
-                        Encoding.UTF8.GetString(((ByteString)item.ConvertTo(StackItemType.ByteString)).GetSpan()),
-                "HexString" => ToHexString(item),
-                "ByteArray" => ToHexString(item),
+                "Integer" => item.ToBigInteger().ToString(),
+                "String" => item.ToStrictUTF8String(),
+                "HexString" => item.ToHexString(),
+                "ByteArray" => item.ToHexString(),
                 _ => null
             };
-
-            static string ToHexString(StackItem item) => item.IsNull 
-                ? "<null>" 
-                : ((ByteString)item.ConvertTo(StackItemType.ByteString)).GetSpan().ToHexString();
         }
 
         public static Variable ToVariable(this StackItem item, IVariableManager manager, string name, string typeHint = "")
         {
             if (typeHint == "ByteArray")
             {
-                if (item.IsNull) 
+                if (item.IsNull)
                 {
                     return MakeVariable("<null>", "ByteArray");
                 }
@@ -192,7 +190,7 @@ namespace NeoDebug.Neo3
                 Neo.VM.Types.Null _ => MakeVariable("null", "Null"),
                 Neo.VM.Types.Pointer _ => MakeVariable("Pointer"),
                 Neo.VM.Types.Array array => NeoArrayContainer.Create(manager, array, name),
-                _ => throw new NotImplementedException(),
+                _ => throw new NotSupportedException(),
             };
 
             Variable MakeVariable(string value, string type = "")

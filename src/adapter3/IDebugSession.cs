@@ -7,6 +7,7 @@ namespace NeoDebug.Neo3
     {
         void Continue();
         EvaluateResponse Evaluate(EvaluateArguments args);
+        string GetExceptionInfo();
         IEnumerable<Scope> GetScopes(ScopesArguments args);
         SourceResponse GetSource(SourceArguments arguments);
         IEnumerable<StackFrame> GetStackFrames(StackTraceArguments args);
@@ -14,6 +15,7 @@ namespace NeoDebug.Neo3
         IEnumerable<Variable> GetVariables(VariablesArguments args);
         IEnumerable<Breakpoint> SetBreakpoints(Source source, IReadOnlyList<SourceBreakpoint> sourceBreakpoints);
         void SetDebugView(DebugView debugView);
+        void SetExceptionBreakpoints(IReadOnlyList<string> filters);
         void Start();
         void StepIn();
         void StepOut();

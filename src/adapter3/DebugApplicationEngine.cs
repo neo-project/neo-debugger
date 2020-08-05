@@ -11,6 +11,7 @@ using NeoArray = Neo.VM.Types.Array;
 using Neo;
 using System.Numerics;
 using System.Linq;
+using Neo.VM;
 
 namespace NeoDebug.Neo3
 {
@@ -49,11 +50,50 @@ namespace NeoDebug.Neo3
             this.witnessChecker = witnessChecker;
             this.blockHashMap = storeView.Blocks.Find()
                 .ToDictionary(
-                    t => t.Value.Index, 
+                    t => t.Value.Index,
                     t => t.Value.Hash == t.Key ? t.Key : throw new Exception("invalid hash"));
         }
 
-        public void ExecuteInstruction() => ExecuteNext();
+        private int lastThrowAddress = -1;
+
+        public bool ExecuteInstruction()
+        {
+            // ExecutionEngine does not provide a mechanism to halt execution
+            // after an exception is thrown but before it has been handled.
+            // The debugger needs to be able to treat the exception throw and
+            // handling as separate operations. So DebugApplicationEngine inserts
+            // a dummy instruction execution when it detects a THROW opcode.
+            // The THROW operation address is used to ensure only a single dummy
+            // instruction is executed. The ExecuteInstruction return value
+            // indicates that a dummy THROW instruction has been inserted.
+
+            if (CurrentContext.CurrentInstruction.OpCode == OpCode.THROW
+                && CurrentContext.InstructionPointer != lastThrowAddress)
+            {
+                lastThrowAddress = CurrentContext.InstructionPointer;
+                return true;
+            }
+
+            ExecuteNext();
+            lastThrowAddress = -1;
+            return false;
+        }
+
+        public bool CatchBlockOnStack()
+        {
+            foreach (var executionContext in InvocationStack)
+            {
+                foreach (var tryContext in executionContext.TryStack ?? Enumerable.Empty<ExceptionHandlingContext>())
+                {
+                    if (tryContext.HasCatch)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
 
         protected override void OnSysCall(uint methodHash)
         {
@@ -97,7 +137,7 @@ namespace NeoDebug.Neo3
             NotifyEventArgs args = new NotifyEventArgs(
                 engine.ScriptContainer,
                 engine.CurrentScriptHash,
-                Neo.Utility.StrictUTF8.GetString(eventName), 
+                eventName.ToStrictUTF8String(),
                 (NeoArray)state.DeepCopy());
             engine.DebugNotify?.Invoke(engine, args);
 
@@ -115,7 +155,7 @@ namespace NeoDebug.Neo3
             var args = new LogEventArgs(
                 engine.ScriptContainer,
                 engine.CurrentScriptHash,
-                Neo.Utility.StrictUTF8.GetString(state));
+                state.ToStrictUTF8String());
             engine.DebugLog?.Invoke(engine, args);
 
             engine.RuntimeLog(state);
@@ -128,7 +168,7 @@ namespace NeoDebug.Neo3
         {
             Debug.Assert(paramDescriptors.Count == 1);
 
-            var indexOrHash = (byte[])engine.Convert(engine.Pop(), paramDescriptors[0]); 
+            var indexOrHash = (byte[])engine.Convert(engine.Pop(), paramDescriptors[0]);
             var hash = engine.GetBlockHash(indexOrHash);
 
             if (hash is null) return StackItem.Null;
