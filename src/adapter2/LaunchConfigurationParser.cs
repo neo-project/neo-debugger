@@ -16,7 +16,7 @@ using Newtonsoft.Json.Linq;
 
 namespace NeoDebug
 {
-    class LaunchConfigurationParser
+    static class LaunchConfigurationParser
     {
         public static async Task<DebugSession> CreateDebugSession(LaunchArguments arguments, Action<DebugEvent> sendEvent, DebugSession.DebugView defaultDebugView)
         {
