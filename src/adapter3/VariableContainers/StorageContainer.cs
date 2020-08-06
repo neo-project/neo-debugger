@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text.RegularExpressions;
@@ -46,11 +47,9 @@ namespace NeoDebug.Neo3
         {
             if (contractId.HasValue)
             {
-                foreach (var (key, item) in store.Storages.Find())
+                var storages = store.Storages.Find(CreateSearchPrefix(contractId.Value, default));
+                foreach (var (key, item) in storages)
                 {
-                    if (key.Id != contractId.Value)
-                        continue;
-
                     var keyHashCode = key.Key.GetSequenceHashCode().ToString("x");
                     var kvp = new KvpContainer(key, item, keyHashCode);
                     yield return new Variable()
@@ -61,6 +60,17 @@ namespace NeoDebug.Neo3
                         NamedVariables = 3
                     };
                 }
+            }
+
+            // TODO: PR Opened to make StorageKey.CreateSearchPrefix public
+            //       If accepted, remove this copy of that method 
+            //       https://github.com/neo-project/neo/pull/1824
+            static byte[] CreateSearchPrefix(int id, ReadOnlySpan<byte> prefix)
+            {
+                byte[] buffer = new byte[sizeof(int) + prefix.Length];
+                BinaryPrimitives.WriteInt32LittleEndian(buffer, id);
+                prefix.CopyTo(buffer.AsSpan(sizeof(int)));
+                return buffer;
             }
         }
 
