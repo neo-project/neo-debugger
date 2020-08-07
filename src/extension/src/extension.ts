@@ -240,11 +240,11 @@ async function getDebugAdapterCommand(program: string, config:vscode.WorkspaceCo
 function validateNeo2DebugConfig(config: vscode.DebugConfiguration) {
 
     if (config["trace-file"]) {
-        throw new Error("trace-file configuration not supported in Neo 2")
+        throw new Error("trace-file configuration not supported in Neo 2");
     }
 
     if (config["operation"]) {
-        throw new Error("operation configuration not supported in Neo 2")
+        throw new Error("operation configuration not supported in Neo 2");
     }
 
 }
@@ -252,11 +252,11 @@ function validateNeo2DebugConfig(config: vscode.DebugConfiguration) {
 function validateNeo3DebugConfig(config: vscode.DebugConfiguration) {
 
     if (config["utxo"]) {
-        throw new Error("utxo configuration not supported in Neo 3")
+        throw new Error("utxo configuration not supported in Neo 3");
     }
 
-    if (!config["operation"]) {
-        throw new Error("operation configuration required in Neo 3")
+    if (!config["operation"] && !config["trace-file"]) {
+        throw new Error("operation configuration required in Neo 3 unless trace debugging");
     }
 
 }
