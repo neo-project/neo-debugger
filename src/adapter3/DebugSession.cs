@@ -22,7 +22,7 @@ namespace NeoDebug.Neo3
         public const string CAUGHT_EXCEPTION_FILTER = "caught";
         public const string UNCAUGHT_EXCEPTION_FILTER = "uncaught";
 
-        private readonly DebugApplicationEngine engine;
+        private readonly IDebugApplicationEngine engine;
         private readonly IStore store;
         private readonly IReadOnlyList<string> returnTypes;
         private readonly Action<DebugEvent> sendEvent;
@@ -33,7 +33,7 @@ namespace NeoDebug.Neo3
         private bool breakOnCaughtExceptions;
         private bool breakOnUncaughtExceptions = true;
 
-        public DebugSession(DebugApplicationEngine engine, IStore store, IReadOnlyList<string> returnTypes, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
+        public DebugSession(IDebugApplicationEngine engine, IStore store, IReadOnlyList<string> returnTypes, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
         {
             this.engine = engine;
             this.store = store;
@@ -70,10 +70,9 @@ namespace NeoDebug.Neo3
 
         private bool TryGetScript(UInt160 scriptHash, [MaybeNullWhen(false)] out Neo.VM.Script script)
         {
-            var contractState = engine.Snapshot.Contracts.TryGet(scriptHash);
-            if (contractState != null)
+            if (engine.TryGetContract(scriptHash, out var contractScript))
             {
-                script = contractState.Script;
+                script = contractScript;
                 return true;
             }
 
@@ -194,7 +193,7 @@ namespace NeoDebug.Neo3
                 yield return AddScope("Variables", new ExecutionContextContainer(context, debugInfo));
             }
 
-            yield return AddScope("Storage", new StorageContainer(scriptHash, engine.Snapshot));
+            yield return AddScope("Storage", engine.GetStorageContainer(scriptHash));
 
             Scope AddScope(string name, IVariableContainer container)
             {
@@ -226,7 +225,7 @@ namespace NeoDebug.Neo3
             throw new InvalidOperationException();
         }
 
-        private (StackItem? item, string typeHint) Evaluate(ExecutionContext context, ReadOnlyMemory<char> name)
+        private (StackItem? item, string typeHint) Evaluate(IExecutionContext context, ReadOnlyMemory<char> name)
         {
             if (name.StartsWith("#eval"))
             {
@@ -235,7 +234,7 @@ namespace NeoDebug.Neo3
                     var index = context.EvaluationStack.Count - 1 - value;
                     if (index >= 0 && index < context.EvaluationStack.Count)
                     {
-                        return (context.EvaluationStack.Peek(index), string.Empty);
+                        return (context.EvaluationStack[index], string.Empty);
                     }
                 }
 
@@ -261,7 +260,7 @@ namespace NeoDebug.Neo3
 
             if (name.StartsWith("#storage"))
             {
-                var container = new StorageContainer(scriptHash, engine.Snapshot);
+                var container = engine.GetStorageContainer(scriptHash);
                 return (container.Evaluate(name), string.Empty);
             }
 
@@ -281,7 +280,7 @@ namespace NeoDebug.Neo3
 
             return default;
 
-            bool TryEvaluateSlot(Slot slot, IReadOnlyList<(string name, string type)> variables, out (StackItem?, string) result)
+            bool TryEvaluateSlot(IReadOnlyList<StackItem> slot, IReadOnlyList<(string name, string type)> variables, out (StackItem?, string) result)
             {
                 for (int i = 0; i < variables.Count; i++)
                 {
@@ -299,7 +298,7 @@ namespace NeoDebug.Neo3
                 return false;
             }
 
-            StackItem? EvaluateSlot(Slot slot, int count)
+            StackItem? EvaluateSlot(IReadOnlyList<StackItem> slot, int count)
             {
                 if (int.TryParse(name.Span.Slice(count), out int index)
                     && index < slot.Count)
@@ -379,7 +378,7 @@ namespace NeoDebug.Neo3
 
         public string GetExceptionInfo()
         {
-            var item = engine.CurrentContext?.EvaluationStack.Peek();
+            var item = engine.CurrentContext?.EvaluationStack[0];
             return item?.ToStrictUTF8String()
                 ?? throw new InvalidOperationException("missing exception information");
         }
@@ -428,11 +427,11 @@ namespace NeoDebug.Neo3
 
                 if (engine.State == VMState.HALT)
                 {
-                    for (var i = 0; i < engine.ResultStack.Count; i++)
+                    for (int index = 0; index < engine.ResultStack.Count; index++)
                     {
-                        var typeHint = i < returnTypes.Count
-                            ? returnTypes[i] : string.Empty;
-                        var result = engine.ResultStack.Peek(i);
+                        var result = engine.ResultStack[index];
+                        var typeHint = index < returnTypes.Count
+                            ? returnTypes[index] : string.Empty;
                         sendEvent(new OutputEvent()
                         {
                             Category = OutputEvent.CategoryValue.Stdout,

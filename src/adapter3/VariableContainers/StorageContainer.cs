@@ -10,7 +10,7 @@ using Neo.Persistence;
 
 namespace NeoDebug.Neo3
 {
-    class StorageContainer : IVariableContainer
+    internal class StorageContainer : IStorageContainer
     {
         private readonly StoreView store;
         private readonly int? contractId;

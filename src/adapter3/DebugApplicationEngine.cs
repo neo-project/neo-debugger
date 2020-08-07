@@ -7,17 +7,17 @@ using Neo.Network.P2P.Payloads;
 using Neo.Persistence;
 using Neo.SmartContract;
 using StackItem = Neo.VM.Types.StackItem;
-using NeoArray = Neo.VM.Types.Array;
 using Neo;
 using System.Numerics;
 using System.Linq;
 using Neo.VM;
+using System.Diagnostics.CodeAnalysis;
 
 namespace NeoDebug.Neo3
 {
     using ServiceMethod = Func<DebugApplicationEngine, IReadOnlyList<InteropParameterDescriptor>, StackItem?>;
 
-    internal class DebugApplicationEngine : ApplicationEngine
+    internal class DebugApplicationEngine : ApplicationEngine, IDebugApplicationEngine
     {
         private readonly static IReadOnlyDictionary<uint, ServiceMethod> debugServices;
 
@@ -204,5 +204,28 @@ namespace NeoDebug.Neo3
 
             throw new ArgumentException();
         }
+
+        public bool TryGetContract(UInt160 scriptHash, [MaybeNullWhen(false)] out Script script)
+        {
+            var contractState = Snapshot.Contracts.TryGet(scriptHash);
+            if (contractState != null)
+            {
+                script = contractState.Script;
+                return true;
+            }
+
+            script = default;
+            return false;
+        }
+
+        public IStorageContainer GetStorageContainer(UInt160 scriptHash)
+            => new StorageContainer(scriptHash, Snapshot);
+
+        IReadOnlyCollection<IExecutionContext> IDebugApplicationEngine.InvocationStack => null!; //InvocationStack;
+
+        IReadOnlyList<StackItem> IDebugApplicationEngine.ResultStack => null!; //ResultStack;
+
+        IExecutionContext IDebugApplicationEngine.CurrentContext => null!;
+
     }
 }
