@@ -30,17 +30,22 @@ namespace NeoDebug.Neo3
             var returnTypes = ParseReturnTypes(config).ToList();
             var debugInfoList = ParseDebugInfo(config, sourceFileMap).ToList();
 
-            string? traceFilePath = config["program"].Value<string>();
-            if ((traceFilePath == null) != trace)
-            {
-                throw new Exception(trace
-                    ? "trace-file configuration not specified"
-                    : "--trace option not specified");
-            }
-
-            var engine = CreateDebugEngine(config);
+            var engine = trace
+                ? CreateTraceEngine(config)
+                : CreateDebugEngine(config);
 
             return new DebugSession(engine, debugInfoList, returnTypes, sendEvent, defaultDebugView);
+        }
+
+        private static IApplicationEngine CreateTraceEngine(Dictionary<string, JToken> config)
+        {
+            var traceFilePath = config["program"].Value<string>();
+            if (traceFilePath == null)
+            {
+                throw new Exception("trace-file configuration not specified");
+            }
+
+            return new TraceApplicationEngine(traceFilePath);
         }
 
         private static IApplicationEngine CreateDebugEngine(Dictionary<string, JToken> config)
