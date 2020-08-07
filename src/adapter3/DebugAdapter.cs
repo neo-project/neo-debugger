@@ -10,6 +10,7 @@ namespace NeoDebug.Neo3
     {
         public delegate IDebugSession DebugSessionFactory(LaunchArguments launchArguments,
                                                           Action<DebugEvent> sendEvent,
+                                                          bool trace,
                                                           DebugView defaultDebugView);
 
         private class DebugViewRequest : DebugRequest<DebugViewArguments>
@@ -96,7 +97,7 @@ namespace NeoDebug.Neo3
             {
                 if (session != null) throw new InvalidOperationException();
 
-                session = sessionFactory(arguments, Protocol.SendEvent, defaultDebugView);
+                session = sessionFactory(arguments, Protocol.SendEvent, trace, defaultDebugView);
                 session.Start();
 
                 return new LaunchResponse();

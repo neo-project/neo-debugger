@@ -24,7 +24,7 @@ namespace NeoDebug.Neo3
 {
     static class LaunchConfigParser
     {
-        public static DebugSession CreateDebugSession(LaunchArguments launchArguments, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
+        public static DebugSession CreateDebugSession(LaunchArguments launchArguments, Action<DebugEvent> sendEvent, bool trace, DebugView defaultDebugView)
         {
             var config = launchArguments.ConfigurationProperties;
             var sourceFileMap = ParseSourceFileMap(config);
