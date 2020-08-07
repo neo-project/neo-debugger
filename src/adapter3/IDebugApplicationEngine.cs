@@ -20,7 +20,7 @@ namespace NeoDebug.Neo3
         IStorageContainer GetStorageContainer(UInt160 scriptHash);
 
         IReadOnlyCollection<IExecutionContext> InvocationStack { get; }
-        IExecutionContext CurrentContext { get; }
+        IExecutionContext? CurrentContext { get; }
         IReadOnlyList<StackItem> ResultStack { get; }
         StackItem UncaughtException { get; }
         UInt160 CurrentScriptHash { get; }

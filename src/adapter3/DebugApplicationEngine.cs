@@ -229,6 +229,8 @@ namespace NeoDebug.Neo3
 
         IReadOnlyList<StackItem> IDebugApplicationEngine.ResultStack => resultStackAdapter;
 
-        IExecutionContext IDebugApplicationEngine.CurrentContext => new ExecutionContextAdapter(CurrentContext);
+        IExecutionContext? IDebugApplicationEngine.CurrentContext => CurrentContext == null
+            ? null
+            : new ExecutionContextAdapter(CurrentContext);
     }
 }
