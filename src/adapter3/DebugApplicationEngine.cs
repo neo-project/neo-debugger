@@ -42,6 +42,7 @@ namespace NeoDebug.Neo3
         public event EventHandler<LogEventArgs>? DebugLog;
         private readonly WitnessChecker witnessChecker;
         private readonly IReadOnlyDictionary<uint, UInt256> blockHashMap;
+        private readonly Lazy<IReadOnlyList<StackItem>> resultStackAdapter;
 
         public DebugApplicationEngine(IVerifiable container, StoreView storeView, WitnessChecker witnessChecker) : base(TriggerType.Application, container, storeView, 0, true)
         {
@@ -53,6 +54,7 @@ namespace NeoDebug.Neo3
 
             Log += OnLog;
             Notify += OnNotify;
+            resultStackAdapter = new Lazy<IReadOnlyList<StackItem>>(() => new EvaluationStackAdapter(this.ResultStack));
         }
 
         public override void Dispose()
@@ -223,9 +225,8 @@ namespace NeoDebug.Neo3
 
         IReadOnlyCollection<IExecutionContext> IDebugApplicationEngine.InvocationStack => null!; //InvocationStack;
 
-        IReadOnlyList<StackItem> IDebugApplicationEngine.ResultStack => null!; //ResultStack;
+        IReadOnlyList<StackItem> IDebugApplicationEngine.ResultStack => resultStackAdapter.Value;
 
         IExecutionContext IDebugApplicationEngine.CurrentContext => null!;
-
     }
 }
