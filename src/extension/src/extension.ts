@@ -236,6 +236,46 @@ async function getDebugAdapterCommand(program: string, config:vscode.WorkspaceCo
         }
     }
 }
+
+function validateNeo2DebugConfig(config: vscode.DebugConfiguration) {
+
+    if (config["trace-file"]) {
+        throw new Error("trace-file configuration not supported in Neo 2")
+    }
+
+    if (config["operation"]) {
+        throw new Error("operation configuration not supported in Neo 2")
+    }
+
+}
+
+function validateNeo3DebugConfig(config: vscode.DebugConfiguration) {
+
+    if (config["utxo"]) {
+        throw new Error("utxo configuration not supported in Neo 3")
+    }
+
+    if (!config["operation"]) {
+        throw new Error("operation configuration required in Neo 3")
+    }
+
+}
+
+function validateDebugConfig(program: string, config: vscode.DebugConfiguration) {
+    const ext = extname(program);
+    switch (ext)
+    {
+        case '.nef': 
+            validateNeo3DebugConfig(config);
+            break;
+        case '.avm':
+            validateNeo2DebugConfig(config);
+            break;
+        default: 
+            throw new Error(`Unexpected Neo contract extension {ext}`);
+    }
+}
+
 class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDescriptorFactory {
 
     channel: vscode.OutputChannel;
@@ -243,10 +283,13 @@ class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDes
         this.channel = channel;
     }
 
+
     async createDebugAdapterDescriptor(session: vscode.DebugSession, executable: vscode.DebugAdapterExecutable | undefined): Promise<vscode.DebugAdapterDescriptor> {
 
         const program: string = session.configuration["program"];
         const config = vscode.workspace.getConfiguration("neo-debugger");
+        validateDebugConfig(program, session.configuration);
+
         let [cmd, args] = await getDebugAdapterCommand(program, config, this.channel);
         
         if (config.get<Boolean>("debug", false))
@@ -264,6 +307,10 @@ class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDes
         {
             args.push("--debug-view");
             args.push(defaultDebugView);
+        }
+
+        if (session.configuration["trace-file"]) {
+            args.push("--trace");
         }
 
         const options = session.workspaceFolder ? { cwd: session.workspaceFolder.uri.fsPath } : {};
