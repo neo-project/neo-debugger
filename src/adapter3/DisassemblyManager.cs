@@ -145,17 +145,17 @@ namespace NeoDebug.Neo3
 
         static IEnumerable<(int address, Instruction instruction)> EnumerateInstructions(Script script)
         {
-            int address = 0;
-            bool lastInstructionRet = false;
+            var address = 0;
+            var opcode = OpCode.PUSH0;
             while (address < script.Length)
             {
                 var instruction = script.GetInstruction(address);
-                lastInstructionRet = instruction.OpCode == OpCode.RET;
+                opcode = instruction.OpCode;
                 yield return (address, instruction);
-                address = address + instruction.Size;
+                address += instruction.Size;
             }
 
-            if (!lastInstructionRet)
+            if (opcode != OpCode.RET)
             {
                 yield return (address, Instruction.RET);
             }

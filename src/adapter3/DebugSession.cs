@@ -137,14 +137,13 @@ namespace NeoDebug.Neo3
                 if (disassemblyView)
                 {
                     var disassembly = disassemblyManager.GetDisassembly(context.Script, debugInfo);
-                    var line = disassembly.AddressMap[context.InstructionPointer];
                     frame.Source = new Source()
                     {
                         SourceReference = disassembly.SourceReference,
                         Name = disassembly.Name,
                         Path = disassembly.Name,
                     };
-                    frame.Line = line; //index == 0 ? line : line - 1;   
+                    frame.Line = disassembly.AddressMap[context.InstructionPointer];
                     frame.Column = 1;
                 }
                 else

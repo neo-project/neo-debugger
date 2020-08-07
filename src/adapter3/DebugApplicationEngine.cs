@@ -17,9 +17,9 @@ namespace NeoDebug.Neo3
 {
     using ServiceMethod = Func<DebugApplicationEngine, IReadOnlyList<InteropParameterDescriptor>, StackItem?>;
 
-    class DebugApplicationEngine : ApplicationEngine
+    internal class DebugApplicationEngine : ApplicationEngine
     {
-        readonly static IReadOnlyDictionary<uint, ServiceMethod> debugServices;
+        private readonly static IReadOnlyDictionary<uint, ServiceMethod> debugServices;
 
         static DebugApplicationEngine()
         {
@@ -28,8 +28,6 @@ namespace NeoDebug.Neo3
             Register("System.Runtime.CheckWitness", Debug_CheckWitness);
             Register("System.Blockchain.GetBlock", Debug_GetBlock);
             Register("System.Blockchain.GetTransactionFromBlock", Debug_GetTransactionFromBlock);
-            Register("System.Runtime.Log", Debug_RuntimeLog);
-            Register("System.Runtime.Notify", Debug_RuntimeNotify);
 
             DebugApplicationEngine.debugServices = debugServices;
 
@@ -52,6 +50,32 @@ namespace NeoDebug.Neo3
                 .ToDictionary(
                     t => t.Value.Index,
                     t => t.Value.Hash == t.Key ? t.Key : throw new Exception("invalid hash"));
+
+            Log += OnLog;
+            Notify += OnNotify;
+        }
+
+        public override void Dispose()
+        {
+            Log -= OnLog;
+            Notify -= OnNotify;
+            base.Dispose();
+        }
+
+        private void OnNotify(object? sender, NotifyEventArgs args)
+        {
+            if (ReferenceEquals(sender, this))
+            {
+                DebugNotify?.Invoke(sender, args);
+            }
+        }
+
+        private void OnLog(object? sender, LogEventArgs args)
+        {
+            if (ReferenceEquals(sender, this))
+            {
+                DebugLog?.Invoke(sender, args);
+            }
         }
 
         private int lastThrowAddress = -1;
@@ -123,43 +147,6 @@ namespace NeoDebug.Neo3
             _ = (byte[])engine.Convert(engine.Pop(), paramDescriptors[0]);
 
             return engine.witnessChecker.Check(Neo.UInt160.Zero);
-        }
-
-        private static StackItem? Debug_RuntimeNotify(
-            DebugApplicationEngine engine,
-            IReadOnlyList<InteropParameterDescriptor> paramDescriptors)
-        {
-            Debug.Assert(paramDescriptors.Count == 2);
-
-            var eventName = (byte[])engine.Convert(engine.Pop(), paramDescriptors[0]);
-            var state = (NeoArray)engine.Convert(engine.Pop(), paramDescriptors[1]);
-
-            NotifyEventArgs args = new NotifyEventArgs(
-                engine.ScriptContainer,
-                engine.CurrentScriptHash,
-                eventName.ToStrictUTF8String(),
-                (NeoArray)state.DeepCopy());
-            engine.DebugNotify?.Invoke(engine, args);
-
-            engine.RuntimeNotify(eventName, state);
-            return null;
-        }
-
-        private static StackItem? Debug_RuntimeLog(
-            DebugApplicationEngine engine,
-            IReadOnlyList<InteropParameterDescriptor> paramDescriptors)
-        {
-            Debug.Assert(paramDescriptors.Count == 1);
-
-            var state = (byte[])engine.Convert(engine.Pop(), paramDescriptors[0]);
-            var args = new LogEventArgs(
-                engine.ScriptContainer,
-                engine.CurrentScriptHash,
-                state.ToStrictUTF8String());
-            engine.DebugLog?.Invoke(engine, args);
-
-            engine.RuntimeLog(state);
-            return null;
         }
 
         private static StackItem? Debug_GetBlock(
