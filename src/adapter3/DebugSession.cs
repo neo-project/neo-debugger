@@ -3,19 +3,14 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Text;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
 using Neo.Persistence;
-using Neo.SmartContract;
 using Neo.VM;
-using NeoDebug;
 
 namespace NeoDebug.Neo3
 {
-    using ByteString = Neo.VM.Types.ByteString;
     using StackItem = Neo.VM.Types.StackItem;
-    using StackItemType = Neo.VM.Types.StackItemType;
 
     internal class DebugSession : IDebugSession, IDisposable
     {

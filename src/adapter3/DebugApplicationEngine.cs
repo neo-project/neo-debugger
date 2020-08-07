@@ -17,7 +17,7 @@ namespace NeoDebug.Neo3
 {
     using ServiceMethod = Func<DebugApplicationEngine, IReadOnlyList<InteropParameterDescriptor>, StackItem?>;
 
-    internal class DebugApplicationEngine : ApplicationEngine, IDebugApplicationEngine
+    internal partial class DebugApplicationEngine : ApplicationEngine, IDebugApplicationEngine
     {
         private readonly static IReadOnlyDictionary<uint, ServiceMethod> debugServices;
 
@@ -42,7 +42,8 @@ namespace NeoDebug.Neo3
         public event EventHandler<LogEventArgs>? DebugLog;
         private readonly WitnessChecker witnessChecker;
         private readonly IReadOnlyDictionary<uint, UInt256> blockHashMap;
-        private readonly Lazy<IReadOnlyList<StackItem>> resultStackAdapter;
+        private readonly EvaluationStackAdapter resultStackAdapter;
+        private readonly InvocationStackAdapter invocationStackAdapter;
 
         public DebugApplicationEngine(IVerifiable container, StoreView storeView, WitnessChecker witnessChecker) : base(TriggerType.Application, container, storeView, 0, true)
         {
@@ -54,7 +55,8 @@ namespace NeoDebug.Neo3
 
             Log += OnLog;
             Notify += OnNotify;
-            resultStackAdapter = new Lazy<IReadOnlyList<StackItem>>(() => new EvaluationStackAdapter(this.ResultStack));
+            resultStackAdapter = new EvaluationStackAdapter(this.ResultStack);
+            invocationStackAdapter = new InvocationStackAdapter(this);
         }
 
         public override void Dispose()
@@ -223,10 +225,10 @@ namespace NeoDebug.Neo3
         public IStorageContainer GetStorageContainer(UInt160 scriptHash)
             => new StorageContainer(scriptHash, Snapshot);
 
-        IReadOnlyCollection<IExecutionContext> IDebugApplicationEngine.InvocationStack => null!; //InvocationStack;
+        IReadOnlyCollection<IExecutionContext> IDebugApplicationEngine.InvocationStack => invocationStackAdapter;
 
-        IReadOnlyList<StackItem> IDebugApplicationEngine.ResultStack => resultStackAdapter.Value;
+        IReadOnlyList<StackItem> IDebugApplicationEngine.ResultStack => resultStackAdapter;
 
-        IExecutionContext IDebugApplicationEngine.CurrentContext => null!;
+        IExecutionContext IDebugApplicationEngine.CurrentContext => new ExecutionContextAdapter(CurrentContext);
     }
 }
