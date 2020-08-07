@@ -18,8 +18,8 @@ namespace NeoDebug.Neo3
         public const string UNCAUGHT_EXCEPTION_FILTER = "uncaught";
 
         private readonly IDebugApplicationEngine engine;
-        private readonly IStore store;
         private readonly IReadOnlyList<string> returnTypes;
+        private readonly IReadOnlyDictionary<UInt160, DebugInfo> debugInfoMap;
         private readonly Action<DebugEvent> sendEvent;
         private bool disassemblyView;
         private readonly DisassemblyManager disassemblyManager;
@@ -28,15 +28,15 @@ namespace NeoDebug.Neo3
         private bool breakOnCaughtExceptions;
         private bool breakOnUncaughtExceptions = true;
 
-        public DebugSession(IDebugApplicationEngine engine, IStore store, IReadOnlyList<string> returnTypes, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
+        public DebugSession(IDebugApplicationEngine engine, IReadOnlyList<DebugInfo> debugInfoList, IReadOnlyList<string> returnTypes, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
         {
             this.engine = engine;
-            this.store = store;
             this.returnTypes = returnTypes;
             this.sendEvent = sendEvent;
-            this.disassemblyView = defaultDebugView == DebugView.Disassembly;
-            this.disassemblyManager = new DisassemblyManager(TryGetScript, TryGetDebugInfo);
-            this.breakpointManager = new BreakpointManager(this.disassemblyManager, () => DebugInfo.Find(store));
+            debugInfoMap = debugInfoList.ToDictionary(di => di.ScriptHash);
+            disassemblyView = defaultDebugView == DebugView.Disassembly;
+            disassemblyManager = new DisassemblyManager(TryGetScript, debugInfoMap.TryGetValue);
+            breakpointManager = new BreakpointManager(disassemblyManager, debugInfoList);
 
             this.engine.DebugNotify += OnNotify;
             this.engine.DebugLog += OnLog;
@@ -84,12 +84,6 @@ namespace NeoDebug.Neo3
             return false;
         }
 
-        private bool TryGetDebugInfo(UInt160 scriptHash, [MaybeNullWhen(false)] out DebugInfo debugInfo)
-        {
-            debugInfo = DebugInfo.TryGet(store, scriptHash)!;
-            return debugInfo != null;
-        }
-
         public void Start()
         {
             variableManager.Clear();
@@ -117,7 +111,7 @@ namespace NeoDebug.Neo3
             {
                 var scriptHash = context.GetScriptHash();
                 DebugInfo.Method? method = null;
-                if (TryGetDebugInfo(scriptHash, out var debugInfo))
+                if (debugInfoMap.TryGetValue(scriptHash, out var debugInfo))
                 {
                     method = debugInfo.GetMethod(context.InstructionPointer);
                 }
@@ -184,7 +178,7 @@ namespace NeoDebug.Neo3
             }
             else
             {
-                var debugInfo = TryGetDebugInfo(scriptHash, out var di) ? di : null;
+                var debugInfo = debugInfoMap.TryGetValue(scriptHash, out var di) ? di : null;
                 yield return AddScope("Variables", new ExecutionContextContainer(context, debugInfo));
             }
 
@@ -259,7 +253,7 @@ namespace NeoDebug.Neo3
                 return (container.Evaluate(name), string.Empty);
             }
 
-            if (TryGetDebugInfo(scriptHash, out var debugInfo)
+            if (debugInfoMap.TryGetValue(scriptHash, out var debugInfo)
                 && debugInfo.TryGetMethod(context.InstructionPointer, out var method))
             {
                 if (TryEvaluateSlot(context.Arguments, method.Parameters, out (StackItem?, string) result))
@@ -470,7 +464,7 @@ namespace NeoDebug.Neo3
                 if (engine.CurrentContext != null)
                 {
                     var ip = engine.CurrentContext.InstructionPointer;
-                    if (TryGetDebugInfo(engine.CurrentScriptHash, out var info))
+                    if (debugInfoMap.TryGetValue(engine.CurrentScriptHash, out var info))
                     {
                         var methods = info.Methods;
                         for (int i = 0; i < methods.Count; i++)

@@ -28,24 +28,29 @@ namespace NeoDebug.Neo3
         {
             var config = launchArguments.ConfigurationProperties;
             var sourceFileMap = ParseSourceFileMap(config);
+            var returnTypes = ParseReturnTypes(config).ToList();
+
             var (trigger, witnessChecker) = ParseRuntime(config);
             if (trigger != TriggerType.Application)
             {
                 throw new Exception($"Trigger Type {trigger} not supported");
             }
 
-            var (launchContract, _) = LoadContract(config["program"].Value<string>());
+            var debugInfoList = new List<DebugInfo>();
+            var (launchContract, launchManifest, launchDebugInfo) = LoadContract(config["program"].Value<string>(), sourceFileMap);
+            debugInfoList.Add(launchDebugInfo);
 
             IStore store = CreateBlockchainStorage(config);
+            var launchId = AddContract(store, launchContract, launchManifest);
+            AddStorage(store, launchId, ParseStorage(config));
 
             foreach (var (path, storages) in ParseContracts(config))
             {
-                var (contract, manifest) = LoadContract(path);
-                var debugInfo = DebugInfoParser.Load(path, sourceFileMap);
+                var (contract, manifest, debugInfo) = LoadContract(path, sourceFileMap);
 
                 var id = AddContract(store, contract, manifest);
                 AddStorage(store, id, storages);
-                debugInfo.Put(store);
+                debugInfoList.Add(debugInfo);
             }
 
             var invokeScript = CreateLaunchScript(launchContract.ScriptHash, config);
@@ -64,8 +69,7 @@ namespace NeoDebug.Neo3
             var engine = new DebugApplicationEngine(tx, new SnapshotView(store), witnessChecker);
             engine.LoadScript(invokeScript);
 
-            var returnTypes = ParseReturnTypes(config).ToList();
-            return new DebugSession(engine, store, returnTypes, sendEvent, defaultDebugView);
+            return new DebugSession(engine, debugInfoList, returnTypes, sendEvent, defaultDebugView);
 
             static void AddStorage(IStore store, int contractId, IEnumerable<(byte[] key, StorageItem item)> storages)
             {
@@ -91,7 +95,7 @@ namespace NeoDebug.Neo3
                     return contractState.Id;
                 }
 
-                contractState = new Neo.Ledger.ContractState
+                contractState = new ContractState
                 {
                     Id = snapshotView.ContractId.GetAndChange().NextId++,
                     Script = contract.Script,
@@ -104,16 +108,19 @@ namespace NeoDebug.Neo3
                 return contractState.Id;
             }
 
-            static (NefFile contract, ContractManifest manifest) LoadContract(string contractPath)
+            static (NefFile contract, ContractManifest manifest, DebugInfo debugInfo)
+                LoadContract(string contractPath, IReadOnlyDictionary<string, string> sourceFileMap)
             {
-                var manifestPath = System.IO.Path.ChangeExtension(contractPath, ".manifest.json");
+                var manifestPath = Path.ChangeExtension(contractPath, ".manifest.json");
                 var manifest = ContractManifest.Parse(File.ReadAllBytes(manifestPath));
 
                 using var stream = File.OpenRead(contractPath);
                 using var reader = new BinaryReader(stream, Encoding.UTF8, false);
                 var nefFile = reader.ReadSerializable<NefFile>();
 
-                return (nefFile, manifest);
+                var debugInfo = DebugInfoParser.Load(contractPath, sourceFileMap);
+
+                return (nefFile, manifest, debugInfo);
             }
         }
 
@@ -180,11 +187,6 @@ namespace NeoDebug.Neo3
 
         static IEnumerable<(string contractPath, IEnumerable<(byte[] key, StorageItem item)> storages)> ParseContracts(Dictionary<string, JToken> config)
         {
-            var program = config["program"].Value<string>();
-            var programStorages = ParseStorage(config);
-
-            yield return (program, programStorages);
-
             if (config.TryGetValue("stored-contracts", out var storedContracts))
             {
                 foreach (var storedContract in storedContracts)

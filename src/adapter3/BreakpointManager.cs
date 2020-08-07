@@ -10,14 +10,14 @@ namespace NeoDebug.Neo3
     class BreakpointManager
     {
         private readonly DisassemblyManager disassemblyManager;
-        private readonly Func<IEnumerable<DebugInfo>> enumDebugInfo;
+        private readonly IReadOnlyList<DebugInfo> debugInfoList;
         private readonly Dictionary<UInt160, ImmutableHashSet<int>> breakpointCache = new Dictionary<UInt160, ImmutableHashSet<int>>();
         private readonly Dictionary<string, IReadOnlyList<SourceBreakpoint>> sourceBreakpointMap = new Dictionary<string, IReadOnlyList<SourceBreakpoint>>();
 
-        public BreakpointManager(DisassemblyManager disassemblyManager, Func<IEnumerable<DebugInfo>> enumDebugInfo)
+        public BreakpointManager(DisassemblyManager disassemblyManager, IReadOnlyList<DebugInfo> debugInfoList)
         {
             this.disassemblyManager = disassemblyManager;
-            this.enumDebugInfo = enumDebugInfo;
+            this.debugInfoList = debugInfoList;
         }
 
         public IEnumerable<Breakpoint> SetBreakpoints(Source source, IReadOnlyList<SourceBreakpoint> sourceBreakpoints)
@@ -43,7 +43,7 @@ namespace NeoDebug.Neo3
             }
             else
             {
-                var sequencePoints = enumDebugInfo()
+                var sequencePoints = debugInfoList
                     .SelectMany(d => d.Methods.SelectMany(m => m.SequencePoints).Select(sp => (d, sp)))
                     .Where(t => t.sp.PathEquals(t.d, source.Path))
                     .Select(t => t.sp)
@@ -62,7 +62,7 @@ namespace NeoDebug.Neo3
             }
         }
 
-        ImmutableHashSet<int> GetBreakpoints(UInt160 scriptHash)
+        private ImmutableHashSet<int> GetBreakpoints(UInt160 scriptHash)
         {
             if (!breakpointCache.TryGetValue(scriptHash, out var breakpoints))
             {
@@ -88,7 +88,7 @@ namespace NeoDebug.Neo3
                     }
                     else
                     {
-                        foreach (var debugInfo in enumDebugInfo())
+                        foreach (var debugInfo in debugInfoList)
                         {
                             var sequencePoints = debugInfo.Methods
                                 .SelectMany(m => m.SequencePoints)
