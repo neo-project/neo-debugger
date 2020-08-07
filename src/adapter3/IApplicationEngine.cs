@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Neo.SmartContract;
 using StackItem = Neo.VM.Types.StackItem;
@@ -8,7 +8,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace NeoDebug.Neo3
 {
-    internal interface IDebugApplicationEngine
+    internal interface IApplicationEngine
     {
         event EventHandler<NotifyEventArgs> DebugNotify;
         event EventHandler<LogEventArgs> DebugLog;

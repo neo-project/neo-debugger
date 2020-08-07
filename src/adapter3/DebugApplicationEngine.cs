@@ -17,7 +17,7 @@ namespace NeoDebug.Neo3
 {
     using ServiceMethod = Func<DebugApplicationEngine, IReadOnlyList<InteropParameterDescriptor>, StackItem?>;
 
-    internal partial class DebugApplicationEngine : ApplicationEngine, IDebugApplicationEngine
+    internal partial class DebugApplicationEngine : ApplicationEngine, IApplicationEngine
     {
         private readonly static IReadOnlyDictionary<uint, ServiceMethod> debugServices;
 
@@ -225,11 +225,11 @@ namespace NeoDebug.Neo3
         public IStorageContainer GetStorageContainer(UInt160 scriptHash)
             => new StorageContainer(scriptHash, Snapshot);
 
-        IReadOnlyCollection<IExecutionContext> IDebugApplicationEngine.InvocationStack => invocationStackAdapter;
+        IReadOnlyCollection<IExecutionContext> IApplicationEngine.InvocationStack => invocationStackAdapter;
 
-        IReadOnlyList<StackItem> IDebugApplicationEngine.ResultStack => resultStackAdapter;
+        IReadOnlyList<StackItem> IApplicationEngine.ResultStack => resultStackAdapter;
 
-        IExecutionContext? IDebugApplicationEngine.CurrentContext => CurrentContext == null
+        IExecutionContext? IApplicationEngine.CurrentContext => CurrentContext == null
             ? null
             : new ExecutionContextAdapter(CurrentContext);
     }

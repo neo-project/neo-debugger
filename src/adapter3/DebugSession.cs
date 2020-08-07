@@ -17,7 +17,7 @@ namespace NeoDebug.Neo3
         public const string CAUGHT_EXCEPTION_FILTER = "caught";
         public const string UNCAUGHT_EXCEPTION_FILTER = "uncaught";
 
-        private readonly IDebugApplicationEngine engine;
+        private readonly IApplicationEngine engine;
         private readonly IReadOnlyList<string> returnTypes;
         private readonly IReadOnlyDictionary<UInt160, DebugInfo> debugInfoMap;
         private readonly Action<DebugEvent> sendEvent;
@@ -28,7 +28,7 @@ namespace NeoDebug.Neo3
         private bool breakOnCaughtExceptions;
         private bool breakOnUncaughtExceptions = true;
 
-        public DebugSession(IDebugApplicationEngine engine, IReadOnlyList<DebugInfo> debugInfoList, IReadOnlyList<string> returnTypes, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
+        public DebugSession(IApplicationEngine engine, IReadOnlyList<DebugInfo> debugInfoList, IReadOnlyList<string> returnTypes, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
         {
             this.engine = engine;
             this.returnTypes = returnTypes;
