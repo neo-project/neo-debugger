@@ -20,5 +20,6 @@ namespace NeoDebug.Neo3
         void StepIn();
         void StepOut();
         void StepOver();
+        void StepBack();
     }
 }

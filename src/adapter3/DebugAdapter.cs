@@ -69,7 +69,7 @@ namespace NeoDebug.Neo3
             {
                 SupportsEvaluateForHovers = true,
                 SupportsExceptionInfoRequest = true,
-                // SupportsStepBack = trace,
+                SupportsStepBack = trace,
                 ExceptionBreakpointFilters = new List<ExceptionBreakpointsFilter>
                 {
                     new ExceptionBreakpointsFilter(
@@ -308,6 +308,22 @@ namespace NeoDebug.Neo3
 
                 session.StepOver();
                 return new NextResponse();
+            }
+            catch (Exception ex)
+            {
+                Log(ex.Message, LogCategory.DebugAdapterOutput);
+                throw new ProtocolException(ex.Message, ex);
+            }
+        }
+
+        protected override StepBackResponse HandleStepBackRequest(StepBackArguments arguments)
+        {
+            try
+            {
+                if (session == null) throw new InvalidOperationException();
+
+                session.StepBack();
+                return new StepBackResponse();
             }
             catch (Exception ex)
             {

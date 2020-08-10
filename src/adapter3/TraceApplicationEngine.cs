@@ -34,7 +34,7 @@ namespace NeoDebug.Neo3
             traceFileStream = File.OpenRead(traceFilePath);
 
             this.contracts = contracts.ToDictionary(c => c.ScriptHash, c => (Script)c.Script);
-            ExecuteInstruction();
+            ExecuteNextInstruction();
         }
 
         public void Dispose()
@@ -42,11 +42,11 @@ namespace NeoDebug.Neo3
             traceFileStream.Dispose();
         }
 
-        public IReadOnlyCollection<IExecutionContext> InvocationStack { get; private set; }
+        public IReadOnlyCollection<IExecutionContext> InvocationStack { get; private set; } = new List<IExecutionContext>();
 
         public IExecutionContext? CurrentContext => InvocationStack.FirstOrDefault();
 
-        public IReadOnlyList<StackItem> ResultStack { get; private set; }
+        public IReadOnlyList<StackItem> ResultStack { get; private set; } = new List<StackItem>();
 
         public StackItem? UncaughtException { get; private set; }
 
@@ -59,53 +59,92 @@ namespace NeoDebug.Neo3
             return false;
         }
 
-        private ITraceDebugRecord GetNextRecord()
+        private void ProcessRecord(ITraceDebugRecord record, bool stepForward)
         {
-            if (nextRecords.TryPop(out var record))
+            switch (record)
             {
-                return record;
+                case TraceRecord trace:
+                    State = trace.State;
+                    InvocationStack = trace.StackFrames
+                        .Select(sf => new ExecutionContextAdapter(sf, contracts))
+                        .ToList();
+                    break;
+                case NotifyRecord notify:
+                    if (stepForward)
+                    {
+                        DebugNotify?.Invoke(this, (notify.ScriptHash, notify.EventName, new NeoArray(notify.State)));
+                    }
+                    break;
+                case LogRecord log:
+                    if (stepForward)
+                    {
+                        DebugLog?.Invoke(this, (log.ScriptHash, log.Message));
+                    }
+                    break;
+                case ResultsRecord results:
+                    ResultStack = stepForward ? results.ResultStack : new List<StackItem>();
+                    break;
+                case FaultRecord fault:
+                    UncaughtException = stepForward ? true : StackItem.Null;
+                    break;
+                default:
+                    throw new InvalidDataException($"TraceDebugRecord {record.GetType().Name}");
             }
-
-            if (traceFileStream.Position < traceFileStream.Length)
-            {
-                return MessagePackSerializer.Deserialize<ITraceDebugRecord>(traceFileStream, options);
-            }
-
-            throw new Exception("no more records");
         }
 
-        public bool ExecuteInstruction()
+
+        public bool ExecuteNextInstruction()
         {
-            while (traceFileStream.Position < traceFileStream.Length)
+            while (TryGetNextRecord(out var record))
             {
-                var record = MessagePackSerializer.Deserialize<ITraceDebugRecord>(traceFileStream, options);
-                switch (record)
+                if (record is ScriptRecord script)
                 {
-                    case TraceRecord trace:
-                        State = trace.State;
-                        InvocationStack = trace.StackFrames
-                            .Select(sf => new ExecutionContextAdapter(sf, contracts))
-                            .ToList();
-                        return false;
-                    case NotifyRecord notify:
-                        DebugNotify?.Invoke(this, (notify.ScriptHash, notify.EventName, new NeoArray(notify.State)));
-                        break;
-                    case LogRecord log:
-                        DebugLog?.Invoke(this, (log.ScriptHash, log.Message));
-                        break;
-                    case ResultsRecord results:
-                        ResultStack = results.ResultStack;
-                        break;
-                    case FaultRecord fault:
-                        // UncaughtException = new Neo.VM.Types.ByteString(fault.
-                        break;
-                    case ScriptRecord script:
-                        contracts.Add(script.ScriptHash, script.Script);
-                        break;
-                    default:
-                        throw new Exception("unknown TraceDebugRecord");
+                    contracts.Add(script.ScriptHash, script.Script);
+                }
+                else
+                {
+                    ProcessRecord(record, false);
+                    previousRecords.Push(record);
+                }
+
+                if (record is TraceRecord)
+                {
+                    break;
                 }
             }
+
+            return false;
+
+            bool TryGetNextRecord(out ITraceDebugRecord record)
+            {
+                if (nextRecords.TryPop(out record!))
+                {
+                    return true;
+                }
+
+                if (traceFileStream.Position < traceFileStream.Length)
+                {
+                    record = MessagePackSerializer.Deserialize<ITraceDebugRecord>(traceFileStream, options);
+                    return true;
+                }
+
+                return false;
+            }
+        }
+
+        public bool ExecutePrevInstruction()
+        {
+            while (previousRecords.Count > 0)
+            {
+                var record = previousRecords.Pop();
+                if (record is TraceRecord trace)
+                {
+                    ProcessRecord(trace, true);
+                    break;
+                }
+                nextRecords.Push(record);
+            }
+
             return false;
         }
 

@@ -396,7 +396,7 @@ namespace NeoDebug.Neo3
             sendEvent(new StoppedEvent(reasonValue) { ThreadId = 1 });
         }
 
-        private void Step(Func<int, bool> compareStepDepth)
+        private void Step(Func<int, bool> compareStepDepth, bool stepBack = false)
         {
             while (true)
             {
@@ -433,7 +433,9 @@ namespace NeoDebug.Neo3
                     return;
                 }
 
-                var exceptionThrown = engine.ExecuteInstruction();
+                var exceptionThrown = stepBack
+                    ? engine.ExecutePrevInstruction()
+                    : engine.ExecuteNextInstruction();
 
                 if (exceptionThrown)
                 {
@@ -501,6 +503,11 @@ namespace NeoDebug.Neo3
         {
             var originalStackCount = engine.InvocationStack.Count;
             Step((currentStackCount) => currentStackCount <= originalStackCount);
+        }
+
+        public void StepBack()
+        {
+            Step((_) => true, true);
         }
     }
 }

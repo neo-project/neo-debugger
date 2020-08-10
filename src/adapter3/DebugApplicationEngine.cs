@@ -85,7 +85,7 @@ namespace NeoDebug.Neo3
 
         private int lastThrowAddress = -1;
 
-        public bool ExecuteInstruction()
+        public bool ExecuteNextInstruction()
         {
             // ExecutionEngine does not provide a mechanism to halt execution
             // after an exception is thrown but before it has been handled.
@@ -107,6 +107,8 @@ namespace NeoDebug.Neo3
             lastThrowAddress = -1;
             return false;
         }
+
+        public bool ExecutePrevInstruction() => throw new NotSupportedException();
 
         public bool CatchBlockOnStack()
         {

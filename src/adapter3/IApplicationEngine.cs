@@ -16,7 +16,8 @@ namespace NeoDebug.Neo3
 
         bool CatchBlockOnStack();
 
-        bool ExecuteInstruction();
+        bool ExecuteNextInstruction();
+        bool ExecutePrevInstruction();
         bool TryGetContract(UInt160 scriptHash, [MaybeNullWhen(false)] out Script script);
         IStorageContainer GetStorageContainer(UInt160 scriptHash);
 
