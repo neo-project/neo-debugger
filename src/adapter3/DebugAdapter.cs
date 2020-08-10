@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 
@@ -8,10 +9,10 @@ namespace NeoDebug.Neo3
 {
     public class DebugAdapter : DebugAdapterBase
     {
-        public delegate IDebugSession DebugSessionFactory(LaunchArguments launchArguments,
-                                                          Action<DebugEvent> sendEvent,
-                                                          bool trace,
-                                                          DebugView defaultDebugView);
+        public delegate Task<IDebugSession> DebugSessionFactory(LaunchArguments launchArguments,
+                                                                Action<DebugEvent> sendEvent,
+                                                                bool trace,
+                                                                DebugView defaultDebugView);
 
         private class DebugViewRequest : DebugRequest<DebugViewArguments>
         {
@@ -68,7 +69,7 @@ namespace NeoDebug.Neo3
             {
                 SupportsEvaluateForHovers = true,
                 SupportsExceptionInfoRequest = true,
-                SupportsStepBack = trace,
+                // SupportsStepBack = trace,
                 ExceptionBreakpointFilters = new List<ExceptionBreakpointsFilter>
                 {
                     new ExceptionBreakpointsFilter(
@@ -97,7 +98,8 @@ namespace NeoDebug.Neo3
             {
                 if (session != null) throw new InvalidOperationException();
 
-                session = sessionFactory(arguments, Protocol.SendEvent, trace, defaultDebugView);
+                session = sessionFactory(arguments, Protocol.SendEvent, trace, defaultDebugView)
+                    .GetAwaiter().GetResult();
                 session.Start();
 
                 return new LaunchResponse();

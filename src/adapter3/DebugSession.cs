@@ -7,6 +7,7 @@ using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
 using Neo.Persistence;
 using Neo.VM;
+using NeoArray = Neo.VM.Types.Array;
 
 namespace NeoDebug.Neo3
 {
@@ -42,19 +43,19 @@ namespace NeoDebug.Neo3
             this.engine.DebugLog += OnLog;
         }
 
-        private void OnNotify(object? sender, Neo.SmartContract.NotifyEventArgs args)
+        private void OnNotify(object? sender, (UInt160 scriptHash, string eventName, NeoArray state) args)
         {
             sendEvent(new OutputEvent()
             {
-                Output = $"Runtime.Notify: {args.ScriptHash} {args.State.ToResult()}\n",
+                Output = $"Runtime.Notify: {args.scriptHash} {args.state.ToResult()}\n",
             });
         }
 
-        private void OnLog(object? sender, Neo.SmartContract.LogEventArgs args)
+        private void OnLog(object? sender, (UInt160 scriptHash, string message) args)
         {
             sendEvent(new OutputEvent()
             {
-                Output = $"Runtime.Log: {args.ScriptHash} {args.Message}\n",
+                Output = $"Runtime.Log: {args.scriptHash} {args.message}\n",
             });
         }
 
@@ -73,7 +74,7 @@ namespace NeoDebug.Neo3
 
             foreach (var context in engine.InvocationStack)
             {
-                if (scriptHash == context.GetScriptHash())
+                if (scriptHash == context.ScriptHash)
                 {
                     script = context.Script;
                     return true;
@@ -109,7 +110,7 @@ namespace NeoDebug.Neo3
 
             foreach (var (context, index) in engine.InvocationStack.Select((c, i) => (c, i)))
             {
-                var scriptHash = context.GetScriptHash();
+                var scriptHash = context.ScriptHash;
                 DebugInfo.Method? method = null;
                 if (debugInfoMap.TryGetValue(scriptHash, out var debugInfo))
                 {
@@ -167,7 +168,7 @@ namespace NeoDebug.Neo3
         public IEnumerable<Scope> GetScopes(ScopesArguments args)
         {
             var context = engine.InvocationStack.ElementAt(args.FrameId);
-            var scriptHash = context.GetScriptHash();
+            var scriptHash = context.ScriptHash;
 
             if (disassemblyView)
             {
@@ -245,7 +246,7 @@ namespace NeoDebug.Neo3
                 return (EvaluateSlot(context.StaticFields, 7), string.Empty);
             }
 
-            var scriptHash = context.GetScriptHash();
+            var scriptHash = context.ScriptHash;
 
             if (name.StartsWith("#storage"))
             {

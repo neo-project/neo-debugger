@@ -12,6 +12,7 @@ using System.Numerics;
 using System.Linq;
 using Neo.VM;
 using System.Diagnostics.CodeAnalysis;
+using NeoArray = Neo.VM.Types.Array;
 
 namespace NeoDebug.Neo3
 {
@@ -38,8 +39,8 @@ namespace NeoDebug.Neo3
             }
         }
 
-        public event EventHandler<NotifyEventArgs>? DebugNotify;
-        public event EventHandler<LogEventArgs>? DebugLog;
+        public event EventHandler<(UInt160 scriptHash, string eventName, NeoArray state)>? DebugNotify;
+        public event EventHandler<(UInt160 scriptHash, string message)>? DebugLog;
         private readonly WitnessChecker witnessChecker;
         private readonly IReadOnlyDictionary<uint, UInt256> blockHashMap;
         private readonly EvaluationStackAdapter resultStackAdapter;
@@ -70,7 +71,7 @@ namespace NeoDebug.Neo3
         {
             if (ReferenceEquals(sender, this))
             {
-                DebugNotify?.Invoke(sender, args);
+                DebugNotify?.Invoke(sender, (args.ScriptHash, args.EventName, args.State));
             }
         }
 
@@ -78,7 +79,7 @@ namespace NeoDebug.Neo3
         {
             if (ReferenceEquals(sender, this))
             {
-                DebugLog?.Invoke(sender, args);
+                DebugLog?.Invoke(sender, (args.ScriptHash, args.Message));
             }
         }
 

@@ -18,17 +18,19 @@ using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Text;
+using System.Threading.Tasks;
+using NeoScript = Neo.VM.Script;
 
 namespace NeoDebug.Neo3
 {
-    static class LaunchConfigParser
+    internal static class LaunchConfigParser
     {
-        public static DebugSession CreateDebugSession(LaunchArguments launchArguments, Action<DebugEvent> sendEvent, bool trace, DebugView defaultDebugView)
+        public static async Task<IDebugSession> CreateDebugSession(LaunchArguments launchArguments, Action<DebugEvent> sendEvent, bool trace, DebugView defaultDebugView)
         {
             var config = launchArguments.ConfigurationProperties;
             var sourceFileMap = ParseSourceFileMap(config);
             var returnTypes = ParseReturnTypes(config).ToList();
-            var debugInfoList = ParseDebugInfo(config, sourceFileMap).ToList();
+            var debugInfoList = await ParseDebugInfo(config, sourceFileMap).ToListAsync().ConfigureAwait(false);
 
             var engine = trace
                 ? CreateTraceEngine(config)
@@ -39,13 +41,15 @@ namespace NeoDebug.Neo3
 
         private static IApplicationEngine CreateTraceEngine(Dictionary<string, JToken> config)
         {
-            var traceFilePath = config["program"].Value<string>();
+            var traceFilePath = config["trace-file"].Value<string>();
             if (traceFilePath == null)
             {
                 throw new Exception("trace-file configuration not specified");
             }
 
-            return new TraceApplicationEngine(traceFilePath);
+            var contracts = ParseContracts(config).Select(t => LoadContract(t.contractPath));
+
+            return new TraceApplicationEngine(traceFilePath, contracts);
         }
 
         private static IApplicationEngine CreateDebugEngine(Dictionary<string, JToken> config)
@@ -86,13 +90,6 @@ namespace NeoDebug.Neo3
             engine.LoadScript(invokeScript);
 
             return engine;
-
-            static NefFile LoadContract(string path)
-            {
-                using var stream = File.OpenRead(path);
-                using var reader = new BinaryReader(stream, Encoding.UTF8, false);
-                return reader.ReadSerializable<NefFile>();
-            }
 
             static void AddStorage(IStore store, int contractId, IEnumerable<(byte[] key, StorageItem item)> storages)
             {
@@ -135,7 +132,7 @@ namespace NeoDebug.Neo3
         private static byte[] CreateLaunchScript(UInt160 scriptHash, Dictionary<string, JToken> config)
         {
             var operation = config.TryGetValue("operation", out var op)
-                ? op.Value<string>() 
+                ? op.Value<string>()
                 : throw new InvalidDataException("missing operation config");
             var args = config.TryGetValue("args", out var a)
                 ? ContractParameterParser.ParseParams(a).ToArray()
@@ -194,7 +191,6 @@ namespace NeoDebug.Neo3
 
                 return ProtocolSettings.Initialize(config);
             }
-
         }
 
         private static (TriggerType trigger, WitnessChecker witnessChecker)
@@ -235,11 +231,18 @@ namespace NeoDebug.Neo3
             }
         }
 
-        private static IEnumerable<DebugInfo> ParseDebugInfo(Dictionary<string, JToken> config, IReadOnlyDictionary<string, string> sourceFileMap)
+        private static NefFile LoadContract(string path)
+        {
+            using var stream = File.OpenRead(path);
+            using var reader = new BinaryReader(stream, Encoding.UTF8, false);
+            return reader.ReadSerializable<NefFile>();
+        }
+
+        private static async IAsyncEnumerable<DebugInfo> ParseDebugInfo(Dictionary<string, JToken> config, IReadOnlyDictionary<string, string> sourceFileMap)
         {
             foreach (var (contractPath, _) in ParseContracts(config))
             {
-                yield return DebugInfoParser.Load(contractPath, sourceFileMap);
+                yield return await DebugInfoParser.Load(contractPath, sourceFileMap).ConfigureAwait(false);
             }
         }
 

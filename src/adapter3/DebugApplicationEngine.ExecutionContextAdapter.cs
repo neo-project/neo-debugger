@@ -34,7 +34,7 @@ namespace NeoDebug.Neo3
 
             public Script Script => context.Script;
 
-            public UInt160 GetScriptHash() => context.GetScriptHash();
+            public UInt160 ScriptHash => context.GetScriptHash();
         }
 
     }
