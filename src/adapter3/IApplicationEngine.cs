@@ -25,7 +25,6 @@ namespace NeoDebug.Neo3
         IExecutionContext? CurrentContext { get; }
         IReadOnlyList<StackItem> ResultStack { get; }
         StackItem? UncaughtException { get; }
-        UInt160 CurrentScriptHash { get; }
         VMState State { get; }
     }
 }

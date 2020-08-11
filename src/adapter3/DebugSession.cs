@@ -396,6 +396,8 @@ namespace NeoDebug.Neo3
             sendEvent(new StoppedEvent(reasonValue) { ThreadId = 1 });
         }
 
+        private int lastThrowAddress = -1;
+
         private void Step(Func<int, bool> compareStepDepth, bool stepBack = false)
         {
             while (true)
@@ -433,9 +435,35 @@ namespace NeoDebug.Neo3
                     return;
                 }
 
-                var exceptionThrown = stepBack
-                    ? engine.ExecutePrevInstruction()
-                    : engine.ExecuteNextInstruction();
+                // ExecutionEngine does not provide a mechanism to halt execution
+                // after an exception is thrown but before it has been handled.
+                // The debugger needs to be able to treat the exception throw and
+                // handling as separate operations. So DebugApplicationEngine inserts
+                // a dummy instruction execution when it detects a THROW opcode.
+                // The THROW operation address is used to ensure only a single dummy
+                // instruction is executed. The ExecuteInstruction return value
+                // indicates that a dummy THROW instruction has been inserted.
+
+                bool exceptionThrown = false;
+                if (stepBack)
+                {
+                    if (!engine.ExecutePrevInstruction())
+                        break;
+                }
+                else
+                {
+                    if (engine.CurrentContext?.CurrentInstruction.OpCode == OpCode.THROW
+                        && engine.CurrentContext.InstructionPointer != lastThrowAddress)
+                    {
+                        exceptionThrown = true;
+                        lastThrowAddress = engine.CurrentContext.InstructionPointer;
+                    }
+                    else
+                    {
+                        if (!engine.ExecuteNextInstruction())
+                            break;
+                    }
+                }
 
                 if (exceptionThrown)
                 {
@@ -448,7 +476,7 @@ namespace NeoDebug.Neo3
                     }
                 }
 
-                if (breakpointManager.CheckBreakpoint(engine.CurrentScriptHash, engine.CurrentContext?.InstructionPointer))
+                if (breakpointManager.CheckBreakpoint(engine.CurrentContext?.ScriptHash ?? UInt160.Zero, engine.CurrentContext?.InstructionPointer))
                 {
                     FireStoppedEvent(StoppedEvent.ReasonValue.Breakpoint);
                     return;
@@ -467,7 +495,7 @@ namespace NeoDebug.Neo3
                 if (engine.CurrentContext != null)
                 {
                     var ip = engine.CurrentContext.InstructionPointer;
-                    if (debugInfoMap.TryGetValue(engine.CurrentScriptHash, out var info))
+                    if (debugInfoMap.TryGetValue(engine.CurrentContext?.ScriptHash ?? UInt160.Zero, out var info))
                     {
                         var methods = info.Methods;
                         for (int i = 0; i < methods.Count; i++)
@@ -486,6 +514,11 @@ namespace NeoDebug.Neo3
         public void Continue()
         {
             Step((_) => false);
+        }
+
+        public void ReverseContinue()
+        {
+            Step((_) => false, true);
         }
 
         public void StepIn()

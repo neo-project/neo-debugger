@@ -5,7 +5,6 @@ namespace NeoDebug.Neo3
 {
     public interface IDebugSession
     {
-        void Continue();
         EvaluateResponse Evaluate(EvaluateArguments args);
         string GetExceptionInfo();
         IEnumerable<Scope> GetScopes(ScopesArguments args);
@@ -17,6 +16,8 @@ namespace NeoDebug.Neo3
         void SetDebugView(DebugView debugView);
         void SetExceptionBreakpoints(IReadOnlyList<string> filters);
         void Start();
+        void Continue();
+        void ReverseContinue();
         void StepIn();
         void StepOut();
         void StepOver();

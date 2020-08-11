@@ -6,60 +6,77 @@ using NeoArray = Neo.VM.Types.Array;
 using Neo;
 using Neo.VM;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
-using MessagePack;
-using MessagePack.Resolvers;
-using System.Buffers;
 using Neo.BlockchainToolkit.TraceDebug;
 using System.Linq;
-using System.Collections.Immutable;
+using System.IO;
 
 namespace NeoDebug.Neo3
 {
-    internal partial class TraceApplicationEngine : IApplicationEngine
+    internal sealed partial class TraceApplicationEngine : IApplicationEngine
     {
-        private readonly MessagePackSerializerOptions options = MessagePackSerializerOptions.Standard
-            .WithResolver(TraceDebugResolver.Instance);
-        private readonly Stream traceFileStream;
+        private bool disposedValue;
+        private readonly TraceFile traceFile;
         private readonly Dictionary<UInt160, Script> contracts;
-
-        private readonly Stack<ITraceDebugRecord> previousRecords = new Stack<ITraceDebugRecord>();
-        private readonly Stack<ITraceDebugRecord> nextRecords = new Stack<ITraceDebugRecord>();
-
-        public event EventHandler<(UInt160 scriptHash, string eventName, NeoArray state)>? DebugNotify;
-        public event EventHandler<(UInt160 scriptHash, string message)>? DebugLog;
+        private TraceRecord? currentTraceRecord;
 
         public TraceApplicationEngine(string traceFilePath, IEnumerable<NefFile> contracts)
         {
-            traceFileStream = File.OpenRead(traceFilePath);
-
             this.contracts = contracts.ToDictionary(c => c.ScriptHash, c => (Script)c.Script);
-            ExecuteNextInstruction();
+            traceFile = new TraceFile(traceFilePath, this.contracts);
+
+            while (traceFile.TryGetNext(out var record))
+            {
+                ProcessRecord(record);
+                if (record is TraceRecord trace)
+                {
+                    currentTraceRecord = trace;
+                    break;
+                }
+            }
         }
 
         public void Dispose()
         {
-            traceFileStream.Dispose();
+            if (!disposedValue)
+            {
+                traceFile.Dispose();
+                disposedValue = true;
+            }
         }
 
-        public IReadOnlyCollection<IExecutionContext> InvocationStack { get; private set; } = new List<IExecutionContext>();
-
-        public IExecutionContext? CurrentContext => InvocationStack.FirstOrDefault();
-
-        public IReadOnlyList<StackItem> ResultStack { get; private set; } = new List<StackItem>();
-
-        public StackItem? UncaughtException { get; private set; }
-
-        public UInt160 CurrentScriptHash => CurrentContext?.ScriptHash ?? UInt160.Zero;
-
-        public VMState State { get; private set; }
-
-        public bool CatchBlockOnStack()
+        public bool ExecuteNextInstruction()
         {
+            while (traceFile.TryGetNext(out var record))
+            {
+                ProcessRecord(record);
+                if (record is TraceRecord trace
+                    && !ReferenceEquals(trace, currentTraceRecord))
+                {
+                    currentTraceRecord = trace;
+                    return true;
+                }
+            }
+
             return false;
         }
 
-        private void ProcessRecord(ITraceDebugRecord record, bool stepForward)
+        public bool ExecutePrevInstruction()
+        {
+            while (traceFile.TryGetPrev(out var record))
+            {
+                ProcessRecord(record, true);
+                if (record is TraceRecord trace
+                    && !ReferenceEquals(trace, currentTraceRecord))
+                {
+                    currentTraceRecord = trace;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void ProcessRecord(ITraceDebugRecord record, bool ignoreEvents = false)
         {
             switch (record)
             {
@@ -70,90 +87,49 @@ namespace NeoDebug.Neo3
                         .ToList();
                     break;
                 case NotifyRecord notify:
-                    if (stepForward)
+                    if (!ignoreEvents)
                     {
                         DebugNotify?.Invoke(this, (notify.ScriptHash, notify.EventName, new NeoArray(notify.State)));
                     }
                     break;
                 case LogRecord log:
-                    if (stepForward)
+                    if (!ignoreEvents)
                     {
                         DebugLog?.Invoke(this, (log.ScriptHash, log.Message));
                     }
                     break;
                 case ResultsRecord results:
-                    ResultStack = stepForward ? results.ResultStack : new List<StackItem>();
+                    ResultStack = results.ResultStack;
                     break;
                 case FaultRecord fault:
-                    UncaughtException = stepForward ? true : StackItem.Null;
+                    // UncaughtException = stepForward ? true : StackItem.Null;
                     break;
                 default:
                     throw new InvalidDataException($"TraceDebugRecord {record.GetType().Name}");
             }
         }
 
+        public VMState State { get; private set; }
+        public IReadOnlyCollection<IExecutionContext> InvocationStack { get; private set; } = new List<IExecutionContext>();
+        public IExecutionContext? CurrentContext => InvocationStack.FirstOrDefault();
+        public IReadOnlyList<StackItem> ResultStack { get; private set; } = new List<StackItem>();
+        public StackItem? UncaughtException { get; private set; }
+        public event EventHandler<(UInt160 scriptHash, string eventName, NeoArray state)>? DebugNotify;
+        public event EventHandler<(UInt160 scriptHash, string message)>? DebugLog;
 
-        public bool ExecuteNextInstruction()
+        public bool CatchBlockOnStack()
         {
-            while (TryGetNextRecord(out var record))
-            {
-                if (record is ScriptRecord script)
-                {
-                    contracts.Add(script.ScriptHash, script.Script);
-                }
-                else
-                {
-                    ProcessRecord(record, false);
-                    previousRecords.Push(record);
-                }
-
-                if (record is TraceRecord)
-                {
-                    break;
-                }
-            }
-
             return false;
-
-            bool TryGetNextRecord(out ITraceDebugRecord record)
-            {
-                if (nextRecords.TryPop(out record!))
-                {
-                    return true;
-                }
-
-                if (traceFileStream.Position < traceFileStream.Length)
-                {
-                    record = MessagePackSerializer.Deserialize<ITraceDebugRecord>(traceFileStream, options);
-                    return true;
-                }
-
-                return false;
-            }
         }
 
-        public bool ExecutePrevInstruction()
+        public bool TryGetContract(UInt160 scriptHash, [MaybeNullWhen(false)] out Script script)
         {
-            while (previousRecords.Count > 0)
-            {
-                var record = previousRecords.Pop();
-                if (record is TraceRecord trace)
-                {
-                    ProcessRecord(trace, true);
-                    break;
-                }
-                nextRecords.Push(record);
-            }
-
-            return false;
+            return contracts.TryGetValue(scriptHash, out script);
         }
 
         public IStorageContainer GetStorageContainer(UInt160 scriptHash)
         {
             return new TraceStorageContainer();
         }
-
-        public bool TryGetContract(UInt160 scriptHash, [MaybeNullWhen(false)] out Script script)
-            => contracts.TryGetValue(scriptHash, out script);
     }
 }
