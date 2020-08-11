@@ -7,6 +7,8 @@ using System.IO;
 using MessagePack;
 using MessagePack.Resolvers;
 using Neo.BlockchainToolkit.TraceDebug;
+using Neo.Ledger;
+using System.Linq;
 
 namespace NeoDebug.Neo3
 {
@@ -77,6 +79,19 @@ namespace NeoDebug.Neo3
                 return false;
             }
 
+            public IEnumerable<(ReadOnlyMemory<byte> key, StorageItem value)> FindStorage(UInt160 scriptHash)
+            {
+                foreach (var rec in previousRecords)
+                {
+                    if (rec is StorageRecord storage
+                        && storage.ScriptHash.Equals(scriptHash))
+                    {
+                        return storage.Storages.Select(t => ((ReadOnlyMemory<byte>)t.Key, t.Value));
+                    }
+                }
+
+                return Enumerable.Empty<(ReadOnlyMemory<byte>, StorageItem)>();
+            }
         }
     }
 }

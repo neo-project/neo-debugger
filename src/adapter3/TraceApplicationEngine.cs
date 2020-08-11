@@ -18,7 +18,6 @@ namespace NeoDebug.Neo3
         private bool disposedValue;
         private readonly TraceFile traceFile;
         private readonly Dictionary<UInt160, Script> contracts;
-        private readonly Dictionary<UInt160, IReadOnlyList<(ReadOnlyMemory<byte>, StorageItem)>> storageMap = new Dictionary<UInt160, IReadOnlyList<(ReadOnlyMemory<byte>, StorageItem)>>();
         private TraceRecord? currentTraceRecord;
 
         public TraceApplicationEngine(string traceFilePath, IEnumerable<NefFile> contracts)
@@ -88,10 +87,7 @@ namespace NeoDebug.Neo3
                         .Select(sf => new ExecutionContextAdapter(sf, contracts))
                         .ToList();
                     break;
-                case StorageRecord storage:
-                    storageMap[storage.ScriptHash] = storage.Storages
-                        .Select(kvp => ((ReadOnlyMemory<byte>)kvp.Key, kvp.Value))
-                        .ToList();
+                case StorageRecord _:
                     break;
                 case NotifyRecord notify:
                     if (!stepBack)
@@ -136,10 +132,7 @@ namespace NeoDebug.Neo3
 
         public StorageContainer GetStorageContainer(UInt160 scriptHash)
         {
-            return new TraceStorageContainer(
-                storageMap.TryGetValue(scriptHash, out var storages)
-                    ? storages
-                    : Enumerable.Empty<(ReadOnlyMemory<byte>, StorageItem)>());
+            return new TraceStorageContainer(traceFile.FindStorage(scriptHash));
         }
     }
 }
