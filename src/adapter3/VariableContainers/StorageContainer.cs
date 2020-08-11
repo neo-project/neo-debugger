@@ -2,6 +2,7 @@ using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
@@ -10,67 +11,24 @@ using Neo.Persistence;
 
 namespace NeoDebug.Neo3
 {
-    internal class StorageContainer : IStorageContainer
+    internal abstract class StorageContainer : IVariableContainer
     {
-        private readonly StoreView store;
-        private readonly int? contractId;
-
-        public StorageContainer(UInt160 scriptHash, StoreView store)
-        {
-            this.store = store;
-            contractId = store.Contracts.TryGet(scriptHash)?.Id;
-        }
-
-        bool TryFind(int hashCode, out (StorageKey key, StorageItem item) tuple)
-        {
-            if (contractId.HasValue)
-            {
-                foreach (var (key, item) in store.Storages.Find())
-                {
-                    if (key.Id != contractId.Value)
-                        continue;
-
-                    var keyHashCode = key.Key.GetSequenceHashCode();
-                    if (hashCode == keyHashCode)
-                    {
-                        tuple = (key, item);
-                        return true;
-                    }
-                }
-            }
-
-            tuple = default;
-            return false;
-        }
+        protected abstract IEnumerable<(ReadOnlyMemory<byte> key, StorageItem item)> GetStorages();
 
         public IEnumerable<Variable> Enumerate(IVariableManager manager)
         {
-            if (contractId.HasValue)
+            var storages = GetStorages();
+            foreach (var (key, item) in storages)
             {
-                var storages = store.Storages.Find(CreateSearchPrefix(contractId.Value, default));
-                foreach (var (key, item) in storages)
+                var keyHashCode = key.Span.GetSequenceHashCode().ToString("x");
+                var kvp = new KvpContainer(key, item, keyHashCode);
+                yield return new Variable()
                 {
-                    var keyHashCode = key.Key.GetSequenceHashCode().ToString("x");
-                    var kvp = new KvpContainer(key, item, keyHashCode);
-                    yield return new Variable()
-                    {
-                        Name = keyHashCode,
-                        Value = string.Empty,
-                        VariablesReference = manager.Add(kvp),
-                        NamedVariables = 3
-                    };
-                }
-            }
-
-            // TODO: PR Opened to make StorageKey.CreateSearchPrefix public
-            //       If accepted, remove this copy of that method 
-            //       https://github.com/neo-project/neo/pull/1824
-            static byte[] CreateSearchPrefix(int id, ReadOnlySpan<byte> prefix)
-            {
-                byte[] buffer = new byte[sizeof(int) + prefix.Length];
-                BinaryPrimitives.WriteInt32LittleEndian(buffer, id);
-                prefix.CopyTo(buffer.AsSpan(sizeof(int)));
-                return buffer;
+                    Name = keyHashCode,
+                    Value = string.Empty,
+                    VariablesReference = manager.Add(kvp),
+                    NamedVariables = 3
+                };
             }
         }
 
@@ -97,7 +55,7 @@ namespace NeoDebug.Neo3
                 var remain = expression.Slice(19);
                 if (remain.Span.SequenceEqual("key"))
                 {
-                    return tuple.key.Key;
+                    return tuple.key;
                 }
                 else if (remain.Span.SequenceEqual("item"))
                 {
@@ -110,15 +68,31 @@ namespace NeoDebug.Neo3
             }
 
             return null;
+
+            bool TryFind(int hashCode, out (ReadOnlyMemory<byte> key, StorageItem item) tuple)
+            {
+                foreach (var (key, item) in GetStorages())
+                {
+                    var keyHashCode = key.Span.GetSequenceHashCode();
+                    if (hashCode == keyHashCode)
+                    {
+                        tuple = (key, item);
+                        return true;
+                    }
+                }
+
+                tuple = default;
+                return false;
+            }
         }
 
-        class KvpContainer : IVariableContainer
+        private class KvpContainer : IVariableContainer
         {
-            private readonly StorageKey key;
+            private readonly ReadOnlyMemory<byte> key;
             private readonly StorageItem item;
             private readonly string hashCode;
 
-            public KvpContainer(StorageKey key, StorageItem item, string hashCode)
+            public KvpContainer(ReadOnlyMemory<byte> key, StorageItem item, string hashCode)
             {
                 this.key = key;
                 this.item = item;
@@ -127,7 +101,7 @@ namespace NeoDebug.Neo3
 
             public IEnumerable<Variable> Enumerate(IVariableManager manager)
             {
-                yield return ForEvaluation(key.Key.ToVariable(manager, "key"));
+                yield return ForEvaluation(key.ToVariable(manager, "key"));
                 yield return ForEvaluation(item.Value.ToVariable(manager, "item"));
                 yield return ForEvaluation(item.IsConstant.ToVariable(manager, "isConstant"));
 

@@ -9,6 +9,7 @@ using System.Diagnostics.CodeAnalysis;
 using Neo.BlockchainToolkit.TraceDebug;
 using System.Linq;
 using System.IO;
+using Neo.Ledger;
 
 namespace NeoDebug.Neo3
 {
@@ -17,6 +18,7 @@ namespace NeoDebug.Neo3
         private bool disposedValue;
         private readonly TraceFile traceFile;
         private readonly Dictionary<UInt160, Script> contracts;
+        private readonly Dictionary<UInt160, IReadOnlyList<(ReadOnlyMemory<byte>, StorageItem)>> storageMap = new Dictionary<UInt160, IReadOnlyList<(ReadOnlyMemory<byte>, StorageItem)>>();
         private TraceRecord? currentTraceRecord;
 
         public TraceApplicationEngine(string traceFilePath, IEnumerable<NefFile> contracts)
@@ -76,7 +78,7 @@ namespace NeoDebug.Neo3
             return false;
         }
 
-        private void ProcessRecord(ITraceDebugRecord record, bool ignoreEvents = false)
+        private void ProcessRecord(ITraceDebugRecord record, bool stepBack = false)
         {
             switch (record)
             {
@@ -86,20 +88,25 @@ namespace NeoDebug.Neo3
                         .Select(sf => new ExecutionContextAdapter(sf, contracts))
                         .ToList();
                     break;
+                case StorageRecord storage:
+                    storageMap[storage.ScriptHash] = storage.Storages
+                        .Select(kvp => ((ReadOnlyMemory<byte>)kvp.Key, kvp.Value))
+                        .ToList();
+                    break;
                 case NotifyRecord notify:
-                    if (!ignoreEvents)
+                    if (!stepBack)
                     {
                         DebugNotify?.Invoke(this, (notify.ScriptHash, notify.EventName, new NeoArray(notify.State)));
                     }
                     break;
                 case LogRecord log:
-                    if (!ignoreEvents)
+                    if (!stepBack)
                     {
                         DebugLog?.Invoke(this, (log.ScriptHash, log.Message));
                     }
                     break;
                 case ResultsRecord results:
-                    ResultStack = results.ResultStack;
+                    ResultStack = stepBack ? new List<StackItem>() : results.ResultStack;
                     break;
                 case FaultRecord fault:
                     // UncaughtException = stepForward ? true : StackItem.Null;
@@ -127,9 +134,12 @@ namespace NeoDebug.Neo3
             return contracts.TryGetValue(scriptHash, out script);
         }
 
-        public IStorageContainer GetStorageContainer(UInt160 scriptHash)
+        public StorageContainer GetStorageContainer(UInt160 scriptHash)
         {
-            return new TraceStorageContainer();
+            return new TraceStorageContainer(
+                storageMap.TryGetValue(scriptHash, out var storages)
+                    ? storages
+                    : Enumerable.Empty<(ReadOnlyMemory<byte>, StorageItem)>());
         }
     }
 }

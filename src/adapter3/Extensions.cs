@@ -128,6 +128,11 @@ namespace NeoDebug.Neo3
             return ToVariable((StackItem)item, manager, name, typeHint);
         }
 
+        public static Variable ToVariable(this ReadOnlyMemory<byte> item, IVariableManager manager, string name, string typeHint = "")
+        {
+            return ToVariable((StackItem)item, manager, name, typeHint);
+        }
+
         public static Variable ToVariable(this bool item, IVariableManager manager, string name, string typeHint = "")
         {
             return ToVariable((StackItem)item, manager, name, typeHint);
