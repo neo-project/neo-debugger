@@ -24,7 +24,7 @@ namespace NeoDebug.Neo3
         IReadOnlyCollection<IExecutionContext> InvocationStack { get; }
         IExecutionContext? CurrentContext { get; }
         IReadOnlyList<StackItem> ResultStack { get; }
-        StackItem? UncaughtException { get; }
+        Exception? FaultException { get; }
         VMState State { get; }
     }
 }

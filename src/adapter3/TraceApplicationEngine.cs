@@ -107,7 +107,7 @@ namespace NeoDebug.Neo3
                     ResultStack = stepBack ? new List<StackItem>() : results.ResultStack;
                     break;
                 case FaultRecord fault:
-                    // UncaughtException = stepForward ? true : StackItem.Null;
+                    FaultException = stepBack ? null : new Exception(fault.Exception);
                     break;
                 default:
                     throw new InvalidDataException($"TraceDebugRecord {record.GetType().Name}");
@@ -118,7 +118,7 @@ namespace NeoDebug.Neo3
         public IReadOnlyCollection<IExecutionContext> InvocationStack { get; private set; } = new List<IExecutionContext>();
         public IExecutionContext? CurrentContext => InvocationStack.FirstOrDefault();
         public IReadOnlyList<StackItem> ResultStack { get; private set; } = new List<StackItem>();
-        public StackItem? UncaughtException { get; private set; }
+        public Exception? FaultException { get; private set; }
         public event EventHandler<(UInt160 scriptHash, string eventName, NeoArray state)>? DebugNotify;
         public event EventHandler<(UInt160 scriptHash, string message)>? DebugLog;
 

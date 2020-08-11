@@ -404,9 +404,9 @@ namespace NeoDebug.Neo3
             {
                 if (engine.State == VMState.FAULT)
                 {
-                    var output = engine.UncaughtException == null
+                    var output = engine.FaultException == null
                         ? "Engine State Faulted\n"
-                        : $"Uncaught Exception: {engine.UncaughtException.ToStrictUTF8String()}\n";
+                        : $"Engine State Fault: {engine.FaultException.Message}\n";
 
                     sendEvent(new OutputEvent()
                     {
