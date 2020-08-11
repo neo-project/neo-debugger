@@ -19,6 +19,7 @@ namespace NeoDebug.Neo3
         private readonly TraceFile traceFile;
         private readonly Dictionary<UInt160, Script> contracts;
         private TraceRecord? currentTraceRecord;
+        private IEnumerable<TraceRecord.StackFrame> stackFrames = Enumerable.Empty<TraceRecord.StackFrame>();
 
         public TraceApplicationEngine(string traceFilePath, IEnumerable<NefFile> contracts)
         {
@@ -83,6 +84,7 @@ namespace NeoDebug.Neo3
             {
                 case TraceRecord trace:
                     State = trace.State;
+                    stackFrames = trace.StackFrames;
                     InvocationStack = trace.StackFrames
                         .Select(sf => new ExecutionContextAdapter(sf, contracts))
                         .ToList();
@@ -120,10 +122,7 @@ namespace NeoDebug.Neo3
         public event EventHandler<(UInt160 scriptHash, string eventName, NeoArray state)>? DebugNotify;
         public event EventHandler<(UInt160 scriptHash, string message)>? DebugLog;
 
-        public bool CatchBlockOnStack()
-        {
-            return false;
-        }
+        public bool CatchBlockOnStack() => stackFrames.Any(f => f.HasCatch);
 
         public bool TryGetContract(UInt160 scriptHash, [MaybeNullWhen(false)] out Script script)
         {
