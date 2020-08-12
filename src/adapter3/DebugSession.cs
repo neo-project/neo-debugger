@@ -435,44 +435,38 @@ namespace NeoDebug.Neo3
                     return;
                 }
 
-                // ExecutionEngine does not provide a mechanism to halt execution
-                // after an exception is thrown but before it has been handled.
-                // The debugger needs to be able to treat the exception throw and
-                // handling as separate operations. So DebugApplicationEngine inserts
-                // a dummy instruction execution when it detects a THROW opcode.
-                // The THROW operation address is used to ensure only a single dummy
-                // instruction is executed. The ExecuteInstruction return value
-                // indicates that a dummy THROW instruction has been inserted.
-
-                bool exceptionThrown = false;
                 if (stepBack)
                 {
+                    lastThrowAddress = -1;
                     if (!engine.ExecutePrevInstruction())
                         break;
                 }
                 else
                 {
+                    // ExecutionEngine does not provide a mechanism to halt execution
+                    // after an exception is thrown but before it has been handled.
+                    // The debugger needs to check if the engine is about to THROW
+                    // and handle the exception breakpoints appropriately. 
+                    // lastThrowAddress is used to ensure we don't perform the THROW
+                    // check multiple times for a single address in a row.
+
                     if (engine.CurrentContext?.CurrentInstruction.OpCode == OpCode.THROW
                         && engine.CurrentContext.InstructionPointer != lastThrowAddress)
                     {
-                        exceptionThrown = true;
                         lastThrowAddress = engine.CurrentContext.InstructionPointer;
+                        var handled = engine.CatchBlockOnStack();
+                        if ((handled && breakOnCaughtExceptions)
+                            || (!handled && breakOnUncaughtExceptions))
+                        {
+                            FireStoppedEvent(StoppedEvent.ReasonValue.Exception);
+                            return;
+                        }
                     }
                     else
                     {
+                        lastThrowAddress = -1;
                         if (!engine.ExecuteNextInstruction())
                             break;
-                    }
-                }
-
-                if (exceptionThrown)
-                {
-                    var handled = engine.CatchBlockOnStack();
-                    if ((handled && breakOnCaughtExceptions)
-                        || (!handled && breakOnUncaughtExceptions))
-                    {
-                        FireStoppedEvent(StoppedEvent.ReasonValue.Exception);
-                        return;
                     }
                 }
 
