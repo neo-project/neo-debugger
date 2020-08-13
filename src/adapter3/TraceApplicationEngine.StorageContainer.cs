@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Neo.Ledger;
 
@@ -6,11 +6,11 @@ namespace NeoDebug.Neo3
 {
     internal sealed partial class TraceApplicationEngine
     {
-        private class TraceStorageContainer : StorageContainer
+        private class StorageContainer : StorageContainerBase
         {
             public readonly IEnumerable<(ReadOnlyMemory<byte>, StorageItem)> storages;
 
-            public TraceStorageContainer(IEnumerable<(ReadOnlyMemory<byte>, StorageItem)> storages)
+            public StorageContainer(IEnumerable<(ReadOnlyMemory<byte>, StorageItem)> storages)
             {
                 this.storages = storages;
             }

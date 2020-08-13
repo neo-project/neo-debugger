@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Neo.Persistence;
 using Neo;
@@ -9,12 +9,12 @@ namespace NeoDebug.Neo3
 {
     internal partial class DebugApplicationEngine
     {
-        private class DebugStorageContainer : StorageContainer
+        private class StorageContainer : StorageContainerBase
         {
             private readonly StoreView store;
             private readonly int? contractId;
 
-            public DebugStorageContainer(UInt160 scriptHash, StoreView store)
+            public StorageContainer(UInt160 scriptHash, StoreView store)
             {
                 this.store = store;
                 contractId = store.Contracts.TryGet(scriptHash)?.Id;

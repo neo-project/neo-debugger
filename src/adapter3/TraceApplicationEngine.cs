@@ -129,9 +129,9 @@ namespace NeoDebug.Neo3
             return contracts.TryGetValue(scriptHash, out script);
         }
 
-        public StorageContainer GetStorageContainer(UInt160 scriptHash)
+        public StorageContainerBase GetStorageContainer(UInt160 scriptHash)
         {
-            return new TraceStorageContainer(traceFile.FindStorage(scriptHash));
+            return new StorageContainer(traceFile.FindStorage(scriptHash));
         }
     }
 }

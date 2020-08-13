@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Globalization;
@@ -11,7 +11,7 @@ using Neo.Persistence;
 
 namespace NeoDebug.Neo3
 {
-    internal abstract class StorageContainer : IVariableContainer
+    internal abstract class StorageContainerBase : IVariableContainer
     {
         protected abstract IEnumerable<(ReadOnlyMemory<byte> key, StorageItem item)> GetStorages();
 

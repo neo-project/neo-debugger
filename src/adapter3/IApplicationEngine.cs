@@ -19,7 +19,7 @@ namespace NeoDebug.Neo3
         bool ExecuteNextInstruction();
         bool ExecutePrevInstruction();
         bool TryGetContract(UInt160 scriptHash, [MaybeNullWhen(false)] out Script script);
-        StorageContainer GetStorageContainer(UInt160 scriptHash);
+        StorageContainerBase GetStorageContainer(UInt160 scriptHash);
 
         IReadOnlyCollection<IExecutionContext> InvocationStack { get; }
         IExecutionContext? CurrentContext { get; }

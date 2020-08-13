@@ -203,8 +203,8 @@ namespace NeoDebug.Neo3
             return false;
         }
 
-        public StorageContainer GetStorageContainer(UInt160 scriptHash)
-            => new DebugStorageContainer(scriptHash, Snapshot);
+        public StorageContainerBase GetStorageContainer(UInt160 scriptHash)
+            => new StorageContainer(scriptHash, Snapshot);
 
         IReadOnlyCollection<IExecutionContext> IApplicationEngine.InvocationStack => invocationStackAdapter;
 
