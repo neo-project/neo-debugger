@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 
@@ -8,9 +9,10 @@ namespace NeoDebug.Neo3
 {
     public class DebugAdapter : DebugAdapterBase
     {
-        public delegate IDebugSession DebugSessionFactory(LaunchArguments launchArguments,
-                                                          Action<DebugEvent> sendEvent,
-                                                          DebugView defaultDebugView);
+        public delegate Task<IDebugSession> DebugSessionFactory(LaunchArguments launchArguments,
+                                                                Action<DebugEvent> sendEvent,
+                                                                bool trace,
+                                                                DebugView defaultDebugView);
 
         private class DebugViewRequest : DebugRequest<DebugViewArguments>
         {
@@ -27,6 +29,7 @@ namespace NeoDebug.Neo3
 
         private readonly DebugSessionFactory sessionFactory;
         private readonly Action<LogCategory, string> logger;
+        private readonly bool trace;
         private readonly DebugView defaultDebugView;
         private IDebugSession? session;
 
@@ -34,10 +37,12 @@ namespace NeoDebug.Neo3
                             System.IO.Stream @in,
                             System.IO.Stream @out,
                             Action<LogCategory, string>? logger,
+                            bool trace,
                             DebugView defaultDebugView)
         {
             this.sessionFactory = sessionFactory;
             this.logger = logger ?? ((_, __) => { });
+            this.trace = trace;
             this.defaultDebugView = defaultDebugView;
 
             InitializeProtocolClient(@in, @out);
@@ -64,6 +69,7 @@ namespace NeoDebug.Neo3
             {
                 SupportsEvaluateForHovers = true,
                 SupportsExceptionInfoRequest = true,
+                SupportsStepBack = trace,
                 ExceptionBreakpointFilters = new List<ExceptionBreakpointsFilter>
                 {
                     new ExceptionBreakpointsFilter(
@@ -92,7 +98,8 @@ namespace NeoDebug.Neo3
             {
                 if (session != null) throw new InvalidOperationException();
 
-                session = sessionFactory(arguments, Protocol.SendEvent, defaultDebugView);
+                session = sessionFactory(arguments, Protocol.SendEvent, trace, defaultDebugView)
+                    .GetAwaiter().GetResult();
                 session.Start();
 
                 return new LaunchResponse();
@@ -260,6 +267,22 @@ namespace NeoDebug.Neo3
             }
         }
 
+        protected override ReverseContinueResponse HandleReverseContinueRequest(ReverseContinueArguments arguments)
+        {
+            try
+            {
+                if (session == null) throw new InvalidOperationException();
+
+                session.ReverseContinue();
+                return new ReverseContinueResponse();
+            }
+            catch (Exception ex)
+            {
+                Log(ex.Message, LogCategory.DebugAdapterOutput);
+                throw new ProtocolException(ex.Message, ex);
+            }
+        }
+
         protected override StepInResponse HandleStepInRequest(StepInArguments arguments)
         {
             try
@@ -301,6 +324,22 @@ namespace NeoDebug.Neo3
 
                 session.StepOver();
                 return new NextResponse();
+            }
+            catch (Exception ex)
+            {
+                Log(ex.Message, LogCategory.DebugAdapterOutput);
+                throw new ProtocolException(ex.Message, ex);
+            }
+        }
+
+        protected override StepBackResponse HandleStepBackRequest(StepBackArguments arguments)
+        {
+            try
+            {
+                if (session == null) throw new InvalidOperationException();
+
+                session.StepBack();
+                return new StepBackResponse();
             }
             catch (Exception ex)
             {

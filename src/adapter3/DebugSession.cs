@@ -3,28 +3,24 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Text;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
 using Neo.Persistence;
-using Neo.SmartContract;
 using Neo.VM;
-using NeoDebug;
+using NeoArray = Neo.VM.Types.Array;
 
 namespace NeoDebug.Neo3
 {
-    using ByteString = Neo.VM.Types.ByteString;
     using StackItem = Neo.VM.Types.StackItem;
-    using StackItemType = Neo.VM.Types.StackItemType;
 
     internal class DebugSession : IDebugSession, IDisposable
     {
         public const string CAUGHT_EXCEPTION_FILTER = "caught";
         public const string UNCAUGHT_EXCEPTION_FILTER = "uncaught";
 
-        private readonly DebugApplicationEngine engine;
-        private readonly IStore store;
+        private readonly IApplicationEngine engine;
         private readonly IReadOnlyList<string> returnTypes;
+        private readonly IReadOnlyDictionary<UInt160, DebugInfo> debugInfoMap;
         private readonly Action<DebugEvent> sendEvent;
         private bool disassemblyView;
         private readonly DisassemblyManager disassemblyManager;
@@ -33,33 +29,33 @@ namespace NeoDebug.Neo3
         private bool breakOnCaughtExceptions;
         private bool breakOnUncaughtExceptions = true;
 
-        public DebugSession(DebugApplicationEngine engine, IStore store, IReadOnlyList<string> returnTypes, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
+        public DebugSession(IApplicationEngine engine, IReadOnlyList<DebugInfo> debugInfoList, IReadOnlyList<string> returnTypes, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
         {
             this.engine = engine;
-            this.store = store;
             this.returnTypes = returnTypes;
             this.sendEvent = sendEvent;
-            this.disassemblyView = defaultDebugView == DebugView.Disassembly;
-            this.disassemblyManager = new DisassemblyManager(TryGetScript, TryGetDebugInfo);
-            this.breakpointManager = new BreakpointManager(this.disassemblyManager, () => DebugInfo.Find(store));
+            debugInfoMap = debugInfoList.ToDictionary(di => di.ScriptHash);
+            disassemblyView = defaultDebugView == DebugView.Disassembly;
+            disassemblyManager = new DisassemblyManager(TryGetScript, debugInfoMap.TryGetValue);
+            breakpointManager = new BreakpointManager(disassemblyManager, debugInfoList);
 
             this.engine.DebugNotify += OnNotify;
             this.engine.DebugLog += OnLog;
         }
 
-        private void OnNotify(object? sender, Neo.SmartContract.NotifyEventArgs args)
+        private void OnNotify(object? sender, (UInt160 scriptHash, string eventName, NeoArray state) args)
         {
             sendEvent(new OutputEvent()
             {
-                Output = $"Runtime.Notify: {args.ScriptHash} {args.State.ToResult()}\n",
+                Output = $"Runtime.Notify: {args.scriptHash} {args.state.ToResult()}\n",
             });
         }
 
-        private void OnLog(object? sender, Neo.SmartContract.LogEventArgs args)
+        private void OnLog(object? sender, (UInt160 scriptHash, string message) args)
         {
             sendEvent(new OutputEvent()
             {
-                Output = $"Runtime.Log: {args.ScriptHash} {args.Message}\n",
+                Output = $"Runtime.Log: {args.scriptHash} {args.message}\n",
             });
         }
 
@@ -70,16 +66,15 @@ namespace NeoDebug.Neo3
 
         private bool TryGetScript(UInt160 scriptHash, [MaybeNullWhen(false)] out Neo.VM.Script script)
         {
-            var contractState = engine.Snapshot.Contracts.TryGet(scriptHash);
-            if (contractState != null)
+            if (engine.TryGetContract(scriptHash, out var contractScript))
             {
-                script = contractState.Script;
+                script = contractScript;
                 return true;
             }
 
             foreach (var context in engine.InvocationStack)
             {
-                if (scriptHash == context.GetScriptHash())
+                if (scriptHash == context.ScriptHash)
                 {
                     script = context.Script;
                     return true;
@@ -88,12 +83,6 @@ namespace NeoDebug.Neo3
 
             script = null;
             return false;
-        }
-
-        private bool TryGetDebugInfo(UInt160 scriptHash, [MaybeNullWhen(false)] out DebugInfo debugInfo)
-        {
-            debugInfo = DebugInfo.TryGet(store, scriptHash)!;
-            return debugInfo != null;
         }
 
         public void Start()
@@ -121,9 +110,9 @@ namespace NeoDebug.Neo3
 
             foreach (var (context, index) in engine.InvocationStack.Select((c, i) => (c, i)))
             {
-                var scriptHash = context.GetScriptHash();
+                var scriptHash = context.ScriptHash;
                 DebugInfo.Method? method = null;
-                if (TryGetDebugInfo(scriptHash, out var debugInfo))
+                if (debugInfoMap.TryGetValue(scriptHash, out var debugInfo))
                 {
                     method = debugInfo.GetMethod(context.InstructionPointer);
                 }
@@ -179,7 +168,7 @@ namespace NeoDebug.Neo3
         public IEnumerable<Scope> GetScopes(ScopesArguments args)
         {
             var context = engine.InvocationStack.ElementAt(args.FrameId);
-            var scriptHash = context.GetScriptHash();
+            var scriptHash = context.ScriptHash;
 
             if (disassemblyView)
             {
@@ -190,11 +179,11 @@ namespace NeoDebug.Neo3
             }
             else
             {
-                var debugInfo = TryGetDebugInfo(scriptHash, out var di) ? di : null;
+                var debugInfo = debugInfoMap.TryGetValue(scriptHash, out var di) ? di : null;
                 yield return AddScope("Variables", new ExecutionContextContainer(context, debugInfo));
             }
 
-            yield return AddScope("Storage", new StorageContainer(scriptHash, engine.Snapshot));
+            yield return AddScope("Storage", engine.GetStorageContainer(scriptHash));
 
             Scope AddScope(string name, IVariableContainer container)
             {
@@ -226,7 +215,7 @@ namespace NeoDebug.Neo3
             throw new InvalidOperationException();
         }
 
-        private (StackItem? item, string typeHint) Evaluate(ExecutionContext context, ReadOnlyMemory<char> name)
+        private (StackItem? item, string typeHint) Evaluate(IExecutionContext context, ReadOnlyMemory<char> name)
         {
             if (name.StartsWith("#eval"))
             {
@@ -235,7 +224,7 @@ namespace NeoDebug.Neo3
                     var index = context.EvaluationStack.Count - 1 - value;
                     if (index >= 0 && index < context.EvaluationStack.Count)
                     {
-                        return (context.EvaluationStack.Peek(index), string.Empty);
+                        return (context.EvaluationStack[index], string.Empty);
                     }
                 }
 
@@ -257,15 +246,15 @@ namespace NeoDebug.Neo3
                 return (EvaluateSlot(context.StaticFields, 7), string.Empty);
             }
 
-            var scriptHash = context.GetScriptHash();
+            var scriptHash = context.ScriptHash;
 
             if (name.StartsWith("#storage"))
             {
-                var container = new StorageContainer(scriptHash, engine.Snapshot);
+                var container = engine.GetStorageContainer(scriptHash);
                 return (container.Evaluate(name), string.Empty);
             }
 
-            if (TryGetDebugInfo(scriptHash, out var debugInfo)
+            if (debugInfoMap.TryGetValue(scriptHash, out var debugInfo)
                 && debugInfo.TryGetMethod(context.InstructionPointer, out var method))
             {
                 if (TryEvaluateSlot(context.Arguments, method.Parameters, out (StackItem?, string) result))
@@ -281,7 +270,7 @@ namespace NeoDebug.Neo3
 
             return default;
 
-            bool TryEvaluateSlot(Slot slot, IReadOnlyList<(string name, string type)> variables, out (StackItem?, string) result)
+            bool TryEvaluateSlot(IReadOnlyList<StackItem> slot, IReadOnlyList<(string name, string type)> variables, out (StackItem?, string) result)
             {
                 for (int i = 0; i < variables.Count; i++)
                 {
@@ -299,7 +288,7 @@ namespace NeoDebug.Neo3
                 return false;
             }
 
-            StackItem? EvaluateSlot(Slot slot, int count)
+            StackItem? EvaluateSlot(IReadOnlyList<StackItem> slot, int count)
             {
                 if (int.TryParse(name.Span.Slice(count), out int index)
                     && index < slot.Count)
@@ -379,7 +368,7 @@ namespace NeoDebug.Neo3
 
         public string GetExceptionInfo()
         {
-            var item = engine.CurrentContext?.EvaluationStack.Peek();
+            var item = engine.CurrentContext?.EvaluationStack[0];
             return item?.ToStrictUTF8String()
                 ?? throw new InvalidOperationException("missing exception information");
         }
@@ -407,15 +396,17 @@ namespace NeoDebug.Neo3
             sendEvent(new StoppedEvent(reasonValue) { ThreadId = 1 });
         }
 
-        private void Step(Func<int, bool> compareStepDepth)
+        private int lastThrowAddress = -1;
+
+        private void Step(Func<int, bool> compareStepDepth, bool stepBack = false)
         {
             while (true)
             {
                 if (engine.State == VMState.FAULT)
                 {
-                    var output = engine.UncaughtException == null
+                    var output = engine.FaultException == null
                         ? "Engine State Faulted\n"
-                        : $"Uncaught Exception: {engine.UncaughtException.ToStrictUTF8String()}\n";
+                        : $"Engine State Fault: {engine.FaultException.Message}\n";
 
                     sendEvent(new OutputEvent()
                     {
@@ -428,11 +419,11 @@ namespace NeoDebug.Neo3
 
                 if (engine.State == VMState.HALT)
                 {
-                    for (var i = 0; i < engine.ResultStack.Count; i++)
+                    for (int index = 0; index < engine.ResultStack.Count; index++)
                     {
-                        var typeHint = i < returnTypes.Count
-                            ? returnTypes[i] : string.Empty;
-                        var result = engine.ResultStack.Peek(i);
+                        var result = engine.ResultStack[index];
+                        var typeHint = index < returnTypes.Count
+                            ? returnTypes[index] : string.Empty;
                         sendEvent(new OutputEvent()
                         {
                             Category = OutputEvent.CategoryValue.Stdout,
@@ -444,20 +435,42 @@ namespace NeoDebug.Neo3
                     return;
                 }
 
-                var exceptionThrown = engine.ExecuteInstruction();
-
-                if (exceptionThrown)
+                if (stepBack)
                 {
-                    var handled = engine.CatchBlockOnStack();
-                    if ((handled && breakOnCaughtExceptions)
-                        || (!handled && breakOnUncaughtExceptions))
+                    lastThrowAddress = -1;
+                    if (!engine.ExecutePrevInstruction())
+                        break;
+                }
+                else
+                {
+                    // ExecutionEngine does not provide a mechanism to halt execution
+                    // after an exception is thrown but before it has been handled.
+                    // The debugger needs to check if the engine is about to THROW
+                    // and handle the exception breakpoints appropriately. 
+                    // lastThrowAddress is used to ensure we don't perform the THROW
+                    // check multiple times for a single address in a row.
+
+                    if (engine.CurrentContext?.CurrentInstruction.OpCode == OpCode.THROW
+                        && engine.CurrentContext.InstructionPointer != lastThrowAddress)
                     {
-                        FireStoppedEvent(StoppedEvent.ReasonValue.Exception);
-                        return;
+                        lastThrowAddress = engine.CurrentContext.InstructionPointer;
+                        var handled = engine.CatchBlockOnStack();
+                        if ((handled && breakOnCaughtExceptions)
+                            || (!handled && breakOnUncaughtExceptions))
+                        {
+                            FireStoppedEvent(StoppedEvent.ReasonValue.Exception);
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        lastThrowAddress = -1;
+                        if (!engine.ExecuteNextInstruction())
+                            break;
                     }
                 }
 
-                if (breakpointManager.CheckBreakpoint(engine.CurrentScriptHash, engine.CurrentContext?.InstructionPointer))
+                if (breakpointManager.CheckBreakpoint(engine.CurrentContext?.ScriptHash ?? UInt160.Zero, engine.CurrentContext?.InstructionPointer))
                 {
                     FireStoppedEvent(StoppedEvent.ReasonValue.Breakpoint);
                     return;
@@ -476,7 +489,7 @@ namespace NeoDebug.Neo3
                 if (engine.CurrentContext != null)
                 {
                     var ip = engine.CurrentContext.InstructionPointer;
-                    if (TryGetDebugInfo(engine.CurrentScriptHash, out var info))
+                    if (debugInfoMap.TryGetValue(engine.CurrentContext?.ScriptHash ?? UInt160.Zero, out var info))
                     {
                         var methods = info.Methods;
                         for (int i = 0; i < methods.Count; i++)
@@ -497,6 +510,11 @@ namespace NeoDebug.Neo3
             Step((_) => false);
         }
 
+        public void ReverseContinue()
+        {
+            Step((_) => false, true);
+        }
+
         public void StepIn()
         {
             Step((_) => true);
@@ -512,6 +530,11 @@ namespace NeoDebug.Neo3
         {
             var originalStackCount = engine.InvocationStack.Count;
             Step((currentStackCount) => currentStackCount <= originalStackCount);
+        }
+
+        public void StepBack()
+        {
+            Step((_) => true, true);
         }
     }
 }

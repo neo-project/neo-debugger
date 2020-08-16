@@ -143,6 +143,10 @@
                                 "type": "string",
                                 "description": "Optional neo-express checkpoint file used for contract execution"
                             },
+                            "trace-file": {
+                                "type": "string",
+                                "description": "Absolute path to .neo-trace file"
+                            },
                             "utxo": {
                                 "type": "object",
                                 "description": "UTXO assets (aka NEO and GAS) to attach to the transaction being debugged",

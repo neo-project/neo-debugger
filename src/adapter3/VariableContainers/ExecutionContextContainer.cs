@@ -8,10 +8,10 @@ namespace NeoDebug.Neo3
 {
     class ExecutionContextContainer : IVariableContainer
     {
-        private readonly ExecutionContext context;
+        private readonly IExecutionContext context;
         private readonly DebugInfo? debugInfo;
 
-        public ExecutionContextContainer(ExecutionContext context, DebugInfo? debugInfo)
+        public ExecutionContextContainer(IExecutionContext context, DebugInfo? debugInfo)
         {
             this.context = context;
             this.debugInfo = debugInfo;

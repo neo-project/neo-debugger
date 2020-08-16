@@ -7,17 +7,18 @@ using Neo.Network.P2P.Payloads;
 using Neo.Persistence;
 using Neo.SmartContract;
 using StackItem = Neo.VM.Types.StackItem;
-using NeoArray = Neo.VM.Types.Array;
 using Neo;
 using System.Numerics;
 using System.Linq;
 using Neo.VM;
+using System.Diagnostics.CodeAnalysis;
+using NeoArray = Neo.VM.Types.Array;
 
 namespace NeoDebug.Neo3
 {
     using ServiceMethod = Func<DebugApplicationEngine, IReadOnlyList<InteropParameterDescriptor>, StackItem?>;
 
-    internal class DebugApplicationEngine : ApplicationEngine
+    internal partial class DebugApplicationEngine : ApplicationEngine, IApplicationEngine
     {
         private readonly static IReadOnlyDictionary<uint, ServiceMethod> debugServices;
 
@@ -38,10 +39,12 @@ namespace NeoDebug.Neo3
             }
         }
 
-        public event EventHandler<NotifyEventArgs>? DebugNotify;
-        public event EventHandler<LogEventArgs>? DebugLog;
+        public event EventHandler<(UInt160 scriptHash, string eventName, NeoArray state)>? DebugNotify;
+        public event EventHandler<(UInt160 scriptHash, string message)>? DebugLog;
         private readonly WitnessChecker witnessChecker;
         private readonly IReadOnlyDictionary<uint, UInt256> blockHashMap;
+        private readonly EvaluationStackAdapter resultStackAdapter;
+        private readonly InvocationStackAdapter invocationStackAdapter;
 
         public DebugApplicationEngine(IVerifiable container, StoreView storeView, WitnessChecker witnessChecker) : base(TriggerType.Application, container, storeView, 0, true)
         {
@@ -53,6 +56,8 @@ namespace NeoDebug.Neo3
 
             Log += OnLog;
             Notify += OnNotify;
+            resultStackAdapter = new EvaluationStackAdapter(this.ResultStack);
+            invocationStackAdapter = new InvocationStackAdapter(this);
         }
 
         public override void Dispose()
@@ -66,7 +71,7 @@ namespace NeoDebug.Neo3
         {
             if (ReferenceEquals(sender, this))
             {
-                DebugNotify?.Invoke(sender, args);
+                DebugNotify?.Invoke(sender, (args.ScriptHash, args.EventName, args.State));
             }
         }
 
@@ -74,45 +79,25 @@ namespace NeoDebug.Neo3
         {
             if (ReferenceEquals(sender, this))
             {
-                DebugLog?.Invoke(sender, args);
+                DebugLog?.Invoke(sender, (args.ScriptHash, args.Message));
             }
         }
 
-        private int lastThrowAddress = -1;
-
-        public bool ExecuteInstruction()
+        public bool ExecuteNextInstruction()
         {
-            // ExecutionEngine does not provide a mechanism to halt execution
-            // after an exception is thrown but before it has been handled.
-            // The debugger needs to be able to treat the exception throw and
-            // handling as separate operations. So DebugApplicationEngine inserts
-            // a dummy instruction execution when it detects a THROW opcode.
-            // The THROW operation address is used to ensure only a single dummy
-            // instruction is executed. The ExecuteInstruction return value
-            // indicates that a dummy THROW instruction has been inserted.
-
-            if (CurrentContext.CurrentInstruction.OpCode == OpCode.THROW
-                && CurrentContext.InstructionPointer != lastThrowAddress)
-            {
-                lastThrowAddress = CurrentContext.InstructionPointer;
-                return true;
-            }
-
             ExecuteNext();
-            lastThrowAddress = -1;
-            return false;
+            return true;
         }
+
+        public bool ExecutePrevInstruction() => throw new NotSupportedException();
 
         public bool CatchBlockOnStack()
         {
             foreach (var executionContext in InvocationStack)
             {
-                foreach (var tryContext in executionContext.TryStack ?? Enumerable.Empty<ExceptionHandlingContext>())
+                if (executionContext.TryStack?.Any(c => c.HasCatch) == true)
                 {
-                    if (tryContext.HasCatch)
-                    {
-                        return true;
-                    }
+                    return true;
                 }
             }
 
@@ -204,5 +189,29 @@ namespace NeoDebug.Neo3
 
             throw new ArgumentException();
         }
+
+        public bool TryGetContract(UInt160 scriptHash, [MaybeNullWhen(false)] out Script script)
+        {
+            var contractState = Snapshot.Contracts.TryGet(scriptHash);
+            if (contractState != null)
+            {
+                script = contractState.Script;
+                return true;
+            }
+
+            script = default;
+            return false;
+        }
+
+        public StorageContainerBase GetStorageContainer(UInt160 scriptHash)
+            => new StorageContainer(scriptHash, Snapshot);
+
+        IReadOnlyCollection<IExecutionContext> IApplicationEngine.InvocationStack => invocationStackAdapter;
+
+        IReadOnlyList<StackItem> IApplicationEngine.ResultStack => resultStackAdapter;
+
+        IExecutionContext? IApplicationEngine.CurrentContext => CurrentContext == null
+            ? null
+            : new ExecutionContextAdapter(CurrentContext);
     }
 }

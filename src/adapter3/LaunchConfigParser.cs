@@ -1,12 +1,11 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
-using Neo.Cryptography.ECC;
 using Neo.IO;
 using Neo.Ledger;
 using Neo.Network.P2P.Payloads;
 using Neo.Persistence;
-using Neo.Seattle.Persistence;
+using Neo.BlockchainToolkit.Persistence;
 using Neo.SmartContract;
 using Neo.SmartContract.Manifest;
 using Neo.VM;
@@ -19,41 +18,67 @@ using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Text;
+using System.Threading.Tasks;
+using NeoScript = Neo.VM.Script;
 
 namespace NeoDebug.Neo3
 {
-    static class LaunchConfigParser
+    internal static class LaunchConfigParser
     {
-        public static DebugSession CreateDebugSession(LaunchArguments launchArguments, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
+        public static async Task<IDebugSession> CreateDebugSession(LaunchArguments launchArguments, Action<DebugEvent> sendEvent, bool trace, DebugView defaultDebugView)
         {
             var config = launchArguments.ConfigurationProperties;
             var sourceFileMap = ParseSourceFileMap(config);
-            var (trigger, witnessChecker) = ParseRuntime(config);
+            var returnTypes = ParseReturnTypes(config).ToList();
+            var debugInfoList = await ParseDebugInfo(config, sourceFileMap).ToListAsync().ConfigureAwait(false);
+
+            var engine = trace
+                ? CreateTraceEngine(config)
+                : CreateDebugEngine(config);
+
+            return new DebugSession(engine, debugInfoList, returnTypes, sendEvent, defaultDebugView);
+        }
+
+        private static IApplicationEngine CreateTraceEngine(Dictionary<string, JToken> config)
+        {
+            var traceFilePath = config["trace-file"].Value<string>();
+            if (traceFilePath == null)
+            {
+                throw new Exception("trace-file configuration not specified");
+            }
+
+            var contracts = ParseContracts(config).Select(t => LoadContract(t.contractPath));
+
+            return new TraceApplicationEngine(traceFilePath, contracts);
+        }
+
+        private static IApplicationEngine CreateDebugEngine(Dictionary<string, JToken> config)
+        {
+            var (trigger, witnessChecker) = CreateRuntime(config);
             if (trigger != TriggerType.Application)
             {
                 throw new Exception($"Trigger Type {trigger} not supported");
             }
 
-            var (launchContract, _) = LoadContract(config["program"].Value<string>());
-
             IStore store = CreateBlockchainStorage(config);
-
             foreach (var (path, storages) in ParseContracts(config))
             {
-                var (contract, manifest) = LoadContract(path);
-                var debugInfo = DebugInfoParser.Load(path, sourceFileMap);
+                var contract = LoadContract(path);
+
+                var manifestPath = Path.ChangeExtension(path, ".manifest.json");
+                var manifest = ContractManifest.Parse(File.ReadAllBytes(manifestPath));
 
                 var id = AddContract(store, contract, manifest);
                 AddStorage(store, id, storages);
-                debugInfo.Put(store);
             }
 
+            var launchContract = LoadContract(config["program"].Value<string>());
             var invokeScript = CreateLaunchScript(launchContract.ScriptHash, config);
 
             var tx = new Transaction
             {
                 Version = 0,
-                Nonce = (uint)(new Random()).Next(),
+                Nonce = (uint)new Random().Next(),
                 Script = invokeScript,
                 Signers = new[] { new Signer() { Account = UInt160.Zero } },
                 ValidUntilBlock = Transaction.MaxValidUntilBlockIncrement,
@@ -64,8 +89,7 @@ namespace NeoDebug.Neo3
             var engine = new DebugApplicationEngine(tx, new SnapshotView(store), witnessChecker);
             engine.LoadScript(invokeScript);
 
-            var returnTypes = ParseReturnTypes(config).ToList();
-            return new DebugSession(engine, store, returnTypes, sendEvent, defaultDebugView);
+            return engine;
 
             static void AddStorage(IStore store, int contractId, IEnumerable<(byte[] key, StorageItem item)> storages)
             {
@@ -91,7 +115,7 @@ namespace NeoDebug.Neo3
                     return contractState.Id;
                 }
 
-                contractState = new Neo.Ledger.ContractState
+                contractState = new ContractState
                 {
                     Id = snapshotView.ContractId.GetAndChange().NextId++,
                     Script = contract.Script,
@@ -103,31 +127,23 @@ namespace NeoDebug.Neo3
 
                 return contractState.Id;
             }
-
-            static (NefFile contract, ContractManifest manifest) LoadContract(string contractPath)
-            {
-                var manifestPath = System.IO.Path.ChangeExtension(contractPath, ".manifest.json");
-                var manifest = ContractManifest.Parse(File.ReadAllBytes(manifestPath));
-
-                using var stream = File.OpenRead(contractPath);
-                using var reader = new BinaryReader(stream, Encoding.UTF8, false);
-                var nefFile = reader.ReadSerializable<NefFile>();
-
-                return (nefFile, manifest);
-            }
         }
 
-        static byte[] CreateLaunchScript(UInt160 scriptHash, Dictionary<string, JToken> config)
+        private static byte[] CreateLaunchScript(UInt160 scriptHash, Dictionary<string, JToken> config)
         {
             var operation = config.TryGetValue("operation", out var op)
-                ? op.Value<string>() : throw new InvalidDataException("missing operation config");
+                ? op.Value<string>()
+                : throw new InvalidDataException("missing operation config");
+            var args = config.TryGetValue("args", out var a)
+                ? ContractParameterParser.ParseParams(a).ToArray()
+                : Array.Empty<ContractParameter>();
 
             using var builder = new ScriptBuilder();
-            builder.EmitAppCall(scriptHash, operation, ParseArguments(config).ToArray());
+            builder.EmitAppCall(scriptHash, operation, args);
             return builder.ToArray();
         }
 
-        static IStore CreateBlockchainStorage(Dictionary<string, JToken> config)
+        private static IStore CreateBlockchainStorage(Dictionary<string, JToken> config)
         {
             if (config.TryGetValue("checkpoint", out var checkpoint))
             {
@@ -175,52 +191,10 @@ namespace NeoDebug.Neo3
 
                 return ProtocolSettings.Initialize(config);
             }
-
         }
 
-        static IEnumerable<(string contractPath, IEnumerable<(byte[] key, StorageItem item)> storages)> ParseContracts(Dictionary<string, JToken> config)
-        {
-            var program = config["program"].Value<string>();
-            var programStorages = ParseStorage(config);
-
-            yield return (program, programStorages);
-
-            if (config.TryGetValue("stored-contracts", out var storedContracts))
-            {
-                foreach (var storedContract in storedContracts)
-                {
-                    if (storedContract.Type == JTokenType.String)
-                    {
-                        var path = storedContract.Value<string>();
-                        var storages = Enumerable.Empty<(byte[], StorageItem)>();
-                        yield return (path, storages);
-                    }
-                    else if (storedContract.Type == JTokenType.Object)
-                    {
-                        var path = storedContract.Value<string>("program");
-                        var storages = ParseStorage(storedContract["storage"]);
-                        yield return (path, storages);
-                    }
-                    else
-                    {
-                        throw new Exception("invalid stored-contract value");
-                    }
-                }
-            }
-        }
-
-        static IEnumerable<string> ParseReturnTypes(Dictionary<string, JToken> config)
-        {
-            if (config.TryGetValue("return-types", out var returnTypes))
-            {
-                foreach (var returnType in returnTypes)
-                {
-                    yield return VariableManager.CastOperations[returnType.Value<string>()];
-                }
-            }
-        }
-
-        static (TriggerType trigger, WitnessChecker witnessChecker) ParseRuntime(Dictionary<string, JToken> config)
+        private static (TriggerType trigger, WitnessChecker witnessChecker)
+            CreateRuntime(Dictionary<string, JToken> config)
         {
             if (config.TryGetValue("runtime", out var token))
             {
@@ -257,14 +231,71 @@ namespace NeoDebug.Neo3
             }
         }
 
-        static IEnumerable<(byte[] key, StorageItem item)> ParseStorage(Dictionary<string, JToken> config)
+        private static NefFile LoadContract(string path)
+        {
+            using var stream = File.OpenRead(path);
+            using var reader = new BinaryReader(stream, Encoding.UTF8, false);
+            return reader.ReadSerializable<NefFile>();
+        }
+
+        private static async IAsyncEnumerable<DebugInfo> ParseDebugInfo(Dictionary<string, JToken> config, IReadOnlyDictionary<string, string> sourceFileMap)
+        {
+            foreach (var (contractPath, _) in ParseContracts(config))
+            {
+                yield return await DebugInfoParser.Load(contractPath, sourceFileMap).ConfigureAwait(false);
+            }
+        }
+
+        private static IEnumerable<(string contractPath, IEnumerable<(byte[] key, StorageItem item)> storages)>
+            ParseContracts(Dictionary<string, JToken> config)
+        {
+            yield return (config["program"].Value<string>(), ParseStorage(config));
+
+            if (config.TryGetValue("stored-contracts", out var storedContracts))
+            {
+                foreach (var storedContract in storedContracts)
+                {
+                    if (storedContract.Type == JTokenType.String)
+                    {
+                        var path = storedContract.Value<string>();
+                        var storages = Enumerable.Empty<(byte[], StorageItem)>();
+                        yield return (path, storages);
+                    }
+                    else if (storedContract.Type == JTokenType.Object)
+                    {
+                        var path = storedContract.Value<string>("program");
+                        var storages = ParseStorage(storedContract["storage"]);
+                        yield return (path, storages);
+                    }
+                    else
+                    {
+                        throw new Exception("invalid stored-contract value");
+                    }
+                }
+            }
+        }
+
+        private static IEnumerable<string> ParseReturnTypes(Dictionary<string, JToken> config)
+        {
+            if (config.TryGetValue("return-types", out var returnTypes))
+            {
+                foreach (var returnType in returnTypes)
+                {
+                    yield return VariableManager.CastOperations[returnType.Value<string>()];
+                }
+            }
+        }
+
+        private static IEnumerable<(byte[] key, StorageItem item)>
+            ParseStorage(Dictionary<string, JToken> config)
         {
             return config.TryGetValue("storage", out var token)
                 ? ParseStorage(token)
                 : Enumerable.Empty<(byte[], StorageItem)>();
         }
 
-        static IEnumerable<(byte[] key, StorageItem item)> ParseStorage(JToken? token)
+        private static IEnumerable<(byte[] key, StorageItem item)>
+            ParseStorage(JToken? token)
         {
             return token == null
                 ? Enumerable.Empty<(byte[], StorageItem)>()
@@ -293,7 +324,7 @@ namespace NeoDebug.Neo3
             }
         }
 
-        static IReadOnlyDictionary<string, string> ParseSourceFileMap(Dictionary<string, JToken> config)
+        private static IReadOnlyDictionary<string, string> ParseSourceFileMap(Dictionary<string, JToken> config)
         {
             if (config.TryGetValue("sourceFileMap", out var token)
                 && token.Type == JTokenType.Object)
@@ -303,13 +334,6 @@ namespace NeoDebug.Neo3
             }
 
             return ImmutableDictionary<string, string>.Empty;
-        }
-
-        static IEnumerable<ContractParameter> ParseArguments(Dictionary<string, JToken> config)
-        {
-            return config.TryGetValue("args", out var args)
-                ? ContractParameterParser.ParseParams(args)
-                : Enumerable.Empty<ContractParameter>();
         }
     }
 }
