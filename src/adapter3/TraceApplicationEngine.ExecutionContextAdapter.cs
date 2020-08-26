@@ -4,7 +4,7 @@ using StackItem = Neo.VM.Types.StackItem;
 using Neo;
 using Neo.VM;
 using Neo.BlockchainToolkit.TraceDebug;
-using System.Linq;
+using Neo.SmartContract.Native;
 
 namespace NeoDebug.Neo3
 {
@@ -17,7 +17,33 @@ namespace NeoDebug.Neo3
             public ExecutionContextAdapter(TraceRecord.StackFrame frame, IReadOnlyDictionary<UInt160, Script> contracts)
             {
                 this.frame = frame;
-                Script = contracts[frame.ScriptHash];
+                if (contracts.TryGetValue(frame.ScriptHash, out var script))
+                {
+                    Script = script;
+                }
+                else if (TryGetNativeContract(frame.ScriptHash, out script))
+                {
+                    Script = script;
+                }
+                else
+                {
+                    throw new Exception($"Cannot load script {frame.ScriptHash}");
+                }
+
+                static bool TryGetNativeContract(UInt160 scriptHash, out Script script)
+                {
+                    foreach (var nativeContract in NativeContract.Contracts)
+                    {
+                        if (scriptHash == nativeContract.Hash)
+                        {
+                            script = nativeContract.Script;
+                            return true;
+                        }
+                    }
+
+                    script = default!;
+                    return false;
+                }
             }
 
             public Instruction CurrentInstruction => Script.GetInstruction(InstructionPointer);
