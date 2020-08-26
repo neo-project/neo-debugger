@@ -4,7 +4,7 @@ using StackItem = Neo.VM.Types.StackItem;
 using Neo;
 using Neo.VM;
 using Neo.BlockchainToolkit.TraceDebug;
-using System.Linq;
+using Neo.SmartContract.Native;
 
 namespace NeoDebug.Neo3
 {
@@ -32,7 +32,7 @@ namespace NeoDebug.Neo3
 
                 static bool TryGetNativeContract(UInt160 scriptHash, out Script script)
                 {
-                    foreach (var nativeContract in Neo.SmartContract.Native.NativeContract.Contracts)
+                    foreach (var nativeContract in NativeContract.Contracts)
                     {
                         if (scriptHash == nativeContract.Hash)
                         {
