@@ -150,6 +150,29 @@
                                 "type": "string",
                                 "description": "Absolute path to .neo-trace file"
                             },
+                            "signers": {
+                                "type": "array",
+                                "default": [],
+                                "required": [
+                                    "account"
+                                ],
+                                "properties": {
+                                    "account": {
+                                        "type": "string"
+                                    },
+                                    "scopes": {
+                                        "type": "string",
+                                        "default": "CalledByEntry",
+                                        "enum": [
+                                            "FeeOnly",
+                                            "CalledByEntry",
+                                            "CustomContracts",
+                                            "CustomGroups",
+                                            "Global"
+                                        ]
+                                    }
+                                }
+                            },
                             "utxo": {
                                 "type": "object",
                                 "description": "UTXO assets (aka NEO and GAS) to attach to the transaction being debugged",
