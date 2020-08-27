@@ -74,7 +74,7 @@ namespace NeoDebug.Neo3
 
             var launchContract = LoadContract(config["program"].Value<string>());
             var invokeScript = await CreateLaunchScript(launchContract.ScriptHash, config);
-            var signer = Neo.Wallets.Helper.ToScriptHash("Nc2TJmEh7oM2wrXKdAQH5gHpy8HnyztcME");
+            // var signer = Neo.Wallets.Helper.ToScriptHash("Nc2TJmEh7oM2wrXKdAQH5gHpy8HnyztcME");
 
             var tx = new Transaction
             {
