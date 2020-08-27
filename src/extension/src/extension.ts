@@ -246,7 +246,6 @@ function validateNeo2DebugConfig(config: vscode.DebugConfiguration) {
     if (config["operation"]) {
         throw new Error("operation configuration not supported in Neo 2");
     }
-
 }
 
 function validateNeo3DebugConfig(config: vscode.DebugConfiguration) {
@@ -254,11 +253,6 @@ function validateNeo3DebugConfig(config: vscode.DebugConfiguration) {
     if (config["utxo"]) {
         throw new Error("utxo configuration not supported in Neo 3");
     }
-
-    if (!config["operation"] && !config["trace-file"]) {
-        throw new Error("operation configuration required in Neo 3 unless trace debugging");
-    }
-
 }
 
 function validateDebugConfig(program: string, config: vscode.DebugConfiguration) {

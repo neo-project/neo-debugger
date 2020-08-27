@@ -139,6 +139,9 @@
                                 "description": "Command line arguments passed to the program.",
                                 "default": []
                             },
+                            "invoke-file": {
+                                "type": "string"
+                            },
                             "checkpoint": {
                                 "type": "string",
                                 "description": "Optional neo-express checkpoint file used for contract execution"
