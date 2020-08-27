@@ -139,6 +139,9 @@
                                 "description": "Command line arguments passed to the program.",
                                 "default": []
                             },
+                            "invoke-file": {
+                                "type": "string"
+                            },
                             "checkpoint": {
                                 "type": "string",
                                 "description": "Optional neo-express checkpoint file used for contract execution"
@@ -146,6 +149,29 @@
                             "trace-file": {
                                 "type": "string",
                                 "description": "Absolute path to .neo-trace file"
+                            },
+                            "signers": {
+                                "type": "array",
+                                "default": [],
+                                "required": [
+                                    "account"
+                                ],
+                                "properties": {
+                                    "account": {
+                                        "type": "string"
+                                    },
+                                    "scopes": {
+                                        "type": "string",
+                                        "default": "CalledByEntry",
+                                        "enum": [
+                                            "FeeOnly",
+                                            "CalledByEntry",
+                                            "CustomContracts",
+                                            "CustomGroups",
+                                            "Global"
+                                        ]
+                                    }
+                                }
                             },
                             "utxo": {
                                 "type": "object",

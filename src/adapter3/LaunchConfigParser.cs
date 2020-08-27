@@ -9,6 +9,7 @@ using Neo.BlockchainToolkit.Persistence;
 using Neo.SmartContract;
 using Neo.SmartContract.Manifest;
 using Neo.VM;
+using Neo.Wallets;
 using Newtonsoft.Json.Linq;
 using Nito.Disposables;
 using System;
@@ -34,7 +35,7 @@ namespace NeoDebug.Neo3
 
             var engine = trace
                 ? CreateTraceEngine(config)
-                : CreateDebugEngine(config);
+                : await CreateDebugEngine(config);
 
             return new DebugSession(engine, debugInfoList, returnTypes, sendEvent, defaultDebugView);
         }
@@ -52,7 +53,7 @@ namespace NeoDebug.Neo3
             return new TraceApplicationEngine(traceFilePath, contracts);
         }
 
-        private static IApplicationEngine CreateDebugEngine(Dictionary<string, JToken> config)
+        private static async Task<IApplicationEngine> CreateDebugEngine(Dictionary<string, JToken> config)
         {
             var (trigger, witnessChecker) = CreateRuntime(config);
             if (trigger != TriggerType.Application)
@@ -73,14 +74,15 @@ namespace NeoDebug.Neo3
             }
 
             var launchContract = LoadContract(config["program"].Value<string>());
-            var invokeScript = CreateLaunchScript(launchContract.ScriptHash, config);
+            var invokeScript = await CreateLaunchScript(launchContract.ScriptHash, config);
+            var signers = ParseSigners(config).ToArray();
 
             var tx = new Transaction
             {
                 Version = 0,
                 Nonce = (uint)new Random().Next(),
                 Script = invokeScript,
-                Signers = new[] { new Signer() { Account = UInt160.Zero } },
+                Signers = signers,
                 ValidUntilBlock = Transaction.MaxValidUntilBlockIncrement,
                 Attributes = Array.Empty<TransactionAttribute>(),
                 Witnesses = Array.Empty<Witness>()
@@ -129,8 +131,13 @@ namespace NeoDebug.Neo3
             }
         }
 
-        private static byte[] CreateLaunchScript(UInt160 scriptHash, Dictionary<string, JToken> config)
+        private static async Task<Neo.VM.Script> CreateLaunchScript(UInt160 scriptHash, Dictionary<string, JToken> config)
         {
+            if (config.TryGetValue("invoke-file", out var invokeFile))
+            {
+                return await ContractParameterParser.LoadInvocationScript(invokeFile.Value<string>());
+            }
+
             var operation = config.TryGetValue("operation", out var op)
                 ? op.Value<string>()
                 : throw new InvalidDataException("missing operation config");
@@ -210,7 +217,7 @@ namespace NeoDebug.Neo3
                 }
                 else if (witnesses?.Type == JTokenType.Array)
                 {
-                    var witnessChecker = new WitnessChecker(witnesses.Select(ParseWitness));
+                    var witnessChecker = new WitnessChecker(witnesses.Select(t => ParseAddress(t.Value<string>())));
                     return (trigger, witnessChecker);
                 }
 
@@ -218,17 +225,16 @@ namespace NeoDebug.Neo3
             }
 
             return (TriggerType.Application, WitnessChecker.Default);
+        }
 
-            static UInt160 ParseWitness(JToken json)
+        private static UInt160 ParseAddress(string text)
+        {
+            if (text[0] == '@')
             {
-                var witness = json.Value<string>();
-                if (witness.StartsWith("@N"))
-                {
-                    return Neo.Wallets.Helper.ToScriptHash(witness.Substring(1));
-                }
-
-                throw new Exception($"invalid witness \"{witness}\"");
+                return text[1..].ToScriptHash();
             }
+
+            return text.ToScriptHash();
         }
 
         private static NefFile LoadContract(string path)
@@ -236,6 +242,23 @@ namespace NeoDebug.Neo3
             using var stream = File.OpenRead(path);
             using var reader = new BinaryReader(stream, Encoding.UTF8, false);
             return reader.ReadSerializable<NefFile>();
+        }
+
+        private static IEnumerable<Signer> ParseSigners(Dictionary<string, JToken> config)
+        {
+            if (config.TryGetValue("signers", out var signers))
+            {
+                foreach (JObject signer in signers)
+                {
+                    var account = ParseAddress(signer.Value<string>("account"));
+                    var textScopes = signer.Value<string>("scopes");
+                    var scopes = textScopes == null
+                        ? WitnessScope.CalledByEntry
+                        : (WitnessScope)Enum.Parse(typeof(WitnessScope), textScopes);
+                    var s = new Signer { Account = account, Scopes = scopes };
+                    yield return s;
+                }
+            }
         }
 
         private static async IAsyncEnumerable<DebugInfo> ParseDebugInfo(Dictionary<string, JToken> config, IReadOnlyDictionary<string, string> sourceFileMap)
