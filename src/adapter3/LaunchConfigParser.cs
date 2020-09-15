@@ -21,6 +21,7 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 using NeoScript = Neo.VM.Script;
+using Neo.Cryptography.ECC;
 
 namespace NeoDebug.Neo3
 {
@@ -200,31 +201,56 @@ namespace NeoDebug.Neo3
             }
         }
 
-        private static (TriggerType trigger, WitnessChecker witnessChecker)
-            CreateRuntime(Dictionary<string, JToken> config)
+        private static (TriggerType trigger, Func<byte[], bool>? witnessChecker) CreateRuntime(Dictionary<string, JToken> config)
         {
+            var hasCheckpoint = config.TryGetValue("checkpoint", out _);
+
             if (config.TryGetValue("runtime", out var token))
             {
                 var trigger = "verification".Equals(token.Value<string>("trigger"), StringComparison.InvariantCultureIgnoreCase)
                     ? TriggerType.Verification : TriggerType.Application;
 
-                var witnesses = token["witnesses"];
-                if (witnesses?.Type == JTokenType.Object)
+                var checkWitness = token["check-witness"];
+                if (checkWitness?.Type == JTokenType.Boolean)
                 {
-                    var checkResult = witnesses.Value<bool>("check-result");
-                    var witnessChecker = new WitnessChecker(checkResult);
-                    return (trigger, witnessChecker);
+                    return (trigger, _ => checkWitness.Value<bool>());
                 }
-                else if (witnesses?.Type == JTokenType.Array)
+                else if (checkWitness?.Type == JTokenType.Array)
                 {
-                    var witnessChecker = new WitnessChecker(witnesses.Select(t => ParseAddress(t.Value<string>())));
-                    return (trigger, witnessChecker);
+                    var witnesses = checkWitness.Select(t => ParseAddress(t.Value<string>())).ToImmutableSortedSet();
+                    return (trigger, hashOrPubkey => CheckWitness(hashOrPubkey, witnesses));
+                }
+                else if (checkWitness?.Type == JTokenType.String)
+                {
+                    if (checkWitness.Value<string>() != "checkpoint")
+                    {
+                        throw new Exception($"invalid check-witness value \"{checkWitness.Value<string>()}\"");
+                    }
+
+                    if (!hasCheckpoint) 
+                    {
+                        throw new Exception("invalid launch config - checkpoint not specified");
+                    }
                 }
 
-                return (trigger, WitnessChecker.Default);
+                return (trigger, DefaultWitnessChecker());
             }
 
-            return (TriggerType.Application, WitnessChecker.Default);
+            return (TriggerType.Application, DefaultWitnessChecker());
+
+            Func<byte[], bool>? DefaultWitnessChecker() => hasCheckpoint ? (Func<byte[], bool>?)null : _ => true;
+
+            static bool CheckWitness(byte[] hashOrPubkey, ImmutableSortedSet<UInt160> witnesses)
+            {
+                // hashOrPubkey parsing logic copied from ApplicationEngine.CheckWitness
+                var hash = hashOrPubkey.Length switch
+                {
+                    20 => new UInt160(hashOrPubkey),
+                    33 => Contract.CreateSignatureRedeemScript(ECPoint.DecodePoint(hashOrPubkey, ECCurve.Secp256r1)).ToScriptHash(),
+                    _ => throw new ArgumentException()
+                };
+                return witnesses.Contains(hash);
+            }
         }
 
         private static UInt160 ParseAddress(string text)

@@ -275,24 +275,24 @@
                                             "application"
                                         ]
                                     },
-                                    "witnesses": {
+                                    "check-witness": {
+                                        "description": "Runtime.CheckWitness behavior",
                                         "oneOf": [
                                             {
                                                 "type": "array",
-                                                "description": "Witnesses to check against",
-                                                "items": "string"
+                                                "items": "string",
+                                                "description": "Witnesses to check against"
                                             },
                                             {
-                                                "type": "object",
-                                                "description": "Runtime.CheckWitness return value (no actual checking performed)",
-                                                "required": [
-                                                    "check-result"
+                                                "type": "boolean",
+                                                "description": "hard coded return value (no actual checking performed)"
+                                            },
+                                            {
+                                                "type": "string",
+                                                "enum": [
+                                                    "checkpoint"
                                                 ],
-                                                "properties": {
-                                                    "check-result": {
-                                                        "type": "boolean"
-                                                    }
-                                                }
+                                                "description": "use checkpoint witness information"
                                             }
                                         ]
                                     }

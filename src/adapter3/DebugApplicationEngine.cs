@@ -13,6 +13,7 @@ using System.Linq;
 using Neo.VM;
 using System.Diagnostics.CodeAnalysis;
 using NeoArray = Neo.VM.Types.Array;
+using Neo.Cryptography.ECC;
 
 namespace NeoDebug.Neo3
 {
@@ -41,14 +42,14 @@ namespace NeoDebug.Neo3
 
         public event EventHandler<(UInt160 scriptHash, string eventName, NeoArray state)>? DebugNotify;
         public event EventHandler<(UInt160 scriptHash, string message)>? DebugLog;
-        private readonly WitnessChecker witnessChecker;
+        private readonly Func<byte[], bool> witnessChecker;
         private readonly IReadOnlyDictionary<uint, UInt256> blockHashMap;
         private readonly EvaluationStackAdapter resultStackAdapter;
         private readonly InvocationStackAdapter invocationStackAdapter;
 
-        public DebugApplicationEngine(IVerifiable container, StoreView storeView, WitnessChecker witnessChecker) : base(TriggerType.Application, container, storeView, 0, true)
+        public DebugApplicationEngine(IVerifiable container, StoreView storeView, Func<byte[], bool>? witnessChecker) : base(TriggerType.Application, container, storeView, 0, true)
         {
-            this.witnessChecker = witnessChecker;
+            this.witnessChecker = witnessChecker ?? CheckWitness;
             this.blockHashMap = storeView.Blocks.Find()
                 .ToDictionary(
                     t => t.Value.Index,
@@ -129,9 +130,8 @@ namespace NeoDebug.Neo3
             IReadOnlyList<InteropParameterDescriptor> paramDescriptors)
         {
             Debug.Assert(paramDescriptors.Count == 1);
-            _ = (byte[])engine.Convert(engine.Pop(), paramDescriptors[0]);
-
-            return engine.witnessChecker.Check(Neo.UInt160.Zero);
+            var hashOrPubkey = (byte[])engine.Convert(engine.Pop(), paramDescriptors[0]);
+            return engine.witnessChecker(hashOrPubkey);
         }
 
         private static StackItem? Debug_GetBlock(
