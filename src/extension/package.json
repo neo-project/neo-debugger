@@ -311,12 +311,7 @@
                             "request": "launch",
                             "program": "${workspaceFolder}",
                             "args": [],
-                            "storage": [],
-                            "runtime": {
-                                "witnesses": {
-                                    "check-result": true
-                                }
-                            }
+                            "storage": []
                         }
                     }
                 ]

@@ -115,12 +115,7 @@ class NeoContractDebugConfigurationProvider implements vscode.DebugConfiguration
                     ? "<insert operation here>" 
                     : undefined,
                 args: [],
-                storage: [],
-                runtime: {
-                    witnesses: {
-                        "check-result": true
-                    }
-                }
+                storage: []
             };
         }
         
