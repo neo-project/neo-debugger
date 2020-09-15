@@ -248,15 +248,22 @@ namespace NeoDebug.Neo3
         {
             if (config.TryGetValue("signers", out var signers))
             {
-                foreach (JObject signer in signers)
+                foreach (var signer in signers)
                 {
-                    var account = ParseAddress(signer.Value<string>("account"));
-                    var textScopes = signer.Value<string>("scopes");
-                    var scopes = textScopes == null
-                        ? WitnessScope.CalledByEntry
-                        : (WitnessScope)Enum.Parse(typeof(WitnessScope), textScopes);
-                    var s = new Signer { Account = account, Scopes = scopes };
-                    yield return s;
+                    if (signer.Type == JTokenType.String)
+                    {
+                        var account = ParseAddress(signer.Value<string>());
+                        yield return new Signer { Account = account, Scopes = WitnessScope.CalledByEntry };
+                    }
+                    else if (signer.Type == JTokenType.Object)
+                    {
+                        var account = ParseAddress(signer.Value<string>("account"));
+                        var textScopes = signer.Value<string>("scopes");
+                        var scopes = textScopes == null
+                            ? WitnessScope.CalledByEntry
+                            : (WitnessScope)Enum.Parse(typeof(WitnessScope), textScopes);
+                        var s = new Signer { Account = account, Scopes = scopes };
+                    }
                 }
             }
         }

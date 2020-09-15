@@ -153,24 +153,34 @@
                             "signers": {
                                 "type": "array",
                                 "default": [],
-                                "required": [
-                                    "account"
-                                ],
-                                "properties": {
-                                    "account": {
-                                        "type": "string"
-                                    },
-                                    "scopes": {
-                                        "type": "string",
-                                        "default": "CalledByEntry",
-                                        "enum": [
-                                            "FeeOnly",
-                                            "CalledByEntry",
-                                            "CustomContracts",
-                                            "CustomGroups",
-                                            "Global"
-                                        ]
-                                    }
+                                "items": {
+                                    "oneOf": [
+                                        {
+                                            "type": "string"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "account"
+                                            ],
+                                            "properties": {
+                                                "account": {
+                                                    "type": "string"
+                                                },
+                                                "scopes": {
+                                                    "type": "string",
+                                                    "default": "CalledByEntry",
+                                                    "enum": [
+                                                        "FeeOnly",
+                                                        "CalledByEntry",
+                                                        "CustomContracts",
+                                                        "CustomGroups",
+                                                        "Global"
+                                                    ]
+                                                }
+                                            }
+                                        }
+                                    ]
                                 }
                             },
                             "utxo": {
