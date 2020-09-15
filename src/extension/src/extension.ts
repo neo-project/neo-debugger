@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as cp from 'child_process';
 import * as _glob from 'glob';
+import slash = require('slash');
 
 function checkFileExists(filePath: string): Promise<boolean> {
     return new Promise((resolve, reject) => {
@@ -108,7 +109,7 @@ class NeoContractDebugConfigurationProvider implements vscode.DebugConfiguration
                 type: "neo-contract",
                 request: "launch",
                 program: programPath && folder 
-                    ? join("${workspaceFolder}", relative(folder.uri.fsPath, programPath)) 
+                    ? slash(join("${workspaceFolder}", relative(folder.uri.fsPath, programPath)))
                     : "${workspaceFolder}/<insert path to contract here>",
                 operation: (programPath ? extname(programPath) : "") === ".nef" 
                     ? "<insert operation here>" 

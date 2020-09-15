@@ -386,7 +386,8 @@
         "package-local": "npm run pack-adapters-local && npm run package"
     },
     "dependencies": {
-        "glob": "^7.1.6"
+        "glob": "^7.1.6",
+        "slash": "^3.0.0"
     },
     "devDependencies": {
         "@types/glob": "^7.1.3",
