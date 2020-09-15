@@ -131,7 +131,7 @@ namespace NeoDebug.Neo3
             }
         }
 
-        private static async Task<Neo.VM.Script> CreateLaunchScript(UInt160 scriptHash, Dictionary<string, JToken> config)
+        private static async Task<NeoScript> CreateLaunchScript(UInt160 scriptHash, Dictionary<string, JToken> config)
         {
             if (config.TryGetValue("invoke-file", out var invokeFile))
             {
