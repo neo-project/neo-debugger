@@ -47,7 +47,7 @@ namespace NeoDebug.Neo3
         {
             sendEvent(new OutputEvent()
             {
-                Output = $"Runtime.Notify: {args.scriptHash} {args.state.ToResult()}\n",
+                Output = $"Runtime.Notify: {args.scriptHash} {args.eventName} {args.state.ToResult()}\n",
             });
         }
 

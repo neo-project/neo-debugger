@@ -153,24 +153,34 @@
                             "signers": {
                                 "type": "array",
                                 "default": [],
-                                "required": [
-                                    "account"
-                                ],
-                                "properties": {
-                                    "account": {
-                                        "type": "string"
-                                    },
-                                    "scopes": {
-                                        "type": "string",
-                                        "default": "CalledByEntry",
-                                        "enum": [
-                                            "FeeOnly",
-                                            "CalledByEntry",
-                                            "CustomContracts",
-                                            "CustomGroups",
-                                            "Global"
-                                        ]
-                                    }
+                                "items": {
+                                    "oneOf": [
+                                        {
+                                            "type": "string"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "account"
+                                            ],
+                                            "properties": {
+                                                "account": {
+                                                    "type": "string"
+                                                },
+                                                "scopes": {
+                                                    "type": "string",
+                                                    "default": "CalledByEntry",
+                                                    "enum": [
+                                                        "FeeOnly",
+                                                        "CalledByEntry",
+                                                        "CustomContracts",
+                                                        "CustomGroups",
+                                                        "Global"
+                                                    ]
+                                                }
+                                            }
+                                        }
+                                    ]
                                 }
                             },
                             "utxo": {
@@ -265,24 +275,24 @@
                                             "application"
                                         ]
                                     },
-                                    "witnesses": {
+                                    "check-witness": {
+                                        "description": "Runtime.CheckWitness behavior",
                                         "oneOf": [
                                             {
                                                 "type": "array",
-                                                "description": "Witnesses to check against",
-                                                "items": "string"
+                                                "items": "string",
+                                                "description": "Witnesses to check against"
                                             },
                                             {
-                                                "type": "object",
-                                                "description": "Runtime.CheckWitness return value (no actual checking performed)",
-                                                "required": [
-                                                    "check-result"
+                                                "type": "boolean",
+                                                "description": "hard coded return value (no actual checking performed)"
+                                            },
+                                            {
+                                                "type": "string",
+                                                "enum": [
+                                                    "checkpoint"
                                                 ],
-                                                "properties": {
-                                                    "check-result": {
-                                                        "type": "boolean"
-                                                    }
-                                                }
+                                                "description": "use checkpoint witness information"
                                             }
                                         ]
                                     }
@@ -301,12 +311,7 @@
                             "request": "launch",
                             "program": "${workspaceFolder}",
                             "args": [],
-                            "storage": [],
-                            "runtime": {
-                                "witnesses": {
-                                    "check-result": true
-                                }
-                            }
+                            "storage": []
                         }
                     }
                 ]
@@ -376,7 +381,8 @@
         "package-local": "npm run pack-adapters-local && npm run package"
     },
     "dependencies": {
-        "glob": "^7.1.6"
+        "glob": "^7.1.6",
+        "slash": "^3.0.0"
     },
     "devDependencies": {
         "@types/glob": "^7.1.3",
@@ -388,7 +394,7 @@
         "nerdbank-gitversioning": "^3.2.31",
         "tslint": "^6.1.3",
         "typescript": "^3.9.7",
-        "vsce": "^1.77.0",
+        "vsce": "^1.79.5",
         "vscode-test": "^1.4.0"
     }
 }
