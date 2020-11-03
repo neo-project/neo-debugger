@@ -47,7 +47,7 @@ namespace NeoDebug.Neo3
         private readonly EvaluationStackAdapter resultStackAdapter;
         private readonly InvocationStackAdapter invocationStackAdapter;
 
-        public DebugApplicationEngine(IVerifiable container, StoreView storeView, Func<byte[], bool>? witnessChecker) : base(TriggerType.Application, container, storeView, 0, true)
+        public DebugApplicationEngine(IVerifiable container, StoreView storeView, Func<byte[], bool>? witnessChecker) : base(TriggerType.Application, container, storeView, 0)
         {
             this.witnessChecker = witnessChecker ?? CheckWitness;
             this.blockHashMap = storeView.Blocks.Find()
