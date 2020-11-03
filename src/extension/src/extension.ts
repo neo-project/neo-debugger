@@ -61,11 +61,6 @@ function glob(pattern:string, options: _glob.IOptions = {}) : Promise<string[]> 
     });
 }
 
-function inDevelopmentMode() : boolean {
-    // recommended workaround for https://github.com/Microsoft/vscode/issues/10272
-    return vscode.env.sessionId === "someValue.sessionId";
-}
-
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export async function activate(context: vscode.ExtensionContext) {
@@ -75,7 +70,7 @@ export async function activate(context: vscode.ExtensionContext) {
     const configProvider = new NeoContractDebugConfigurationProvider();
     context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider("neo-contract", configProvider));
 
-    const factory = new NeoContractDebugAdapterDescriptorFactory(neoDebugChannel);
+    const factory = new NeoContractDebugAdapterDescriptorFactory(neoDebugChannel, context.extensionMode);
     context.subscriptions.push(vscode.debug.registerDebugAdapterDescriptorFactory("neo-contract", factory));
 
     context.subscriptions.push(vscode.commands.registerCommand("neo-debugger.displaySourceView",
@@ -175,7 +170,7 @@ function getDebugAdapterVersion(path:string, packageId: string) {
     throw new Error();
 }
 
-async function getDebugAdapterCommand(program: string, config:vscode.WorkspaceConfiguration, channel: vscode.OutputChannel) : Promise<[string, string[]]> {
+async function getDebugAdapterCommand(program: string, config:vscode.WorkspaceConfiguration, mode: vscode.ExtensionMode, channel: vscode.OutputChannel) : Promise<[string, string[]]> {
 
     const debugAdapterConfig = config.get<string[]>("debug-adapter");
     if (debugAdapterConfig && debugAdapterConfig.length > 0) {
@@ -203,7 +198,7 @@ async function getDebugAdapterCommand(program: string, config:vscode.WorkspaceCo
         return [adapterPath, []];
     }
 
-    if (inDevelopmentMode()) {
+    if (mode === vscode.ExtensionMode.Development) {
         const adapterProjectFolder = resolve(extension.extensionPath, "..", 
             getAdapterProjectPath(program));
         const adapterProjectPath = resolve(adapterProjectFolder, "bin", "Debug", "netcoreapp3.1", 
@@ -269,8 +264,10 @@ function validateDebugConfig(program: string, config: vscode.DebugConfiguration)
 class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDescriptorFactory {
 
     channel: vscode.OutputChannel;
-    constructor (channel: vscode.OutputChannel) {
+    mode: vscode.ExtensionMode;
+    constructor (channel: vscode.OutputChannel, mode: vscode.ExtensionMode) {
         this.channel = channel;
+        this.mode = mode;
     }
 
 
@@ -280,7 +277,7 @@ class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDes
         const config = vscode.workspace.getConfiguration("neo-debugger");
         validateDebugConfig(program, session.configuration);
 
-        let [cmd, args] = await getDebugAdapterCommand(program, config, this.channel);
+        let [cmd, args] = await getDebugAdapterCommand(program, config, this.mode, this.channel);
         
         if (config.get<Boolean>("debug", false))
         {
