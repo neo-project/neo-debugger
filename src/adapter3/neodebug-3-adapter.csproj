@@ -20,7 +20,6 @@
       <NoWarn>NU1701</NoWarn>
     </PackageReference>
     <PackageReference Include="Neo" Version="3.0.0-CI01060" />
-    <PackageReference Include="Neo.VM" Version="3.0.0-CI01060" />
     <PackageReference Include="Neo.BlockchainToolkit.Persistence" Version="0.4.18-preview" />
     <PackageReference Include="Neo.BlockchainToolkit.TraceDebug" Version="0.4.18-preview" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
