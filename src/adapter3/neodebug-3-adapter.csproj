@@ -27,10 +27,5 @@
     <PackageReference Include="System.Collections.Immutable" Version="1.7.1" />
     <PackageReference Include="System.Linq.Async" Version="4.1.1" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\..\..\official\3neo-monorepo\core\src\neo\neo.csproj" />
-    <ProjectReference Include="..\..\..\lib-bctk\src\persistence\persistence.csproj" />
-    <ProjectReference Include="..\..\..\lib-bctk\src\trace-models\trace-models.csproj" />
-  </ItemGroup>
 
 </Project>
