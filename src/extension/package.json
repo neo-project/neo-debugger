@@ -75,7 +75,7 @@
                         "properties": {
                             "program": {
                                 "type": "string",
-                                "description": "Absolute path to AVM file"
+                                "description": "Absolute path to Neo smart contract (.avm/.nef)"
                             },
                             "sourceFileMap": {
                                 "type": "object",
@@ -91,7 +91,7 @@
                                     "oneOf": [
                                         {
                                             "type": "string",
-                                            "description": "Absolute path to AVM file"
+                                            "description": "Absolute path to Neo smart contract (.avm/.nef)"
                                         },
                                         {
                                             "type": "object",
@@ -102,7 +102,7 @@
                                             "properties": {
                                                 "program": {
                                                     "type": "string",
-                                                    "description": "Absolute path to AVM file"
+                                                    "description": "Absolute path to Neo smart contract (.avm/.nef)"
                                                 },
                                                 "storage": {
                                                     "type": "array",
@@ -132,7 +132,8 @@
                                 }
                             },
                             "operation": {
-                                "type": "string"
+                                "type": "string",
+                                "description": "Neo 3 contract operation to invoke"
                             },
                             "args": {
                                 "type": "array",
@@ -140,7 +141,8 @@
                                 "default": []
                             },
                             "invoke-file": {
-                                "type": "string"
+                                "type": "string",
+                                "description": "Optional .neo-invoke.json file used to specify contract parameters"
                             },
                             "checkpoint": {
                                 "type": "string",
@@ -152,6 +154,7 @@
                             },
                             "signers": {
                                 "type": "array",
+                                "description": "Optional transaction signers",
                                 "default": [],
                                 "items": {
                                     "oneOf": [
@@ -189,38 +192,44 @@
                                 "properties": {
                                     "inputs": {
                                         "type": "array",
-                                        "required": [
-                                            "txid",
-                                            "n"
-                                        ],
-                                        "properties": {
-                                            "txid": {
-                                                "type": "string"
-                                            },
-                                            "n": {
-                                                "type": "number"
-                                            },
-                                            "value": {
-                                                "type": "number"
+                                        "items": {
+                                            "type": "object",
+                                            "required": [
+                                                "txid",
+                                                "n"
+                                            ],
+                                            "properties": {
+                                                "txid": {
+                                                    "type": "string"
+                                                },
+                                                "n": {
+                                                    "type": "number"
+                                                },
+                                                "value": {
+                                                    "type": "number"
+                                                }
                                             }
                                         }
                                     },
                                     "outputs": {
                                         "type": "array",
-                                        "required": [
-                                            "asset",
-                                            "value",
-                                            "address"
-                                        ],
-                                        "properties": {
-                                            "asset": {
-                                                "type": "string"
-                                            },
-                                            "value": {
-                                                "type": "number"
-                                            },
-                                            "address": {
-                                                "type": "string"
+                                        "items": {
+                                            "type": "object",
+                                            "required": [
+                                                "asset",
+                                                "value",
+                                                "address"
+                                            ],
+                                            "properties": {
+                                                "asset": {
+                                                    "type": "string"
+                                                },
+                                                "value": {
+                                                    "type": "number"
+                                                },
+                                                "address": {
+                                                    "type": "string"
+                                                }
                                             }
                                         }
                                     }
@@ -280,7 +289,9 @@
                                         "oneOf": [
                                             {
                                                 "type": "array",
-                                                "items": "string",
+                                                "items": {
+                                                    "type": "string"
+                                                },
                                                 "description": "Witnesses to check against"
                                             },
                                             {

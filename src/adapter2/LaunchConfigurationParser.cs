@@ -286,7 +286,7 @@ namespace NeoDebug
                 var _inputs = (utxo["inputs"] ?? Enumerable.Empty<JToken>())
                     .Select(t => new CoinReference(
                         UInt256.Parse(t.Value<string>("txid")),
-                        t.Value<ushort>("value")));
+                        t.Value<ushort>("n")));
 
                 var _outputs = (utxo["outputs"] ?? Enumerable.Empty<JToken>())
                     .Select(t => new TransactionOutput(
