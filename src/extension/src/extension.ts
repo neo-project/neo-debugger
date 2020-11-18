@@ -230,8 +230,8 @@ async function getDebugAdapterCommand(program: string, config:vscode.WorkspaceCo
 
 function validateNeo2DebugConfig(config: vscode.DebugConfiguration) {
 
-    if (config["trace-file"]) {
-        throw new Error("trace-file configuration not supported in Neo 2");
+    if (config["traceFile"]) {
+        throw new Error("traceFile configuration not supported in Neo 2");
     }
 
     if (config["operation"]) {
@@ -296,7 +296,7 @@ class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDes
             args.push(defaultDebugView);
         }
 
-        if (session.configuration["trace-file"]) {
+        if (session.configuration["traceFile"]) {
             args.push("--trace");
         }
 
