@@ -138,9 +138,8 @@
                             "args": {
                                 "type": "array",
                                 "description": "Command line arguments passed to the program.",
-                                "default": []
                             },
-                            "invoke-file": {
+                            "invokeFile": {
                                 "type": "string",
                                 "description": "Optional .neo-invoke.json file used to specify contract parameters"
                             },
@@ -148,14 +147,13 @@
                                 "type": "string",
                                 "description": "Optional neo-express checkpoint file used for contract execution"
                             },
-                            "trace-file": {
+                            "traceFile": {
                                 "type": "string",
                                 "description": "Absolute path to .neo-trace file"
                             },
                             "signers": {
                                 "type": "array",
                                 "description": "Optional transaction signers",
-                                "default": [],
                                 "items": {
                                     "oneOf": [
                                         {
@@ -172,7 +170,6 @@
                                                 },
                                                 "scopes": {
                                                     "type": "string",
-                                                    "default": "CalledByEntry",
                                                     "enum": [
                                                         "FeeOnly",
                                                         "CalledByEntry",
@@ -255,8 +252,7 @@
                                             "type": "boolean"
                                         }
                                     }
-                                },
-                                "default": []
+                                }
                             },
                             "return-types": {
                                 "type": "array",

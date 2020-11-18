@@ -43,10 +43,10 @@ namespace NeoDebug.Neo3
 
         private static IApplicationEngine CreateTraceEngine(Dictionary<string, JToken> config)
         {
-            var traceFilePath = config["trace-file"].Value<string>();
+            var traceFilePath = config["traceFile"].Value<string>();
             if (traceFilePath == null)
             {
-                throw new Exception("trace-file configuration not specified");
+                throw new Exception("traceFile configuration not specified");
             }
 
             var contracts = ParseContracts(config).Select(t => LoadContract(t.contractPath));
@@ -134,7 +134,7 @@ namespace NeoDebug.Neo3
 
         private static async Task<NeoScript> CreateLaunchScript(UInt160 scriptHash, Dictionary<string, JToken> config)
         {
-            if (config.TryGetValue("invoke-file", out var invokeFile))
+            if (config.TryGetValue("invokeFile", out var invokeFile))
             {
                 return await ContractParameterParser.LoadInvocationScript(invokeFile.Value<string>());
             }
