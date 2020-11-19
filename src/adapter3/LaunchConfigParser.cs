@@ -5,6 +5,7 @@ using Neo.IO;
 using Neo.Ledger;
 using Neo.Network.P2P.Payloads;
 using Neo.Persistence;
+using Neo.BlockchainToolkit;
 using Neo.BlockchainToolkit.Persistence;
 using Neo.SmartContract;
 using Neo.SmartContract.Manifest;
@@ -134,16 +135,18 @@ namespace NeoDebug.Neo3
 
         private static async Task<NeoScript> CreateLaunchScript(UInt160 scriptHash, Dictionary<string, JToken> config)
         {
+            var parser = new ContractParameterParser();
+
             if (config.TryGetValue("invokeFile", out var invokeFile))
             {
-                return await ContractParameterParser.LoadInvocationScript(invokeFile.Value<string>());
+                return await parser.LoadInvocationScriptAsync(invokeFile.Value<string>()).ConfigureAwait(false);
             }
 
             var operation = config.TryGetValue("operation", out var op)
                 ? op.Value<string>()
                 : throw new InvalidDataException("missing operation config");
             var args = config.TryGetValue("args", out var a)
-                ? ContractParameterParser.ParseParams(a).ToArray()
+                ? parser.ParseParameters(a).ToArray()
                 : Array.Empty<ContractParameter>();
 
             using var builder = new ScriptBuilder();
@@ -368,7 +371,8 @@ namespace NeoDebug.Neo3
 
             static byte[] ConvertString(JToken? token)
             {
-                var arg = ContractParameterParser.ParseStringParam(token?.Value<string>() ?? string.Empty);
+                var parser = new ContractParameterParser();
+                var arg = parser.ParseStringParameter(token?.Value<string>() ?? string.Empty, string.Empty);
 
                 return arg.Type switch
                 {
