@@ -64,6 +64,7 @@ namespace NeoDebug.Neo3
             }
 
             IStore store = CreateBlockchainStorage(config);
+            EnsureNativeContractsDeployed(store);
             foreach (var (path, storages) in ParseContracts(config))
             {
                 var contract = LoadContract(path);
@@ -202,6 +203,19 @@ namespace NeoDebug.Neo3
 
                 return ProtocolSettings.Initialize(config);
             }
+        }
+
+        private static void EnsureNativeContractsDeployed(IStore store)
+        {
+            using var snapshot = new SnapshotView(store);
+            if (snapshot.Contracts.Find().Any(c => c.Value.Id < 0)) return;
+
+            using var sb = new Neo.VM.ScriptBuilder();
+            sb.EmitSysCall(ApplicationEngine.Neo_Native_Deploy);
+
+            using var engine = ApplicationEngine.Run(sb.ToArray(), snapshot, persistingBlock: new Block());
+            if (engine.State != VMState.HALT) throw new Exception("Neo_Native_Deploy failed");
+            snapshot.Commit();
         }
 
         private static (TriggerType trigger, Func<byte[], bool>? witnessChecker) CreateRuntime(Dictionary<string, JToken> config)
