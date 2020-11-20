@@ -111,14 +111,23 @@ namespace NeoDebug
 
             JArray GetArgsConfig()
             {
-                if (config.TryGetValue("args", out var args))
+                if (config.TryGetValue("invocation", out var invocation))
                 {
-                    if (args is JArray jArray)
+                    if (invocation["traceFile"] != null) throw new InvalidOperationException("traceFile invocation only supported on Neo 3 contracts");
+                    if (invocation["oracleResponse"] != null) throw new InvalidOperationException("oracleResponse invocation only supported on Neo 3 contracts");
+                    // TODO: invoke file support
+                    if (invocation["invokeFile"] != null) throw new InvalidOperationException("invokeFile invocation only supported on Neo 3 contracts");
+
+                    var operation = invocation["operation"];
+                    var args = invocation["args"];
+                    if (operation == null)
                     {
-                        return jArray;
+                        return args == null ? new JArray() : args.Type == JTokenType.Array ? (JArray)args : new JArray(args);
                     }
 
-                    return new JArray(args);
+                    var items = args == null ? Enumerable.Empty<JToken>()
+                        : args.Type == JTokenType.Array ? args : (IEnumerable<JToken>)new[] { args };
+                    return new JArray(items.Prepend(operation));
                 }
 
                 return new JArray();
