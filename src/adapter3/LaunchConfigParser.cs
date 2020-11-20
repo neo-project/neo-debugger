@@ -70,7 +70,8 @@ namespace NeoDebug.Neo3
                 var contract = LoadContract(path);
 
                 var manifestPath = Path.ChangeExtension(path, ".manifest.json");
-                var manifest = ContractManifest.Parse(File.ReadAllBytes(manifestPath));
+                var manifestBytes = await File.ReadAllBytesAsync(manifestPath).ConfigureAwait(false);
+                var manifest = ContractManifest.Parse(manifestBytes);
 
                 var id = AddContract(store, contract, manifest);
                 AddStorage(store, id, storages);
