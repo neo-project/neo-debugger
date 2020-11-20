@@ -47,7 +47,8 @@ namespace NeoDebug.Neo3
         private readonly EvaluationStackAdapter resultStackAdapter;
         private readonly InvocationStackAdapter invocationStackAdapter;
 
-        public DebugApplicationEngine(IVerifiable container, StoreView storeView, Func<byte[], bool>? witnessChecker) : base(TriggerType.Application, container, storeView, 0)
+        // TODO: Use TestModeGas constant when https://github.com/neo-project/neo/pull/2084 is merged
+        public DebugApplicationEngine(IVerifiable container, StoreView storeView, Func<byte[], bool>? witnessChecker) : base(TriggerType.Application, container, storeView, 20_00000000)
         {
             this.witnessChecker = witnessChecker ?? CheckWitness;
             this.blockHashMap = storeView.Blocks.Find()

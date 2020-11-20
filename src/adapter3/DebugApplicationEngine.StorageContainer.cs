@@ -23,19 +23,9 @@ namespace NeoDebug.Neo3
             protected override IEnumerable<(ReadOnlyMemory<byte>, StorageItem)> GetStorages()
             {
                 return contractId.HasValue
-                    ? store.Storages.Find(CreateSearchPrefix(contractId.Value, default))
+                    ? store.Storages.Find(StorageKey.CreateSearchPrefix(contractId.Value, default))
                         .Select(t => ((ReadOnlyMemory<byte>)t.Key.Key, t.Value))
                     : Enumerable.Empty<(ReadOnlyMemory<byte>, StorageItem)>();
-
-                // TODO: use StorageKey.CreateSearchPrefix in preview 4
-                //       https://github.com/neo-project/neo/pull/1824
-                static byte[] CreateSearchPrefix(int id, ReadOnlySpan<byte> prefix)
-                {
-                    byte[] buffer = new byte[sizeof(int) + prefix.Length];
-                    System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(buffer, id);
-                    prefix.CopyTo(buffer.AsSpan(sizeof(int)));
-                    return buffer;
-                }
             }
         }
     }
