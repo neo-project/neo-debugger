@@ -46,71 +46,46 @@ namespace NeoDebug.Neo3
             }
         }
 
-        // public struct OracleResponseInvocation
-        // {
-        //     public readonly string Url;
-        //     public readonly string Callback;
-        //     public readonly string Filter;
-        //     public readonly OracleResponseCode Code;
-        //     public readonly JToken? UserData;
-        //     public readonly JToken Result;
+        public struct OracleResponseInvocation
+        {
+            public readonly string Url;
+            public readonly string Callback;
+            public readonly string Filter;
+            public readonly OracleResponseCode Code;
+            public readonly JToken? UserData;
+            public readonly JToken Result;
+            public readonly long GasForResponse;
 
-        //     public OracleResponseInvocation(OracleResponseCode code, string url, string callback, JToken result, string filter, JToken? userData)
-        //     {
-        //         Code = code;
-        //         Url = url;
-        //         Callback = callback;
-        //         Result = result;
-        //         Filter = filter;
-        //         UserData = userData;
-        //     }
+            public OracleResponseInvocation(OracleResponseCode code, string url, string callback, string filter, JToken? userData, JToken result, long gasForResponse)
+            {
+                Code = code;
+                Url = url;
+                Callback = callback;
+                Filter = filter;
+                UserData = userData;
+                Result = result;
+                GasForResponse = gasForResponse;
+            }
 
-        //     public static OracleResponseInvocation FromJson(JToken token)
-        //     {
-        //         var url = token.Value<string>("url") ?? throw new Exception("url oracle response property missing");
-        //         var callback = token.Value<string>("callback") ?? throw new Exception("callback oracle response property missing");
-        //         var result = token["result"] ?? throw new Exception("result oracle response property missing");
+            public static bool TryFromJson(JToken token, out OracleResponseInvocation invocation)
+            {
+                var url = token.Value<string>("url");
+                var callback = token.Value<string>("callback");
+                var result = token["result"];
 
-        //         var filter = token.Value<string>("filter") ?? string.Empty;
-        //         var userData = token["userData"]; 
-        //         var code = OracleResponseCode.Success; // TODO: parse code from json
+                if (!string.IsNullOrEmpty(url) && !string.IsNullOrEmpty(callback) && result != null)
+                {
+                    var filter = token.Value<string>("filter") ?? string.Empty;
+                    var code = token["filter"] == null ? OracleResponseCode.Success : Enum.Parse<OracleResponseCode>(token.Value<string>("filter"), true);
+                    var gas = token["gas"] == null ? (long)0 : token.Value<long>("gas");
 
-        //         return new OracleResponseInvocation(code, url, callback, result, filter, userData);
-        //     }
-        // }
+                    invocation = new OracleResponseInvocation(code, url, callback, filter, token["userData"], result, gas);
+                    return true;
+                }
 
-        // oracleResponse invocation launch.config schema: 
-        // {
-        //     "type": "object",
-        //     "required": [
-        //         "oracleResponse"
-        //     ],
-        //     "properties": {
-        //         "oracleResponse": {
-        //             "type": "object",
-        //             "required": [
-        //                 "url",
-        //                 "callback",
-        //                 "result"
-        //             ],
-        //             "properties": {
-        //                 "url": {
-        //                     "type": "string"
-        //                 },
-        //                 "callback": {
-        //                     "type": "string"
-        //                 },
-        //                 "filter": {
-        //                     "type": "string"
-        //                 },
-        //                 "code": {
-        //                     "type": "number"
-        //                 },
-        //                 "userData": {},
-        //                 "result": {}
-        //             }
-        //         }
-        //     }
-        // },
+                invocation = default;
+                return false;
+            }
+        }
     }
 }
