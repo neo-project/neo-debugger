@@ -82,13 +82,13 @@ namespace NeoDebug.Neo3
 
         private static async Task<IApplicationEngine> CreateDebugEngineAsync(Invocation invocation, Dictionary<string, JToken> config)
         {
-            var signers = ParseSigners(config).ToArray();
             var (trigger, witnessChecker) = ParseRuntime(config);
             if (trigger != TriggerType.Application)
             {
                 throw new Exception($"Trigger Type {trigger} not supported");
             }
 
+            // CreateBlockchainStorage will call ProtocolSettings.Initialize for checkpoint based storage
             IStore store = CreateBlockchainStorage(config);
             EnsureNativeContractsDeployed(store);
 
@@ -102,6 +102,8 @@ namespace NeoDebug.Neo3
                 await UpdateStorageAsync(store, contract, path, storages).ConfigureAwait(false);
             }
 
+            // ParseSigners access ProtocolSettings.Default so it needs to be after CreateBlockchainStorage
+            var signers = ParseSigners(config).ToArray();
             var invokeScript = await CreateInvokeScriptAsync(invocation, launchContract.ScriptHash).ConfigureAwait(false);
 
             var tx = new Transaction
