@@ -312,7 +312,7 @@ namespace NeoDebug.Neo3
                         var scopes = textScopes == null
                             ? WitnessScope.CalledByEntry
                             : (WitnessScope)Enum.Parse(typeof(WitnessScope), textScopes);
-                        var s = new Signer { Account = account, Scopes = scopes };
+                        yield return new Signer { Account = account, Scopes = scopes };
                     }
                 }
             }
