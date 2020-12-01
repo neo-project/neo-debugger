@@ -70,7 +70,7 @@ namespace NeoDebug.Neo3
                     return true;
                 }
 
-                if (OracleResponseInvocation.TryFromJson(json, out var oracleInvocation))
+                if (OracleResponseInvocation.TryFromJson(json["oracleResponse"], out var oracleInvocation))
                 {
                     result = oracleInvocation;
                     return true;
@@ -232,11 +232,11 @@ namespace NeoDebug.Neo3
 
             return new TransactionAttribute[] { response };
 
-            static Neo.SmartContract.Native.KeyBuilder CreateStorageKey(byte prefix)
+            static Neo.SmartContract.KeyBuilder CreateStorageKey(byte prefix)
             {
                 // TODO: use of KeyBuilder depends on https://github.com/neo-project/neo/pull/2099
                 const int Oracle_ContractId = -4;
-                return new Neo.SmartContract.Native.KeyBuilder(Oracle_ContractId, prefix);
+                return new Neo.SmartContract.KeyBuilder(Oracle_ContractId, prefix);
             }
 
             static string Filter(JToken json, string filterArgs)

@@ -67,20 +67,23 @@ namespace NeoDebug.Neo3
                 GasForResponse = gasForResponse;
             }
 
-            public static bool TryFromJson(JToken token, out OracleResponseInvocation invocation)
+            public static bool TryFromJson(JToken? token, out OracleResponseInvocation invocation)
             {
-                var url = token.Value<string>("url");
-                var callback = token.Value<string>("callback");
-                var result = token["result"];
-
-                if (!string.IsNullOrEmpty(url) && !string.IsNullOrEmpty(callback) && result != null)
+                if (token != null)
                 {
-                    var filter = token.Value<string>("filter") ?? string.Empty;
-                    var code = token["filter"] == null ? OracleResponseCode.Success : Enum.Parse<OracleResponseCode>(token.Value<string>("filter"), true);
-                    var gas = token["gas"] == null ? (long)0 : token.Value<long>("gas");
+                    var url = token.Value<string>("url");
+                    var callback = token.Value<string>("callback");
+                    var result = token["result"];
 
-                    invocation = new OracleResponseInvocation(code, url, callback, filter, token["userData"], result, gas);
-                    return true;
+                    if (!string.IsNullOrEmpty(url) && !string.IsNullOrEmpty(callback) && result != null)
+                    {
+                        var filter = token.Value<string>("filter") ?? string.Empty;
+                        var code = token["filter"] == null ? OracleResponseCode.Success : Enum.Parse<OracleResponseCode>(token.Value<string>("filter"), true);
+                        var gas = token["gas"] == null ? (long)0 : token.Value<long>("gas");
+
+                        invocation = new OracleResponseInvocation(code, url, callback, filter, token["userData"], result, gas);
+                        return true;
+                    }
                 }
 
                 invocation = default;
