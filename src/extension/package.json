@@ -397,7 +397,9 @@
                             "type": "neo-contract",
                             "request": "launch",
                             "program": "${workspaceFolder}",
-                            "args": [],
+                            "invocation": {
+                                "args": []
+                            },
                             "storage": []
                         }
                     }
