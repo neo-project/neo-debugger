@@ -142,6 +142,9 @@
                                                         "type": "string"
                                                     },
                                                     "result": {},
+                                                    "resultFile": {
+                                                        "type": "string"
+                                                    },
                                                     "filter": {
                                                         "type": "string"
                                                     },

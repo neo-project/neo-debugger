@@ -35,7 +35,7 @@ namespace NeoDebug.Neo3
                     invocation = default;
                     return false;
                 }
-                
+
                 var args = token["args"];
                 var array = args == null
                     ? new JArray()
@@ -69,11 +69,13 @@ namespace NeoDebug.Neo3
 
             public static bool TryFromJson(JToken? token, out OracleResponseInvocation invocation)
             {
-                if (token != null)
+                if (token != null && token.Type == JTokenType.Object)
                 {
                     var url = token.Value<string>("url");
                     var callback = token.Value<string>("callback");
-                    var result = token["result"];
+                    var result = token["result"] == null
+                        ? (TryLoadResultFile(token, out var resultFileContents) ? resultFileContents : null)
+                        : token["result"];
 
                     if (!string.IsNullOrEmpty(url) && !string.IsNullOrEmpty(callback) && result != null)
                     {
@@ -88,6 +90,26 @@ namespace NeoDebug.Neo3
 
                 invocation = default;
                 return false;
+
+                static bool TryLoadResultFile(JToken token, out JToken resultFileContents)
+                {
+                    var resultFile = token.Value<string>("resultFile");
+                    if (!string.IsNullOrEmpty(resultFile) && System.IO.File.Exists(resultFile))
+                    {
+                        try
+                        {
+                            var text = System.IO.File.ReadAllText(resultFile);
+                            resultFileContents = JToken.Parse(text);
+                            return true;
+                        }
+                        catch (Exception)
+                        {
+                        }
+                    }
+
+                    resultFileContents = null!;
+                    return false;
+                }
             }
         }
     }
