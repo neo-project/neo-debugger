@@ -121,6 +121,53 @@
                                                 "type": "array"
                                             }
                                         }
+                                    },
+                                    {
+                                        "type": "object",
+                                        "required": [
+                                            "oracleResponse"
+                                        ],
+                                        "properties": {
+                                            "oracleResponse": {
+                                                "type": "object",
+                                                "required": [
+                                                    "url",
+                                                    "callback"
+                                                ],
+                                                "properties": {
+                                                    "url": {
+                                                        "type": "string"
+                                                    },
+                                                    "callback": {
+                                                        "type": "string"
+                                                    },
+                                                    "result": {},
+                                                    "resultFile": {
+                                                        "type": "string"
+                                                    },
+                                                    "filter": {
+                                                        "type": "string"
+                                                    },
+                                                    "code": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "Success",
+                                                            "ConsensusUnreachable",
+                                                            "NotFound",
+                                                            "Timeout",
+                                                            "Forbidden",
+                                                            "ResponseTooLarge",
+                                                            "InsufficientFunds",
+                                                            "Error"
+                                                        ]
+                                                    },
+                                                    "gas": {
+                                                        "type": "number"
+                                                    },
+                                                    "userData": {}
+                                                }
+                                            }
+                                        }
                                     }
                                 ]
                             },
@@ -353,7 +400,9 @@
                             "type": "neo-contract",
                             "request": "launch",
                             "program": "${workspaceFolder}",
-                            "args": [],
+                            "invocation": {
+                                "args": []
+                            },
                             "storage": []
                         }
                     }

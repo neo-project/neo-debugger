@@ -97,23 +97,25 @@ async function changeDebugView(debugView: 'source' | 'disassembly' | 'toggle') {
 
 class NeoContractDebugConfigurationProvider implements vscode.DebugConfigurationProvider {
     public async provideDebugConfigurations(folder: WorkspaceFolder | undefined, token?: CancellationToken): Promise<DebugConfiguration[]> {
-        
+
         function createConfig(programPath: string | undefined = undefined): DebugConfiguration {
             return {
                 name: programPath ? basename(programPath) : "Neo Contract",
                 type: "neo-contract",
                 request: "launch",
-                program: programPath && folder 
+                program: programPath && folder
                     ? slash(join("${workspaceFolder}", relative(folder.uri.fsPath, programPath)))
                     : "${workspaceFolder}/<insert path to contract here>",
-                operation: (programPath ? extname(programPath) : "") === ".nef" 
-                    ? "<insert operation here>" 
+                invocation: {
+                    operation: (programPath ? extname(programPath) : "") === ".nef"
+                    ? "<insert operation here>"
                     : undefined,
-                args: [],
+                    args: [],
+                },
                 storage: []
             };
         }
-        
+
         if (folder)
         {
             var neoVmFiles = await vscode.workspace.findFiles(new vscode.RelativePattern(folder, "**/*.{avm,nef}"));

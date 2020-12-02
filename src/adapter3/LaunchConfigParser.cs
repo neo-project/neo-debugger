@@ -27,7 +27,7 @@ using Script = Neo.VM.Script;
 
 namespace NeoDebug.Neo3
 {
-    using Invocation = OneOf.OneOf<LaunchConfigParser.InvokeFileInvocation, /*LaunchConfigParser.OracleResponseInvocation,*/ LaunchConfigParser.LaunchInvocation>;
+    using Invocation = OneOf.OneOf<LaunchConfigParser.InvokeFileInvocation, LaunchConfigParser.OracleResponseInvocation, LaunchConfigParser.LaunchInvocation>;
     using Storages = IEnumerable<(byte[] key, StorageItem item)>;
 
     internal static partial class LaunchConfigParser
@@ -45,33 +45,46 @@ namespace NeoDebug.Neo3
             return new DebugSession(engine, debugInfoList, returnTypes, sendEvent, defaultDebugView);
         }
 
-        private static Task<IApplicationEngine> CreateEngineAsync(Dictionary<string, JToken> config)
+        private static async Task<IApplicationEngine> CreateEngineAsync(Dictionary<string, JToken> config)
         {
-            if (config.TryGetValue("invocation", out var invocation))
+            if (config.TryGetValue("invocation", out var json))
             {
-                if (invocation["traceFile"] != null)
+                if (json["traceFile"] != null)
                 {
-                    var engine = CreateTraceEngine(invocation.Value<string>("traceFile"), config);
-                    return Task.FromResult(engine);
+                    return CreateTraceEngine(json.Value<string>("traceFile"), config);
                 }
 
-                if (invocation["invokeFile"] != null)
+                if (TryGetInvocation(json, out var invocation))
                 {
-                    return CreateDebugEngineAsync(new InvokeFileInvocation(invocation.Value<string>("invokeFile")), config);
-                }
-
-                // if (OracleResponseInvocation.TryFromJson(invocation, out var oracleInvocation))
-                // {
-                //     return CreateDebugEngineAsync(oracleInvocation, config);
-                // }
-
-                if (LaunchInvocation.TryFromJson(invocation, out var launchInvocation))
-                {
-                    return CreateDebugEngineAsync(launchInvocation, config);
+                    return await CreateDebugEngineAsync(invocation, config).ConfigureAwait(false);
                 }
             }
 
             throw new JsonException("invalid invocation config");
+
+            static bool TryGetInvocation(JToken json, out Invocation result)
+            {
+                if (json["invokeFile"] != null)
+                {
+                    result = new InvokeFileInvocation(json.Value<string>("invokeFile"));
+                    return true;
+                }
+
+                if (OracleResponseInvocation.TryFromJson(json["oracleResponse"], out var oracleInvocation))
+                {
+                    result = oracleInvocation;
+                    return true;
+                }
+
+                if (LaunchInvocation.TryFromJson(json, out var launchInvocation))
+                {
+                    result = launchInvocation;
+                    return true;
+                }
+
+                result = default;
+                return false;
+            }
         }
 
         private static IApplicationEngine CreateTraceEngine(string traceFilePath, Dictionary<string, JToken> config)
@@ -94,12 +107,12 @@ namespace NeoDebug.Neo3
 
             var launchContractPath = config["program"].Value<string>() ?? throw new Exception("missing program config property");
             var launchContract = LoadContract(launchContractPath);
-            await UpdateStorageAsync(store, launchContract, launchContractPath, ParseStorage(config)).ConfigureAwait(false);
+            await AddContractStorageAsync(store, launchContract, launchContractPath, ParseStorage(config)).ConfigureAwait(false);
 
             foreach (var (path, storages) in ParseStoredContracts(config))
             {
                 var contract = LoadContract(path);
-                await UpdateStorageAsync(store, contract, path, storages).ConfigureAwait(false);
+                await AddContractStorageAsync(store, contract, path, storages).ConfigureAwait(false);
             }
 
             // ParseSigners access ProtocolSettings.Default so it needs to be after CreateBlockchainStorage
@@ -113,7 +126,7 @@ namespace NeoDebug.Neo3
                 Script = invokeScript,
                 Signers = signers,
                 ValidUntilBlock = Transaction.MaxValidUntilBlockIncrement,
-                Attributes = Array.Empty<TransactionAttribute>(),
+                Attributes = GetTransactionAttributes(invocation, store, launchContract.ScriptHash),
                 Witnesses = Array.Empty<Witness>()
             };
 
@@ -121,7 +134,7 @@ namespace NeoDebug.Neo3
             engine.LoadScript(invokeScript);
             return engine;
 
-            static async Task UpdateStorageAsync(IStore store, NefFile contract, string path, Storages storages)
+            static async Task AddContractStorageAsync(IStore store, NefFile contract, string path, Storages storages)
             {
                 var manifestBytes = await File.ReadAllBytesAsync(Path.ChangeExtension(path, ".manifest.json")).ConfigureAwait(false);
                 var manifest = ContractManifest.Parse(manifestBytes);
@@ -170,6 +183,72 @@ namespace NeoDebug.Neo3
             return reader.ReadSerializable<NefFile>();
         }
 
+        private static TransactionAttribute[] GetTransactionAttributes(Invocation invocation, IStore store, UInt160 contractHash)
+        {
+            return invocation.Match(
+                invoke => Array.Empty<TransactionAttribute>(),
+                oracle => GetTransactionAttributes(oracle, store, contractHash),
+                launch => Array.Empty<TransactionAttribute>());
+        }
+
+        private static TransactionAttribute[] GetTransactionAttributes(OracleResponseInvocation invocation, IStore store, UInt160 contractHash)
+        {
+            var userData = invocation.UserData == null
+                ? Neo.VM.Types.Null.Null
+                : contractParameterParser.Value.ParseParameter(invocation.UserData).ToStackItem();
+
+            using var snapshotView = new SnapshotView(store);
+
+            // the following logic to create the OracleRequest record that drives the response process
+            // is adapted from OracleContract.Request
+            const byte Prefix_RequestId = 9;
+            const byte Prefix_Request = 7;
+            const int MaxUserDataLength = 512;
+
+            StorageItem item_id = snapshotView.Storages.GetAndChange(CreateStorageKey(Prefix_RequestId));
+            ulong id = BitConverter.ToUInt64(item_id.Value) + 1;
+            item_id.Value = BitConverter.GetBytes(id);
+
+            snapshotView.Storages.Add(CreateStorageKey(Prefix_Request).Add(item_id.Value), new StorageItem(
+                new Neo.SmartContract.Native.Oracle.OracleRequest
+                {
+                    OriginalTxid = UInt256.Zero,
+                    GasForResponse = invocation.GasForResponse,
+                    Url = invocation.Url,
+                    Filter = invocation.Filter,
+                    CallbackContract = contractHash,
+                    CallbackMethod = invocation.Callback,
+                    UserData = BinarySerializer.Serialize(userData, MaxUserDataLength)
+                }));
+
+            snapshotView.Commit();
+
+            var response = new OracleResponse
+            {
+                Code = invocation.Code,
+                Id = id,
+                Result = Neo.Utility.StrictUTF8.GetBytes(Filter(invocation.Result, invocation.Filter))
+            };
+
+            return new TransactionAttribute[] { response };
+
+            static Neo.SmartContract.KeyBuilder CreateStorageKey(byte prefix)
+            {
+                // TODO: use of KeyBuilder depends on https://github.com/neo-project/neo/pull/2099
+                const int Oracle_ContractId = -4;
+                return new Neo.SmartContract.KeyBuilder(Oracle_ContractId, prefix);
+            }
+
+            static string Filter(JToken json, string filterArgs)
+            {
+                if (string.IsNullOrEmpty(filterArgs))
+                    return json.ToString();
+
+                JArray afterObjects = new JArray(json.SelectTokens(filterArgs, true));
+                return afterObjects.ToString();
+            }
+        }
+
         private static Task<Script> CreateInvokeScriptAsync(Invocation invocation, UInt160 scriptHash)
         {
             return invocation.Match<Task<Script>>(
@@ -178,7 +257,7 @@ namespace NeoDebug.Neo3
                     return contractParameterParser.Value
                         .LoadInvocationScriptAsync(invoke.Path);
                 },
-                // oracle => Task.FromResult<Script>(OracleResponse.FixedScript),
+                oracle => Task.FromResult<Script>(OracleResponse.FixedScript),
                 launch =>
                 {
                     var args = contractParameterParser.Value
