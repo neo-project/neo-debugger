@@ -14,18 +14,16 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="3.0.0" />
     <PackageReference Include="Microsoft.VisualStudio.Shared.VsCodeDebugProtocol" Version="16.7.40526.2">
       <NoWarn>NU1701</NoWarn>
     </PackageReference>
-    <PackageReference Include="Neo" Version="3.0.0-CI01060" />
-    <PackageReference Include="Neo.BlockchainToolkit.Persistence" Version="0.4.18-preview" />
-    <PackageReference Include="Neo.BlockchainToolkit.TraceDebug" Version="0.4.18-preview" />
+    <PackageReference Include="Neo.BlockchainToolkit3" Version="0.4.52-preview" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
-    <PackageReference Include="Nito.Disposables" Version="2.1.0" />
+    <PackageReference Include="Nito.Disposables" Version="2.2.0" />
     <PackageReference Include="System.Collections.Immutable" Version="1.7.1" />
     <PackageReference Include="System.Linq.Async" Version="4.1.1" />
   </ItemGroup>
-
 </Project>

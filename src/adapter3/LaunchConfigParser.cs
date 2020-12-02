@@ -1,82 +1,123 @@
-using Microsoft.Extensions.Configuration;
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
-using Neo;
-using Neo.IO;
-using Neo.Ledger;
-using Neo.Network.P2P.Payloads;
-using Neo.Persistence;
-using Neo.BlockchainToolkit.Persistence;
-using Neo.SmartContract;
-using Neo.SmartContract.Manifest;
-using Neo.VM;
-using Neo.Wallets;
-using Newtonsoft.Json.Linq;
-using Nito.Disposables;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
-using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
-using NeoScript = Neo.VM.Script;
+using Microsoft.Extensions.Configuration;
+using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using Neo;
+using Neo.BlockchainToolkit;
+using Neo.BlockchainToolkit.Persistence;
 using Neo.Cryptography.ECC;
+using Neo.IO;
+using Neo.Ledger;
+using Neo.Network.P2P.Payloads;
+using Neo.Persistence;
+using Neo.SmartContract;
+using Neo.SmartContract.Manifest;
+using Neo.VM;
+using Neo.Wallets;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Nito.Disposables;
+
+using Script = Neo.VM.Script;
 
 namespace NeoDebug.Neo3
 {
-    internal static class LaunchConfigParser
+    using Invocation = OneOf.OneOf<LaunchConfigParser.InvokeFileInvocation, LaunchConfigParser.OracleResponseInvocation, LaunchConfigParser.LaunchInvocation>;
+    using Storages = IEnumerable<(byte[] key, StorageItem item)>;
+
+    internal static partial class LaunchConfigParser
     {
-        public static async Task<IDebugSession> CreateDebugSession(LaunchArguments launchArguments, Action<DebugEvent> sendEvent, bool trace, DebugView defaultDebugView)
+        readonly static Lazy<ContractParameterParser> contractParameterParser = new Lazy<ContractParameterParser>(() => new ContractParameterParser());
+
+        public static async Task<IDebugSession> CreateDebugSessionAsync(LaunchArguments launchArguments, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
         {
             var config = launchArguments.ConfigurationProperties;
             var sourceFileMap = ParseSourceFileMap(config);
             var returnTypes = ParseReturnTypes(config).ToList();
-            var debugInfoList = await ParseDebugInfo(config, sourceFileMap).ToListAsync().ConfigureAwait(false);
-
-            var engine = trace
-                ? CreateTraceEngine(config)
-                : await CreateDebugEngine(config);
+            var debugInfoList = await LoadDebugInfosAsync(config, sourceFileMap).ToListAsync().ConfigureAwait(false);
+            var engine = await CreateEngineAsync(config).ConfigureAwait(false);
 
             return new DebugSession(engine, debugInfoList, returnTypes, sendEvent, defaultDebugView);
         }
 
-        private static IApplicationEngine CreateTraceEngine(Dictionary<string, JToken> config)
+        private static async Task<IApplicationEngine> CreateEngineAsync(Dictionary<string, JToken> config)
         {
-            var traceFilePath = config["traceFile"].Value<string>();
-            if (traceFilePath == null)
+            if (config.TryGetValue("invocation", out var json))
             {
-                throw new Exception("traceFile configuration not specified");
+                if (json["traceFile"] != null)
+                {
+                    return CreateTraceEngine(json.Value<string>("traceFile"), config);
+                }
+
+                if (TryGetInvocation(json, out var invocation))
+                {
+                    return await CreateDebugEngineAsync(invocation, config).ConfigureAwait(false);
+                }
             }
 
-            var contracts = ParseContracts(config).Select(t => LoadContract(t.contractPath));
+            throw new JsonException("invalid invocation config");
 
+            static bool TryGetInvocation(JToken json, out Invocation result)
+            {
+                if (json["invokeFile"] != null)
+                {
+                    result = new InvokeFileInvocation(json.Value<string>("invokeFile"));
+                    return true;
+                }
+
+                if (OracleResponseInvocation.TryFromJson(json["oracleResponse"], out var oracleInvocation))
+                {
+                    result = oracleInvocation;
+                    return true;
+                }
+
+                if (LaunchInvocation.TryFromJson(json, out var launchInvocation))
+                {
+                    result = launchInvocation;
+                    return true;
+                }
+
+                result = default;
+                return false;
+            }
+        }
+
+        private static IApplicationEngine CreateTraceEngine(string traceFilePath, Dictionary<string, JToken> config)
+        {
+            var contracts = ParseStoredContracts(config).Select(t => LoadContract(t.contractPath));
             return new TraceApplicationEngine(traceFilePath, contracts);
         }
 
-        private static async Task<IApplicationEngine> CreateDebugEngine(Dictionary<string, JToken> config)
+        private static async Task<IApplicationEngine> CreateDebugEngineAsync(Invocation invocation, Dictionary<string, JToken> config)
         {
-            var (trigger, witnessChecker) = CreateRuntime(config);
+            var (trigger, witnessChecker) = ParseRuntime(config);
             if (trigger != TriggerType.Application)
             {
                 throw new Exception($"Trigger Type {trigger} not supported");
             }
 
+            // CreateBlockchainStorage will call ProtocolSettings.Initialize for checkpoint based storage
             IStore store = CreateBlockchainStorage(config);
-            foreach (var (path, storages) in ParseContracts(config))
+            EnsureNativeContractsDeployed(store);
+
+            var launchContractPath = config["program"].Value<string>() ?? throw new Exception("missing program config property");
+            var launchContract = LoadContract(launchContractPath);
+            await AddContractStorageAsync(store, launchContract, launchContractPath, ParseStorage(config)).ConfigureAwait(false);
+
+            foreach (var (path, storages) in ParseStoredContracts(config))
             {
                 var contract = LoadContract(path);
-
-                var manifestPath = Path.ChangeExtension(path, ".manifest.json");
-                var manifest = ContractManifest.Parse(File.ReadAllBytes(manifestPath));
-
-                var id = AddContract(store, contract, manifest);
-                AddStorage(store, id, storages);
+                await AddContractStorageAsync(store, contract, path, storages).ConfigureAwait(false);
             }
 
-            var launchContract = LoadContract(config["program"].Value<string>());
-            var invokeScript = await CreateLaunchScript(launchContract.ScriptHash, config);
+            // ParseSigners access ProtocolSettings.Default so it needs to be after CreateBlockchainStorage
             var signers = ParseSigners(config).ToArray();
+            var invokeScript = await CreateInvokeScriptAsync(invocation, launchContract.ScriptHash).ConfigureAwait(false);
 
             var tx = new Transaction
             {
@@ -85,23 +126,27 @@ namespace NeoDebug.Neo3
                 Script = invokeScript,
                 Signers = signers,
                 ValidUntilBlock = Transaction.MaxValidUntilBlockIncrement,
-                Attributes = Array.Empty<TransactionAttribute>(),
+                Attributes = GetTransactionAttributes(invocation, store, launchContract.ScriptHash),
                 Witnesses = Array.Empty<Witness>()
             };
 
             var engine = new DebugApplicationEngine(tx, new SnapshotView(store), witnessChecker);
             engine.LoadScript(invokeScript);
-
             return engine;
 
-            static void AddStorage(IStore store, int contractId, IEnumerable<(byte[] key, StorageItem item)> storages)
+            static async Task AddContractStorageAsync(IStore store, NefFile contract, string path, Storages storages)
             {
-                var snapshotView = new SnapshotView(store);
+                var manifestBytes = await File.ReadAllBytesAsync(Path.ChangeExtension(path, ".manifest.json")).ConfigureAwait(false);
+                var manifest = ContractManifest.Parse(manifestBytes);
+
+                var id = AddContract(store, contract, manifest);
+
+                using var snapshotView = new SnapshotView(store);
                 foreach (var (key, item) in storages)
                 {
                     var storageKey = new StorageKey()
                     {
-                        Id = contractId,
+                        Id = id,
                         Key = key
                     };
                     snapshotView.Storages.Add(storageKey, item);
@@ -111,7 +156,7 @@ namespace NeoDebug.Neo3
 
             static int AddContract(IStore store, NefFile contract, ContractManifest manifest)
             {
-                var snapshotView = new SnapshotView(store);
+                using var snapshotView = new SnapshotView(store);
                 var contractState = snapshotView.Contracts.TryGet(contract.ScriptHash);
                 if (contractState != null)
                 {
@@ -125,30 +170,102 @@ namespace NeoDebug.Neo3
                     Manifest = manifest
                 };
                 snapshotView.Contracts.Add(contract.ScriptHash, contractState);
-
                 snapshotView.Commit();
 
                 return contractState.Id;
             }
         }
 
-        private static async Task<NeoScript> CreateLaunchScript(UInt160 scriptHash, Dictionary<string, JToken> config)
+        private static NefFile LoadContract(string path)
         {
-            if (config.TryGetValue("invokeFile", out var invokeFile))
+            using var stream = File.OpenRead(path);
+            using var reader = new BinaryReader(stream, Encoding.UTF8, false);
+            return reader.ReadSerializable<NefFile>();
+        }
+
+        private static TransactionAttribute[] GetTransactionAttributes(Invocation invocation, IStore store, UInt160 contractHash)
+        {
+            return invocation.Match(
+                invoke => Array.Empty<TransactionAttribute>(),
+                oracle => GetTransactionAttributes(oracle, store, contractHash),
+                launch => Array.Empty<TransactionAttribute>());
+        }
+
+        private static TransactionAttribute[] GetTransactionAttributes(OracleResponseInvocation invocation, IStore store, UInt160 contractHash)
+        {
+            var userData = invocation.UserData == null
+                ? Neo.VM.Types.Null.Null
+                : contractParameterParser.Value.ParseParameter(invocation.UserData).ToStackItem();
+
+            using var snapshotView = new SnapshotView(store);
+
+            // the following logic to create the OracleRequest record that drives the response process
+            // is adapted from OracleContract.Request
+            const byte Prefix_RequestId = 9;
+            const byte Prefix_Request = 7;
+            const int MaxUserDataLength = 512;
+
+            StorageItem item_id = snapshotView.Storages.GetAndChange(CreateStorageKey(Prefix_RequestId));
+            ulong id = BitConverter.ToUInt64(item_id.Value) + 1;
+            item_id.Value = BitConverter.GetBytes(id);
+
+            snapshotView.Storages.Add(CreateStorageKey(Prefix_Request).Add(item_id.Value), new StorageItem(
+                new Neo.SmartContract.Native.Oracle.OracleRequest
+                {
+                    OriginalTxid = UInt256.Zero,
+                    GasForResponse = invocation.GasForResponse,
+                    Url = invocation.Url,
+                    Filter = invocation.Filter,
+                    CallbackContract = contractHash,
+                    CallbackMethod = invocation.Callback,
+                    UserData = BinarySerializer.Serialize(userData, MaxUserDataLength)
+                }));
+
+            snapshotView.Commit();
+
+            var response = new OracleResponse
             {
-                return await ContractParameterParser.LoadInvocationScript(invokeFile.Value<string>());
+                Code = invocation.Code,
+                Id = id,
+                Result = Neo.Utility.StrictUTF8.GetBytes(Filter(invocation.Result, invocation.Filter))
+            };
+
+            return new TransactionAttribute[] { response };
+
+            static Neo.SmartContract.KeyBuilder CreateStorageKey(byte prefix)
+            {
+                // TODO: use of KeyBuilder depends on https://github.com/neo-project/neo/pull/2099
+                const int Oracle_ContractId = -4;
+                return new Neo.SmartContract.KeyBuilder(Oracle_ContractId, prefix);
             }
 
-            var operation = config.TryGetValue("operation", out var op)
-                ? op.Value<string>()
-                : throw new InvalidDataException("missing operation config");
-            var args = config.TryGetValue("args", out var a)
-                ? ContractParameterParser.ParseParams(a).ToArray()
-                : Array.Empty<ContractParameter>();
+            static string Filter(JToken json, string filterArgs)
+            {
+                if (string.IsNullOrEmpty(filterArgs))
+                    return json.ToString();
 
-            using var builder = new ScriptBuilder();
-            builder.EmitAppCall(scriptHash, operation, args);
-            return builder.ToArray();
+                JArray afterObjects = new JArray(json.SelectTokens(filterArgs, true));
+                return afterObjects.ToString();
+            }
+        }
+
+        private static Task<Script> CreateInvokeScriptAsync(Invocation invocation, UInt160 scriptHash)
+        {
+            return invocation.Match<Task<Script>>(
+                invoke =>
+                {
+                    return contractParameterParser.Value
+                        .LoadInvocationScriptAsync(invoke.Path);
+                },
+                oracle => Task.FromResult<Script>(OracleResponse.FixedScript),
+                launch =>
+                {
+                    var args = contractParameterParser.Value
+                        .ParseParameters(launch.Args).ToArray();
+                    using var builder = new ScriptBuilder();
+                    builder.EmitAppCall(scriptHash, launch.Operation, args);
+                    return Task.FromResult<Script>(builder.ToArray());
+                });
         }
 
         private static IStore CreateBlockchainStorage(Dictionary<string, JToken> config)
@@ -171,7 +288,12 @@ namespace NeoDebug.Neo3
                 });
 
                 var magic = RocksDbStore.RestoreCheckpoint(checkpoint.Value<string>(), checkpointTempPath);
-                if (!InitializeProtocolSettings(magic))
+                var settings = new[] { KeyValuePair.Create("ProtocolConfiguration:Magic", $"{magic}") };
+                var protocolConfig = new ConfigurationBuilder()
+                    .AddInMemoryCollection(settings)
+                    .Build();
+
+                if (!ProtocolSettings.Initialize(protocolConfig))
                 {
                     throw new Exception("could not initialize protocol settings");
                 }
@@ -184,24 +306,22 @@ namespace NeoDebug.Neo3
             {
                 return new MemoryStore();
             }
-
-            static bool InitializeProtocolSettings(long magic)
-            {
-                IEnumerable<KeyValuePair<string, string>> settings()
-                {
-                    yield return new KeyValuePair<string, string>(
-                        "ProtocolConfiguration:Magic", $"{magic}");
-                }
-
-                var config = new ConfigurationBuilder()
-                    .AddInMemoryCollection(settings())
-                    .Build();
-
-                return ProtocolSettings.Initialize(config);
-            }
         }
 
-        private static (TriggerType trigger, Func<byte[], bool>? witnessChecker) CreateRuntime(Dictionary<string, JToken> config)
+        private static void EnsureNativeContractsDeployed(IStore store)
+        {
+            using var snapshot = new SnapshotView(store);
+            if (snapshot.Contracts.Find().Any(c => c.Value.Id < 0)) return;
+
+            using var sb = new Neo.VM.ScriptBuilder();
+            sb.EmitSysCall(ApplicationEngine.Neo_Native_Deploy);
+
+            using var engine = ApplicationEngine.Run(sb.ToArray(), snapshot, persistingBlock: new Block());
+            if (engine.State != VMState.HALT) throw new Exception("Neo_Native_Deploy failed");
+            snapshot.Commit();
+        }
+
+        private static (TriggerType trigger, Func<byte[], bool>? witnessChecker) ParseRuntime(Dictionary<string, JToken> config)
         {
             var hasCheckpoint = config.TryGetValue("checkpoint", out _);
 
@@ -227,7 +347,7 @@ namespace NeoDebug.Neo3
                         throw new Exception($"invalid check-witness value \"{checkWitness.Value<string>()}\"");
                     }
 
-                    if (!hasCheckpoint) 
+                    if (!hasCheckpoint)
                     {
                         throw new Exception("invalid launch config - checkpoint not specified");
                     }
@@ -253,23 +373,6 @@ namespace NeoDebug.Neo3
             }
         }
 
-        private static UInt160 ParseAddress(string text)
-        {
-            if (text[0] == '@')
-            {
-                return text[1..].ToScriptHash();
-            }
-
-            return text.ToScriptHash();
-        }
-
-        private static NefFile LoadContract(string path)
-        {
-            using var stream = File.OpenRead(path);
-            using var reader = new BinaryReader(stream, Encoding.UTF8, false);
-            return reader.ReadSerializable<NefFile>();
-        }
-
         private static IEnumerable<Signer> ParseSigners(Dictionary<string, JToken> config)
         {
             if (config.TryGetValue("signers", out var signers))
@@ -288,25 +391,34 @@ namespace NeoDebug.Neo3
                         var scopes = textScopes == null
                             ? WitnessScope.CalledByEntry
                             : (WitnessScope)Enum.Parse(typeof(WitnessScope), textScopes);
-                        var s = new Signer { Account = account, Scopes = scopes };
+                        yield return new Signer { Account = account, Scopes = scopes };
                     }
                 }
             }
         }
 
-        private static async IAsyncEnumerable<DebugInfo> ParseDebugInfo(Dictionary<string, JToken> config, IReadOnlyDictionary<string, string> sourceFileMap)
+        private static UInt160 ParseAddress(string text)
         {
-            foreach (var (contractPath, _) in ParseContracts(config))
+            if (text[0] == '@')
+            {
+                return text[1..].ToScriptHash();
+            }
+
+            return text.ToScriptHash();
+        }
+
+        private static async IAsyncEnumerable<DebugInfo> LoadDebugInfosAsync(Dictionary<string, JToken> config, IReadOnlyDictionary<string, string> sourceFileMap)
+        {
+            yield return await DebugInfoParser.Load(config["program"].Value<string>(), sourceFileMap).ConfigureAwait(false);
+
+            foreach (var (contractPath, _) in ParseStoredContracts(config))
             {
                 yield return await DebugInfoParser.Load(contractPath, sourceFileMap).ConfigureAwait(false);
             }
         }
 
-        private static IEnumerable<(string contractPath, IEnumerable<(byte[] key, StorageItem item)> storages)>
-            ParseContracts(Dictionary<string, JToken> config)
+        private static IEnumerable<(string contractPath, Storages storages)> ParseStoredContracts(Dictionary<string, JToken> config)
         {
-            yield return (config["program"].Value<string>(), ParseStorage(config));
-
             if (config.TryGetValue("stored-contracts", out var storedContracts))
             {
                 foreach (var storedContract in storedContracts)
@@ -342,41 +454,32 @@ namespace NeoDebug.Neo3
             }
         }
 
-        private static IEnumerable<(byte[] key, StorageItem item)>
-            ParseStorage(Dictionary<string, JToken> config)
+        private static Storages ParseStorage(Dictionary<string, JToken> config)
         {
             return config.TryGetValue("storage", out var token)
                 ? ParseStorage(token)
                 : Enumerable.Empty<(byte[], StorageItem)>();
         }
 
-        private static IEnumerable<(byte[] key, StorageItem item)>
-            ParseStorage(JToken? token)
+        private static Storages ParseStorage(JToken? token)
         {
             return token == null
                 ? Enumerable.Empty<(byte[], StorageItem)>()
                 : token.Select(t =>
                     {
-                        var key = ConvertString(t["key"]);
+                        var key = ConvertParameter(t["key"]);
                         var item = new StorageItem
                         {
-                            Value = ConvertString(t["value"]),
+                            Value = ConvertParameter(t["value"]),
                             IsConstant = t.Value<bool?>("constant") ?? false
                         };
                         return (key, item);
                     });
 
-            static byte[] ConvertString(JToken? token)
+            static byte[] ConvertParameter(JToken? token)
             {
-                var arg = ContractParameterParser.ParseStringParam(token?.Value<string>() ?? string.Empty);
-
-                return arg.Type switch
-                {
-                    ContractParameterType.Hash160 => ((UInt160)arg.Value).ToArray(),
-                    ContractParameterType.Integer => ((BigInteger)arg.Value).ToByteArray(),
-                    ContractParameterType.String => Encoding.UTF8.GetBytes((string)arg.Value),
-                    _ => throw new InvalidDataException(),
-                };
+                var arg = contractParameterParser.Value.ParseParameter(token ?? JValue.CreateNull());
+                return arg.ToStackItem().GetSpan().ToArray();
             }
         }
 
