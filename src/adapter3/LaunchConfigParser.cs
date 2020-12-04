@@ -107,17 +107,18 @@ namespace NeoDebug.Neo3
 
             var launchContractPath = config["program"].Value<string>() ?? throw new Exception("missing program config property");
             var launchContract = LoadContract(launchContractPath);
-            await AddContractStorageAsync(store, launchContract, launchContractPath, ParseStorage(config)).ConfigureAwait(false);
+            var launchContractScriptHash = await AddContractStorageAsync(store, launchContract, launchContractPath, ParseStorage(config))
+                .ConfigureAwait(false);
 
             foreach (var (path, storages) in ParseStoredContracts(config))
             {
                 var contract = LoadContract(path);
-                await AddContractStorageAsync(store, contract, path, storages).ConfigureAwait(false);
+                _ = await AddContractStorageAsync(store, contract, path, storages).ConfigureAwait(false);
             }
 
             // ParseSigners access ProtocolSettings.Default so it needs to be after CreateBlockchainStorage
             var signers = ParseSigners(config).ToArray();
-            var invokeScript = await CreateInvokeScriptAsync(invocation, launchContract.ScriptHash).ConfigureAwait(false);
+            var invokeScript = await CreateInvokeScriptAsync(invocation, launchContractScriptHash).ConfigureAwait(false);
 
             var tx = new Transaction
             {
@@ -126,7 +127,7 @@ namespace NeoDebug.Neo3
                 Script = invokeScript,
                 Signers = signers,
                 ValidUntilBlock = Transaction.MaxValidUntilBlockIncrement,
-                Attributes = GetTransactionAttributes(invocation, store, launchContract.ScriptHash),
+                Attributes = GetTransactionAttributes(invocation, store, launchContractScriptHash),
                 Witnesses = Array.Empty<Witness>()
             };
 
@@ -134,12 +135,13 @@ namespace NeoDebug.Neo3
             engine.LoadScript(invokeScript);
             return engine;
 
-            static async Task AddContractStorageAsync(IStore store, NefFile contract, string path, Storages storages)
+            static async Task<UInt160> AddContractStorageAsync(IStore store, NefFile contract, string path, Storages storages)
             {
                 var manifestBytes = await File.ReadAllBytesAsync(Path.ChangeExtension(path, ".manifest.json")).ConfigureAwait(false);
                 var manifest = ContractManifest.Parse(manifestBytes);
 
-                var id = AddContract(store, contract, manifest);
+                var scriptHash = Neo.SmartContract.Helper.GetContractHash(UInt160.Zero, contract.Script);
+                var id = AddContract(store, scriptHash, contract, manifest);
 
                 using var snapshotView = new SnapshotView(store);
                 foreach (var (key, item) in storages)
@@ -152,12 +154,14 @@ namespace NeoDebug.Neo3
                     snapshotView.Storages.Add(storageKey, item);
                 }
                 snapshotView.Commit();
+
+                return scriptHash;
             }
 
-            static int AddContract(IStore store, NefFile contract, ContractManifest manifest)
+            static int AddContract(IStore store, UInt160 scriptHash, NefFile contract, ContractManifest manifest)
             {
                 using var snapshotView = new SnapshotView(store);
-                var contractState = snapshotView.Contracts.TryGet(contract.ScriptHash);
+                var contractState = snapshotView.Contracts.TryGet(scriptHash);
                 if (contractState != null)
                 {
                     return contractState.Id;
@@ -166,10 +170,12 @@ namespace NeoDebug.Neo3
                 contractState = new ContractState
                 {
                     Id = snapshotView.ContractId.GetAndChange().NextId++,
+                    UpdateCounter = 0,
                     Script = contract.Script,
+                    Hash = scriptHash,
                     Manifest = manifest
                 };
-                snapshotView.Contracts.Add(contract.ScriptHash, contractState);
+                snapshotView.Contracts.Add(scriptHash, contractState);
                 snapshotView.Commit();
 
                 return contractState.Id;

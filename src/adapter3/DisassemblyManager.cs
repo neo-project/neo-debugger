@@ -54,15 +54,18 @@ namespace NeoDebug.Neo3
             this.tryGetDebugInfo = tryGetDebugInfo;
         }
 
-        public Disassembly GetDisassembly(Script script, DebugInfo? debugInfo)
-            => disassemblies.GetOrAdd(script.GetHashCode(), sourceRef => ToDisassembly(sourceRef, script, debugInfo));
+        public Disassembly GetDisassembly(IExecutionContext context, DebugInfo? debugInfo)
+            => GetDisassembly(context.ScriptHash, context.Script, debugInfo);
+
+        public Disassembly GetDisassembly(UInt160 scriptHash, Script script, DebugInfo? debugInfo)
+            => disassemblies.GetOrAdd(scriptHash.GetHashCode(), sourceRef => ToDisassembly(sourceRef, scriptHash, script, debugInfo));
 
         public bool TryGetDisassembly(UInt160 scriptHash, out Disassembly disassembly)
         {
             if (tryGetScript(scriptHash, out var script))
             {
-                var debugInfo = tryGetDebugInfo(scriptHash, out var _di) ? _di : null;
-                disassembly = GetDisassembly(script, debugInfo);
+                var debugInfo = tryGetDebugInfo(scriptHash, out var _debugInfo) ? _debugInfo : null;
+                disassembly = GetDisassembly(scriptHash, script, debugInfo);
                 return true;
             }
 
@@ -73,7 +76,7 @@ namespace NeoDebug.Neo3
         public bool TryGetDisassembly(int sourceRef, out Disassembly disassembly)
             => disassemblies.TryGetValue(sourceRef, out disassembly);
 
-        static Disassembly ToDisassembly(int sourceRef, Script script, DebugInfo? debugInfo)
+        static Disassembly ToDisassembly(int sourceRef, UInt160 scriptHash, Script script, DebugInfo? debugInfo)
         {
             var digitCount = Utility.DigitCount(EnumerateInstructions(script).Last().address);
             var padString = new string('0', digitCount);
@@ -116,11 +119,10 @@ namespace NeoDebug.Neo3
                     sourceBuilder.Append($"\n# End Method {m.Namespace}.{m.Name}");
                     line++;
                 }
-
             }
 
             return new Disassembly(
-                Helper.ToScriptHash(script).ToString(),
+                scriptHash.ToString(),
                 sourceBuilder.ToString(),
                 sourceRef,
                 addressMapBuilder.ToImmutable(),

@@ -21,6 +21,10 @@ namespace NeoDebug.Neo3
         private readonly IApplicationEngine engine;
         private readonly IReadOnlyList<string> returnTypes;
         private readonly IReadOnlyDictionary<UInt160, DebugInfo> debugInfoMap;
+        // this dictionary maps deployed contract script hashes (which are non-deterministic) 
+        // to the hash of the contract script bytes (which are deterministic are used to
+        // associate a contract with its debug info)
+        private readonly Dictionary<UInt160, UInt160> contractScriptHashMap = new Dictionary<UInt160, UInt160>();
         private readonly Action<DebugEvent> sendEvent;
         private bool disassemblyView;
         private readonly DisassemblyManager disassemblyManager;
@@ -41,6 +45,17 @@ namespace NeoDebug.Neo3
 
             this.engine.DebugNotify += OnNotify;
             this.engine.DebugLog += OnLog;
+        }
+
+        bool TryGetDebugInfo(IExecutionContext context, [NotNullWhen(true)] out DebugInfo? debugInfo)
+        {
+            if (!contractScriptHashMap.TryGetValue(context.ScriptHash, out var hash))
+            {
+                hash = Neo.SmartContract.Helper.ToScriptHash(context.Script);
+                contractScriptHashMap.Add(context.ScriptHash, hash);
+            }
+
+            return debugInfoMap.TryGetValue(hash, out debugInfo);
         }
 
         private void OnNotify(object? sender, (UInt160 scriptHash, string eventName, NeoArray state) args)
@@ -112,7 +127,7 @@ namespace NeoDebug.Neo3
             {
                 var scriptHash = context.ScriptHash;
                 DebugInfo.Method? method = null;
-                if (debugInfoMap.TryGetValue(scriptHash, out var debugInfo))
+                if (TryGetDebugInfo(context, out var debugInfo))
                 {
                     method = debugInfo.GetMethod(context.InstructionPointer);
                 }
@@ -125,7 +140,7 @@ namespace NeoDebug.Neo3
 
                 if (disassemblyView)
                 {
-                    var disassembly = disassemblyManager.GetDisassembly(context.Script, debugInfo);
+                    var disassembly = disassemblyManager.GetDisassembly(context, debugInfo);
                     frame.Source = new Source()
                     {
                         SourceReference = disassembly.SourceReference,
@@ -179,7 +194,7 @@ namespace NeoDebug.Neo3
             }
             else
             {
-                var debugInfo = debugInfoMap.TryGetValue(scriptHash, out var di) ? di : null;
+                var debugInfo = TryGetDebugInfo(context, out var di) ? di : null;
                 yield return AddScope("Variables", new ExecutionContextContainer(context, debugInfo));
             }
 
@@ -254,7 +269,7 @@ namespace NeoDebug.Neo3
                 return (container.Evaluate(name), string.Empty);
             }
 
-            if (debugInfoMap.TryGetValue(scriptHash, out var debugInfo)
+            if (TryGetDebugInfo(context, out var debugInfo)
                 && debugInfo.TryGetMethod(context.InstructionPointer, out var method))
             {
                 if (TryEvaluateSlot(context.Arguments, method.Parameters, out (StackItem?, string) result))
@@ -489,7 +504,7 @@ namespace NeoDebug.Neo3
                 if (engine.CurrentContext != null)
                 {
                     var ip = engine.CurrentContext.InstructionPointer;
-                    if (debugInfoMap.TryGetValue(engine.CurrentContext?.ScriptHash ?? UInt160.Zero, out var info))
+                    if (TryGetDebugInfo(engine.CurrentContext, out var info))
                     {
                         var methods = info.Methods;
                         for (int i = 0; i < methods.Count; i++)
