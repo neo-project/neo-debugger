@@ -4,7 +4,7 @@ using System;
 
 namespace NeoDebug.Neo3
 {
-    internal static partial class LaunchConfigParser
+    partial class LaunchConfigParser
     {
         public struct InvokeFileInvocation
         {

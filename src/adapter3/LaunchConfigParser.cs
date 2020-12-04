@@ -30,33 +30,46 @@ namespace NeoDebug.Neo3
     using Invocation = OneOf.OneOf<LaunchConfigParser.InvokeFileInvocation, LaunchConfigParser.OracleResponseInvocation, LaunchConfigParser.LaunchInvocation>;
     using Storages = IEnumerable<(byte[] key, StorageItem item)>;
 
-    internal static partial class LaunchConfigParser
+    partial class LaunchConfigParser
     {
-        readonly static Lazy<ContractParameterParser> contractParameterParser = new Lazy<ContractParameterParser>(() => new ContractParameterParser());
+        readonly Dictionary<string, JToken> config;
+        readonly Dictionary<string, UInt160> contracts = new Dictionary<string, UInt160>();
+        readonly Dictionary<string, UInt160> accounts = new Dictionary<string, UInt160>();
+        readonly ContractParameterParser paramParser;
 
-        public static async Task<IDebugSession> CreateDebugSessionAsync(LaunchArguments launchArguments, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
+        public LaunchConfigParser(LaunchArguments launchArguments)
         {
-            var config = launchArguments.ConfigurationProperties;
-            var sourceFileMap = ParseSourceFileMap(config);
-            var returnTypes = ParseReturnTypes(config).ToList();
-            var debugInfoList = await LoadDebugInfosAsync(config, sourceFileMap).ToListAsync().ConfigureAwait(false);
-            var engine = await CreateEngineAsync(config).ConfigureAwait(false);
+            config = launchArguments.ConfigurationProperties;
+            paramParser = new ContractParameterParser(accounts.TryGetValue, contracts.TryGetValue);
+        }
 
+        public static Task<IDebugSession> CreateDebugSessionAsync(LaunchArguments launchArguments, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
+        {
+            var launchParser = new LaunchConfigParser(launchArguments);
+            return launchParser.CreateDebugSessionAsync(sendEvent, defaultDebugView);
+        }
+
+        async Task<IDebugSession> CreateDebugSessionAsync(Action<DebugEvent> sendEvent, DebugView defaultDebugView)
+        {
+            var sourceFileMap = ParseSourceFileMap(config);
+            var debugInfoList = await LoadDebugInfosAsync(sourceFileMap).ToListAsync().ConfigureAwait(false);
+            var returnTypes = ParseReturnTypes(config).ToList();
+            var engine = await CreateEngineAsync().ConfigureAwait(false);
             return new DebugSession(engine, debugInfoList, returnTypes, sendEvent, defaultDebugView);
         }
 
-        private static async Task<IApplicationEngine> CreateEngineAsync(Dictionary<string, JToken> config)
+        async Task<IApplicationEngine> CreateEngineAsync()
         {
             if (config.TryGetValue("invocation", out var json))
             {
                 if (json["traceFile"] != null)
                 {
-                    return CreateTraceEngine(json.Value<string>("traceFile"), config);
+                    return CreateTraceEngine(json.Value<string>("traceFile"));
                 }
 
                 if (TryGetInvocation(json, out var invocation))
                 {
-                    return await CreateDebugEngineAsync(invocation, config).ConfigureAwait(false);
+                    return await CreateDebugEngineAsync(invocation).ConfigureAwait(false);
                 }
             }
 
@@ -87,13 +100,14 @@ namespace NeoDebug.Neo3
             }
         }
 
-        private static IApplicationEngine CreateTraceEngine(string traceFilePath, Dictionary<string, JToken> config)
+        IApplicationEngine CreateTraceEngine(string traceFilePath)
         {
-            var contracts = ParseStoredContracts(config).Select(t => LoadContract(t.contractPath));
-            return new TraceApplicationEngine(traceFilePath, contracts);
+            throw new Exception();
+            // var contracts = ParseStoredContracts().Select(t => LoadContract(t.contractPath));
+            // return new TraceApplicationEngine(traceFilePath, contracts);
         }
 
-        private static async Task<IApplicationEngine> CreateDebugEngineAsync(Invocation invocation, Dictionary<string, JToken> config)
+        async Task<IApplicationEngine> CreateDebugEngineAsync(Invocation invocation)
         {
             var (trigger, witnessChecker) = ParseRuntime(config);
             if (trigger != TriggerType.Application)
@@ -106,14 +120,24 @@ namespace NeoDebug.Neo3
             EnsureNativeContractsDeployed(store);
 
             var launchContractPath = config["program"].Value<string>() ?? throw new Exception("missing program config property");
-            var launchContract = LoadContract(launchContractPath);
-            var launchContractScriptHash = await AddContractStorageAsync(store, launchContract, launchContractPath, ParseStorage(config))
+            var (launchContract, launchContractManifest) = await LoadContract(launchContractPath).ConfigureAwait(false);
+            var launchContractScriptHash = await AddContractStorageAsync(store, launchContract, launchContractPath, ParseStorage())
                 .ConfigureAwait(false);
+            contracts.TryAdd(launchContractManifest.Name, launchContractScriptHash);
 
-            foreach (var (path, storages) in ParseStoredContracts(config))
+            foreach (var (path, storages) in ParseStoredContracts())
             {
-                var contract = LoadContract(path);
-                _ = await AddContractStorageAsync(store, contract, path, storages).ConfigureAwait(false);
+                var (contract, manifest) = await LoadContract(path).ConfigureAwait(false);
+                var scriptHash = await AddContractStorageAsync(store, contract, path, storages).ConfigureAwait(false);
+                contracts.TryAdd(manifest.Name, scriptHash);
+            }
+
+            using (var snapshotView = new SnapshotView(store))
+            {
+                foreach (var (key, value) in snapshotView.Contracts.Find())
+                {
+                    contracts.TryAdd(value.Manifest.Name, value.Hash);
+                }
             }
 
             // ParseSigners access ProtocolSettings.Default so it needs to be after CreateBlockchainStorage
@@ -182,11 +206,14 @@ namespace NeoDebug.Neo3
             }
         }
 
-        private static NefFile LoadContract(string path)
+        private static async Task<(NefFile contract, ContractManifest manifest)> LoadContract(string path)
         {
+            var manifestBytes = await File.ReadAllBytesAsync(Path.ChangeExtension(path, ".manifest.json")).ConfigureAwait(false);
+            var manifest = ContractManifest.Parse(manifestBytes);
+
             using var stream = File.OpenRead(path);
             using var reader = new BinaryReader(stream, Encoding.UTF8, false);
-            return reader.ReadSerializable<NefFile>();
+            return (reader.ReadSerializable<NefFile>(), manifest);
         }
 
         private static TransactionAttribute[] GetTransactionAttributes(Invocation invocation, IStore store, UInt160 contractHash)
@@ -197,11 +224,11 @@ namespace NeoDebug.Neo3
                 launch => Array.Empty<TransactionAttribute>());
         }
 
-        private static TransactionAttribute[] GetTransactionAttributes(OracleResponseInvocation invocation, IStore store, UInt160 contractHash)
+        TransactionAttribute[] GetTransactionAttributes(OracleResponseInvocation invocation, IStore store, UInt160 contractHash)
         {
             var userData = invocation.UserData == null
                 ? Neo.VM.Types.Null.Null
-                : contractParameterParser.Value.ParseParameter(invocation.UserData).ToStackItem();
+                : paramParser.ParseParameter(invocation.UserData).ToStackItem();
 
             using var snapshotView = new SnapshotView(store);
 
@@ -255,19 +282,17 @@ namespace NeoDebug.Neo3
             }
         }
 
-        private static Task<Script> CreateInvokeScriptAsync(Invocation invocation, UInt160 scriptHash)
+        Task<Script> CreateInvokeScriptAsync(Invocation invocation, UInt160 scriptHash)
         {
             return invocation.Match<Task<Script>>(
                 invoke =>
                 {
-                    return contractParameterParser.Value
-                        .LoadInvocationScriptAsync(invoke.Path);
+                    return paramParser.LoadInvocationScriptAsync(invoke.Path);
                 },
                 oracle => Task.FromResult<Script>(OracleResponse.FixedScript),
                 launch =>
                 {
-                    var args = contractParameterParser.Value
-                        .ParseParameters(launch.Args).ToArray();
+                    var args = paramParser.ParseParameters(launch.Args).ToArray();
                     using var builder = new ScriptBuilder();
                     builder.EmitAppCall(scriptHash, launch.Operation, args);
                     return Task.FromResult<Script>(builder.ToArray());
@@ -413,17 +438,17 @@ namespace NeoDebug.Neo3
             return text.ToScriptHash();
         }
 
-        private static async IAsyncEnumerable<DebugInfo> LoadDebugInfosAsync(Dictionary<string, JToken> config, IReadOnlyDictionary<string, string> sourceFileMap)
+        async IAsyncEnumerable<DebugInfo> LoadDebugInfosAsync(IReadOnlyDictionary<string, string> sourceFileMap)
         {
             yield return await DebugInfoParser.Load(config["program"].Value<string>(), sourceFileMap).ConfigureAwait(false);
 
-            foreach (var (contractPath, _) in ParseStoredContracts(config))
+            foreach (var (contractPath, _) in ParseStoredContracts())
             {
                 yield return await DebugInfoParser.Load(contractPath, sourceFileMap).ConfigureAwait(false);
             }
         }
 
-        private static IEnumerable<(string contractPath, Storages storages)> ParseStoredContracts(Dictionary<string, JToken> config)
+        IEnumerable<(string contractPath, Storages storages)> ParseStoredContracts()
         {
             if (config.TryGetValue("stored-contracts", out var storedContracts))
             {
@@ -460,31 +485,31 @@ namespace NeoDebug.Neo3
             }
         }
 
-        private static Storages ParseStorage(Dictionary<string, JToken> config)
+        Storages ParseStorage()
         {
             return config.TryGetValue("storage", out var token)
                 ? ParseStorage(token)
                 : Enumerable.Empty<(byte[], StorageItem)>();
         }
 
-        private static Storages ParseStorage(JToken? token)
+        Storages ParseStorage(JToken? token)
         {
             return token == null
                 ? Enumerable.Empty<(byte[], StorageItem)>()
                 : token.Select(t =>
                     {
-                        var key = ConvertParameter(t["key"]);
+                        var key = ConvertParameter(t["key"], paramParser);
                         var item = new StorageItem
                         {
-                            Value = ConvertParameter(t["value"]),
+                            Value = ConvertParameter(t["value"], paramParser),
                             IsConstant = t.Value<bool?>("constant") ?? false
                         };
                         return (key, item);
                     });
 
-            static byte[] ConvertParameter(JToken? token)
+            static byte[] ConvertParameter(JToken? token, ContractParameterParser paramParser)
             {
-                var arg = contractParameterParser.Value.ParseParameter(token ?? JValue.CreateNull());
+                var arg = paramParser.ParseParameter(token ?? JValue.CreateNull());
                 return arg.ToStackItem().GetSpan().ToArray();
             }
         }
