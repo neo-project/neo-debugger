@@ -120,18 +120,18 @@ namespace NeoDebug.Neo3
             EnsureNativeContractsDeployed(store);
 
             var launchContractPath = config["program"].Value<string>() ?? throw new Exception("missing program config property");
-            var (launchContract, launchContractManifest) = await LoadContract(launchContractPath).ConfigureAwait(false);
-            var launchContractScriptHash = await AddContractStorageAsync(store, launchContract, launchContractPath, ParseStorage())
-                .ConfigureAwait(false);
-            contracts.TryAdd(launchContractManifest.Name, launchContractScriptHash);
+            var launchContract = LoadContract(launchContractPath);
+            var launchContractManifest = await LoadManifest(launchContractPath);
+            var (lauchContractId, launchContractHash) = AddContract(store, launchContract, launchContractManifest);
 
-            foreach (var (path, storages) in ParseStoredContracts())
-            {
-                var (contract, manifest) = await LoadContract(path).ConfigureAwait(false);
-                var scriptHash = await AddContractStorageAsync(store, contract, path, storages).ConfigureAwait(false);
-                contracts.TryAdd(manifest.Name, scriptHash);
-            }
+            // TODO: load other contracts
 
+            // Not sure supporting other contracts is a good idea anymore. Since there's no way to calcualte the 
+            // contract id hash prior to deployment in Neo 3, I'm thinking the better approach would be to simply
+            // deploy whatever contracts you want and take a snapshot rather than deploying multiple contracts 
+            // during launch configuration.
+
+            // cache the deployed contracts for use by parameter parser
             using (var snapshotView = new SnapshotView(store))
             {
                 foreach (var (key, value) in snapshotView.Contracts.Find())
@@ -140,9 +140,13 @@ namespace NeoDebug.Neo3
                 }
             }
 
+            UpdateContractStorage(store, lauchContractId, ParseStorage());
+
+            // TODO: load other contract storage (unless we cut this feature - see comment above)
+
             // ParseSigners access ProtocolSettings.Default so it needs to be after CreateBlockchainStorage
             var signers = ParseSigners(config).ToArray();
-            var invokeScript = await CreateInvokeScriptAsync(invocation, launchContractScriptHash).ConfigureAwait(false);
+            var invokeScript = await CreateInvokeScriptAsync(invocation, launchContractHash).ConfigureAwait(false);
 
             var tx = new Transaction
             {
@@ -151,7 +155,7 @@ namespace NeoDebug.Neo3
                 Script = invokeScript,
                 Signers = signers,
                 ValidUntilBlock = Transaction.MaxValidUntilBlockIncrement,
-                Attributes = GetTransactionAttributes(invocation, store, launchContractScriptHash),
+                Attributes = GetTransactionAttributes(invocation, store, launchContractHash),
                 Witnesses = Array.Empty<Witness>()
             };
 
@@ -159,61 +163,74 @@ namespace NeoDebug.Neo3
             engine.LoadScript(invokeScript);
             return engine;
 
-            static async Task<UInt160> AddContractStorageAsync(IStore store, NefFile contract, string path, Storages storages)
+            static (int id, UInt160 scriptHash) AddContract(IStore store, NefFile contract, ContractManifest manifest)
             {
-                var manifestBytes = await File.ReadAllBytesAsync(Path.ChangeExtension(path, ".manifest.json")).ConfigureAwait(false);
-                var manifest = ContractManifest.Parse(manifestBytes);
+                using var snapshotView = new SnapshotView(store);
 
-                var scriptHash = Neo.SmartContract.Helper.GetContractHash(UInt160.Zero, contract.Script);
-                var id = AddContract(store, scriptHash, contract, manifest);
+                // check to see if there's a contract who's name matches the name in the manifest
+                foreach (var (key, value) in snapshotView.Contracts.Find())
+                {
+                    // do not update native contracts, even if names match
+                    if (value.Id < 0) continue;
 
+                    if (string.Equals(value.Manifest.Name, manifest.Name))
+                    {
+                        // if the deployed script doesn't match the script parameter, overwrite the deployed script
+                        if (contract.Script.ToScriptHash() != value.Script.ToScriptHash())
+                        {
+                            value.Script = contract.Script;
+                            value.Manifest = manifest;
+                            snapshotView.Commit();
+                        }
+
+                        return (value.Id, value.Hash);
+                    }
+                }
+
+                // if no existing contract with matching manifest.Name is found, 
+                // add the provided contract to the contract table
+                var hash = Neo.SmartContract.Helper.GetContractHash(UInt160.Zero, contract.Script);
+                var contractState = new ContractState
+                {
+                    Id = snapshotView.ContractId.GetAndChange().NextId++,
+                    UpdateCounter = 0,
+                    Script = contract.Script,
+                    Hash = hash,
+                    Manifest = manifest
+                };
+                snapshotView.Contracts.Add(hash, contractState);
+                snapshotView.Commit();
+
+                return (contractState.Id, hash);
+            }
+
+            static void UpdateContractStorage(IStore store, int contractId, Storages storages)
+            {
                 using var snapshotView = new SnapshotView(store);
                 foreach (var (key, item) in storages)
                 {
                     var storageKey = new StorageKey()
                     {
-                        Id = id,
+                        Id = contractId,
                         Key = key
                     };
                     snapshotView.Storages.Add(storageKey, item);
                 }
                 snapshotView.Commit();
-
-                return scriptHash;
-            }
-
-            static int AddContract(IStore store, UInt160 scriptHash, NefFile contract, ContractManifest manifest)
-            {
-                using var snapshotView = new SnapshotView(store);
-                var contractState = snapshotView.Contracts.TryGet(scriptHash);
-                if (contractState != null)
-                {
-                    return contractState.Id;
-                }
-
-                contractState = new ContractState
-                {
-                    Id = snapshotView.ContractId.GetAndChange().NextId++,
-                    UpdateCounter = 0,
-                    Script = contract.Script,
-                    Hash = scriptHash,
-                    Manifest = manifest
-                };
-                snapshotView.Contracts.Add(scriptHash, contractState);
-                snapshotView.Commit();
-
-                return contractState.Id;
             }
         }
 
-        private static async Task<(NefFile contract, ContractManifest manifest)> LoadContract(string path)
+        private static NefFile LoadContract(string path)
         {
-            var manifestBytes = await File.ReadAllBytesAsync(Path.ChangeExtension(path, ".manifest.json")).ConfigureAwait(false);
-            var manifest = ContractManifest.Parse(manifestBytes);
-
             using var stream = File.OpenRead(path);
             using var reader = new BinaryReader(stream, Encoding.UTF8, false);
-            return (reader.ReadSerializable<NefFile>(), manifest);
+            return reader.ReadSerializable<NefFile>();
+        }
+
+        private static async Task<ContractManifest> LoadManifest(string contractPath)
+        {
+            var manifestBytes = await File.ReadAllBytesAsync(Path.ChangeExtension(contractPath, ".manifest.json")).ConfigureAwait(false);
+            return ContractManifest.Parse(manifestBytes);
         }
 
         private static TransactionAttribute[] GetTransactionAttributes(Invocation invocation, IStore store, UInt160 contractHash)
@@ -221,7 +238,7 @@ namespace NeoDebug.Neo3
             return invocation.Match(
                 invoke => Array.Empty<TransactionAttribute>(),
                 oracle => GetTransactionAttributes(oracle, store, contractHash),
-                launch => Array.Empty<TransactionAttribute>());
+                launch => Array.Empty<TransactionAttribute>())  ;
         }
 
         TransactionAttribute[] GetTransactionAttributes(OracleResponseInvocation invocation, IStore store, UInt160 contractHash)
