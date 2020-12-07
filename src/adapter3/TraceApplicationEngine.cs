@@ -23,7 +23,6 @@ namespace NeoDebug.Neo3
 
         public TraceApplicationEngine(string traceFilePath, IEnumerable<NefFile> contracts)
         {
-            // TODO: probably need to capture more info in trace to make this work right
             this.contracts = contracts.ToDictionary(c => Neo.SmartContract.Helper.ToScriptHash(c.Script), c => (Script)c.Script);
             traceFile = new TraceFile(traceFilePath, this.contracts);
 
