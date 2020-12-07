@@ -95,13 +95,13 @@ namespace NeoDebug.Neo3
                 case NotifyRecord notify:
                     if (!stepBack)
                     {
-                        DebugNotify?.Invoke(this, (notify.ScriptHash, notify.EventName, new NeoArray(notify.State)));
+                        DebugNotify?.Invoke(this, (notify.ScriptHash, notify.ScriptName, notify.EventName, new NeoArray(notify.State)));
                     }
                     break;
                 case LogRecord log:
                     if (!stepBack)
                     {
-                        DebugLog?.Invoke(this, (log.ScriptHash, log.Message));
+                        DebugLog?.Invoke(this, (log.ScriptHash, log.ScriptName, log.Message));
                     }
                     break;
                 case ResultsRecord results:
@@ -120,8 +120,8 @@ namespace NeoDebug.Neo3
         public IExecutionContext? CurrentContext => InvocationStack.FirstOrDefault();
         public IReadOnlyList<StackItem> ResultStack { get; private set; } = new List<StackItem>();
         public Exception? FaultException { get; private set; }
-        public event EventHandler<(UInt160 scriptHash, string eventName, NeoArray state)>? DebugNotify;
-        public event EventHandler<(UInt160 scriptHash, string message)>? DebugLog;
+        public event EventHandler<(UInt160 scriptHash, string scriptName, string eventName, NeoArray state)>? DebugNotify;
+        public event EventHandler<(UInt160 scriptHash, string scriptName, string message)>? DebugLog;
 
         public bool CatchBlockOnStack() => stackFrames.Any(f => f.HasCatch);
 

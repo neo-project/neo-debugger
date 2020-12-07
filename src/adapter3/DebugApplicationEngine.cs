@@ -41,8 +41,8 @@ namespace NeoDebug.Neo3
             }
         }
 
-        public event EventHandler<(UInt160 scriptHash, string eventName, NeoArray state)>? DebugNotify;
-        public event EventHandler<(UInt160 scriptHash, string message)>? DebugLog;
+        public event EventHandler<(UInt160 scriptHash, string scriptName, string eventName, NeoArray state)>? DebugNotify;
+        public event EventHandler<(UInt160 scriptHash, string scriptName, string message)>? DebugLog;
         private readonly Func<byte[], bool> witnessChecker;
         private readonly IReadOnlyDictionary<uint, UInt256> blockHashMap;
         private readonly EvaluationStackAdapter resultStackAdapter;
@@ -72,17 +72,23 @@ namespace NeoDebug.Neo3
 
         private void OnNotify(object? sender, NotifyEventArgs args)
         {
+            var contract = Snapshot.Contracts.TryGet(args.ScriptHash);
+            var name = contract == null ? string.Empty : (contract.Manifest.Name ?? string.Empty);
+
             if (ReferenceEquals(sender, this))
             {
-                DebugNotify?.Invoke(sender, (args.ScriptHash, args.EventName, args.State));
+                DebugNotify?.Invoke(sender, (args.ScriptHash, name, args.EventName, args.State));
             }
         }
 
         private void OnLog(object? sender, LogEventArgs args)
         {
+            var contract = Snapshot.Contracts.TryGet(args.ScriptHash);
+            var name = contract == null ? string.Empty : (contract.Manifest.Name ?? string.Empty);
+
             if (ReferenceEquals(sender, this))
             {
-                DebugLog?.Invoke(sender, (args.ScriptHash, args.Message));
+                DebugLog?.Invoke(sender, (args.ScriptHash, name, args.Message));
             }
         }
 

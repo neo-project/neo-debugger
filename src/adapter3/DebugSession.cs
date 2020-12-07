@@ -43,19 +43,19 @@ namespace NeoDebug.Neo3
             this.engine.DebugLog += OnLog;
         }
 
-        private void OnNotify(object? sender, (UInt160 scriptHash, string eventName, NeoArray state) args)
+        private void OnNotify(object? sender, (UInt160 scriptHash, string scriptName, string eventName, NeoArray state) args)
         {
             sendEvent(new OutputEvent()
             {
-                Output = $"Runtime.Notify: {args.scriptHash} {args.eventName} {args.state.ToResult()}\n",
+                Output = $"Runtime.Notify: {(string.IsNullOrEmpty(args.scriptName) ? args.scriptHash.ToString() : args.scriptName)} {args.eventName} {args.state.ToResult()}\n",
             });
         }
 
-        private void OnLog(object? sender, (UInt160 scriptHash, string message) args)
+        private void OnLog(object? sender, (UInt160 scriptHash, string scriptName, string message) args)
         {
             sendEvent(new OutputEvent()
             {
-                Output = $"Runtime.Log: {args.scriptHash} {args.message}\n",
+                Output = $"Runtime.Log: {(string.IsNullOrEmpty(args.scriptName) ? args.scriptHash.ToString() : args.scriptName)} {args.message}\n",
             });
         }
 

@@ -11,8 +11,8 @@ namespace NeoDebug.Neo3
 {
     internal interface IApplicationEngine : IDisposable
     {
-        event EventHandler<(UInt160 scriptHash, string eventName, NeoArray state)>? DebugNotify;
-        event EventHandler<(UInt160 scriptHash, string message)>? DebugLog;
+        event EventHandler<(UInt160 scriptHash, string scriptName, string eventName, NeoArray state)>? DebugNotify;
+        event EventHandler<(UInt160 scriptHash, string scriptName, string message)>? DebugLog;
 
         bool CatchBlockOnStack();
 
