@@ -21,7 +21,7 @@ namespace NeoDebug.Neo3
                 {
                     Script = script;
                 }
-                else if (TryGetNativeContract(frame.ScriptHash, out script))
+                else if (TryGetNativeContract(frame.ScriptIdentifier, out script))
                 {
                     Script = script;
                 }
@@ -50,6 +50,7 @@ namespace NeoDebug.Neo3
 
             public int InstructionPointer => frame.InstructionPointer;
 
+            public UInt160 ScriptIdentifier => frame.ScriptIdentifier;
             public UInt160 ScriptHash => frame.ScriptHash;
 
             public Script Script { get; }

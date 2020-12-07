@@ -102,9 +102,14 @@ namespace NeoDebug.Neo3
 
         IApplicationEngine CreateTraceEngine(string traceFilePath)
         {
-            throw new Exception();
-            // var contracts = ParseStoredContracts().Select(t => LoadContract(t.contractPath));
-            // return new TraceApplicationEngine(traceFilePath, contracts);
+            var contracts = new List<NefFile>();
+            var launchContractPath = config["program"].Value<string>() ?? throw new Exception("missing program config property");
+            var launchContract = LoadContract(launchContractPath);
+            contracts.Add(launchContract);
+
+            // TODO: load other contracts
+
+            return new TraceApplicationEngine(traceFilePath, contracts);
         }
 
         async Task<IApplicationEngine> CreateDebugEngineAsync(Invocation invocation)

@@ -14,9 +14,21 @@ namespace NeoDebug.Neo3
             private readonly ExecutionContext context;
             private readonly EvaluationStackAdapter evalStackAdapter;
 
-            public ExecutionContextAdapter(ExecutionContext context)
+            public ExecutionContextAdapter(ExecutionContext context, IDictionary<UInt160, UInt160> scriptIdMap)
             {
                 this.context = context;
+                this.ScriptIdentifier = context.GetScriptHash();
+
+                if (scriptIdMap.TryGetValue(this.ScriptIdentifier, out var scriptHash))
+                {
+                    this.ScriptHash = scriptHash;
+                }
+                else
+                {
+                    this.ScriptHash = Neo.SmartContract.Helper.ToScriptHash(context.Script);
+                    scriptIdMap[this.ScriptIdentifier] = this.ScriptHash;
+                }
+
                 evalStackAdapter = new EvaluationStackAdapter(context.EvaluationStack);
             }
 
@@ -34,7 +46,8 @@ namespace NeoDebug.Neo3
 
             public Script Script => context.Script;
 
-            public UInt160 ScriptHash => context.GetScriptHash();
+            public UInt160 ScriptIdentifier { get; }
+            public UInt160 ScriptHash { get; }
         }
 
     }

@@ -22,6 +22,7 @@ namespace NeoDebug.Neo3
     internal partial class DebugApplicationEngine : ApplicationEngine, IApplicationEngine
     {
         private readonly static IReadOnlyDictionary<uint, ServiceMethod> debugServices;
+        private readonly IDictionary<UInt160, UInt160> scriptIdMap = new Dictionary<UInt160, UInt160>();
 
         static DebugApplicationEngine()
         {
@@ -213,6 +214,6 @@ namespace NeoDebug.Neo3
 
         IExecutionContext? IApplicationEngine.CurrentContext => CurrentContext == null
             ? null
-            : new ExecutionContextAdapter(CurrentContext);
+            : new ExecutionContextAdapter(CurrentContext, scriptIdMap);
     }
 }

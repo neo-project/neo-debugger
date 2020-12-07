@@ -24,7 +24,7 @@ namespace NeoDebug.Neo3
             {
                 foreach (var s in engine.InvocationStack)
                 {
-                    yield return new ExecutionContextAdapter(s);
+                    yield return new ExecutionContextAdapter(s, engine.scriptIdMap);
                 }
             }
 
