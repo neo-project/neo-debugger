@@ -22,7 +22,6 @@ namespace NeoDebug.Neo3
     internal partial class DebugApplicationEngine : ApplicationEngine, IApplicationEngine
     {
         private readonly static IReadOnlyDictionary<uint, ServiceMethod> debugServices;
-        private readonly IDictionary<UInt160, UInt160> scriptIdMap = new Dictionary<UInt160, UInt160>();
 
         static DebugApplicationEngine()
         {
@@ -47,9 +46,9 @@ namespace NeoDebug.Neo3
         private readonly IReadOnlyDictionary<uint, UInt256> blockHashMap;
         private readonly EvaluationStackAdapter resultStackAdapter;
         private readonly InvocationStackAdapter invocationStackAdapter;
+        private readonly IDictionary<UInt160, UInt160> scriptIdMap = new Dictionary<UInt160, UInt160>();
 
-        // TODO: Use TestModeGas constant when https://github.com/neo-project/neo/pull/2084 is merged
-        public DebugApplicationEngine(IVerifiable container, StoreView storeView, Func<byte[], bool>? witnessChecker) : base(TriggerType.Application, container, storeView, 20_00000000)
+        public DebugApplicationEngine(IVerifiable container, StoreView storeView, Func<byte[], bool>? witnessChecker) : base(TriggerType.Application, container, storeView, TestModeGas)
         {
             this.witnessChecker = witnessChecker ?? CheckWitness;
             this.blockHashMap = storeView.Blocks.Find()
@@ -149,8 +148,8 @@ namespace NeoDebug.Neo3
             Debug.Assert(paramDescriptors.Count == 1);
 
             var indexOrHash = (byte[])engine.Convert(engine.Pop(), paramDescriptors[0]);
-            var hash = engine.GetBlockHash(indexOrHash);
 
+            var hash = engine.GetBlockHash(indexOrHash);
             if (hash is null) return StackItem.Null;
             Block block = engine.Snapshot.GetBlock(hash);
             if (block is null) return StackItem.Null;
@@ -167,7 +166,6 @@ namespace NeoDebug.Neo3
             var txIndex = (int)engine.Convert(engine.Pop(), paramDescriptors[1]);
 
             var hash = engine.GetBlockHash(blockIndexOrHash);
-
             if (hash is null) return StackItem.Null;
             var block = engine.Snapshot.Blocks.TryGet(hash);
             if (block is null) return StackItem.Null;
@@ -195,7 +193,7 @@ namespace NeoDebug.Neo3
                 }
             }
 
-            throw new ArgumentException();
+            return null;
         }
 
         public bool TryGetContract(UInt160 scriptHash, [MaybeNullWhen(false)] out Script script)
