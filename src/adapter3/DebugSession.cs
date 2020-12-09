@@ -43,19 +43,19 @@ namespace NeoDebug.Neo3
             this.engine.DebugLog += OnLog;
         }
 
-        private void OnNotify(object? sender, (UInt160 scriptHash, string eventName, NeoArray state) args)
+        private void OnNotify(object? sender, (UInt160 scriptHash, string scriptName, string eventName, NeoArray state) args)
         {
             sendEvent(new OutputEvent()
             {
-                Output = $"Runtime.Notify: {args.scriptHash} {args.eventName} {args.state.ToResult()}\n",
+                Output = $"Runtime.Notify: {(string.IsNullOrEmpty(args.scriptName) ? args.scriptHash.ToString() : args.scriptName)} {args.eventName} {args.state.ToResult()}\n",
             });
         }
 
-        private void OnLog(object? sender, (UInt160 scriptHash, string message) args)
+        private void OnLog(object? sender, (UInt160 scriptHash, string scriptName, string message) args)
         {
             sendEvent(new OutputEvent()
             {
-                Output = $"Runtime.Log: {args.scriptHash} {args.message}\n",
+                Output = $"Runtime.Log: {(string.IsNullOrEmpty(args.scriptName) ? args.scriptHash.ToString() : args.scriptName)} {args.message}\n",
             });
         }
 
@@ -110,9 +110,9 @@ namespace NeoDebug.Neo3
 
             foreach (var (context, index) in engine.InvocationStack.Select((c, i) => (c, i)))
             {
-                var scriptHash = context.ScriptHash;
+                var scriptId = context.ScriptIdentifier;
                 DebugInfo.Method? method = null;
-                if (debugInfoMap.TryGetValue(scriptHash, out var debugInfo))
+                if (debugInfoMap.TryGetValue(context.ScriptHash, out var debugInfo))
                 {
                     method = debugInfo.GetMethod(context.InstructionPointer);
                 }
@@ -125,7 +125,7 @@ namespace NeoDebug.Neo3
 
                 if (disassemblyView)
                 {
-                    var disassembly = disassemblyManager.GetDisassembly(context.Script, debugInfo);
+                    var disassembly = disassemblyManager.GetDisassembly(context, debugInfo);
                     frame.Source = new Source()
                     {
                         SourceReference = disassembly.SourceReference,
@@ -168,7 +168,7 @@ namespace NeoDebug.Neo3
         public IEnumerable<Scope> GetScopes(ScopesArguments args)
         {
             var context = engine.InvocationStack.ElementAt(args.FrameId);
-            var scriptHash = context.ScriptHash;
+            var scriptId = context.ScriptIdentifier;
 
             if (disassemblyView)
             {
@@ -179,11 +179,11 @@ namespace NeoDebug.Neo3
             }
             else
             {
-                var debugInfo = debugInfoMap.TryGetValue(scriptHash, out var di) ? di : null;
+                var debugInfo = debugInfoMap.TryGetValue(context.ScriptHash, out var di) ? di : null;
                 yield return AddScope("Variables", new ExecutionContextContainer(context, debugInfo));
             }
 
-            yield return AddScope("Storage", engine.GetStorageContainer(scriptHash));
+            yield return AddScope("Storage", engine.GetStorageContainer(scriptId));
 
             Scope AddScope(string name, IVariableContainer container)
             {
@@ -246,15 +246,15 @@ namespace NeoDebug.Neo3
                 return (EvaluateSlot(context.StaticFields, 7), string.Empty);
             }
 
-            var scriptHash = context.ScriptHash;
+            var scriptId = context.ScriptIdentifier;
 
             if (name.StartsWith("#storage"))
             {
-                var container = engine.GetStorageContainer(scriptHash);
+                var container = engine.GetStorageContainer(scriptId);
                 return (container.Evaluate(name), string.Empty);
             }
 
-            if (debugInfoMap.TryGetValue(scriptHash, out var debugInfo)
+            if (debugInfoMap.TryGetValue(context.ScriptHash, out var debugInfo)
                 && debugInfo.TryGetMethod(context.InstructionPointer, out var method))
             {
                 if (TryEvaluateSlot(context.Arguments, method.Parameters, out (StackItem?, string) result))
@@ -470,7 +470,7 @@ namespace NeoDebug.Neo3
                     }
                 }
 
-                if (breakpointManager.CheckBreakpoint(engine.CurrentContext?.ScriptHash ?? UInt160.Zero, engine.CurrentContext?.InstructionPointer))
+                if (breakpointManager.CheckBreakpoint(engine.CurrentContext?.ScriptIdentifier ?? UInt160.Zero, engine.CurrentContext?.InstructionPointer))
                 {
                     FireStoppedEvent(StoppedEvent.ReasonValue.Breakpoint);
                     return;
@@ -489,7 +489,7 @@ namespace NeoDebug.Neo3
                 if (engine.CurrentContext != null)
                 {
                     var ip = engine.CurrentContext.InstructionPointer;
-                    if (debugInfoMap.TryGetValue(engine.CurrentContext?.ScriptHash ?? UInt160.Zero, out var info))
+                    if (debugInfoMap.TryGetValue(engine.CurrentContext.ScriptHash, out var info))
                     {
                         var methods = info.Methods;
                         for (int i = 0; i < methods.Count; i++)
