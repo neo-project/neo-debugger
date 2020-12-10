@@ -17,7 +17,7 @@ namespace NeoDebug.Neo3
             public StorageContainer(UInt160 scriptHash, StoreView store)
             {
                 this.store = store;
-                contractId = store.Contracts.TryGet(scriptHash)?.Id;
+                contractId = Neo.SmartContract.Native.NativeContract.Management.GetContract(store, scriptHash)?.Id;
             }
 
             protected override IEnumerable<(ReadOnlyMemory<byte>, StorageItem)> GetStorages()

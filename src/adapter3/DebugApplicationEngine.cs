@@ -14,6 +14,7 @@ using Neo.VM;
 using System.Diagnostics.CodeAnalysis;
 using NeoArray = Neo.VM.Types.Array;
 using Neo.Cryptography.ECC;
+using Neo.SmartContract.Native;
 
 namespace NeoDebug.Neo3
 {
@@ -71,7 +72,7 @@ namespace NeoDebug.Neo3
 
         private void OnNotify(object? sender, NotifyEventArgs args)
         {
-            var contract = Snapshot.Contracts.TryGet(args.ScriptHash);
+            var contract = NativeContract.Management.GetContract(Snapshot, args.ScriptHash);
             var name = contract == null ? string.Empty : (contract.Manifest.Name ?? string.Empty);
 
             if (ReferenceEquals(sender, this))
@@ -82,7 +83,7 @@ namespace NeoDebug.Neo3
 
         private void OnLog(object? sender, LogEventArgs args)
         {
-            var contract = Snapshot.Contracts.TryGet(args.ScriptHash);
+            var contract = NativeContract.Management.GetContract(Snapshot, args.ScriptHash);
             var name = contract == null ? string.Empty : (contract.Manifest.Name ?? string.Empty);
 
             if (ReferenceEquals(sender, this))
@@ -198,7 +199,7 @@ namespace NeoDebug.Neo3
 
         public bool TryGetContract(UInt160 scriptHash, [MaybeNullWhen(false)] out Script script)
         {
-            var contractState = Snapshot.Contracts.TryGet(scriptHash);
+            var contractState = NativeContract.Management.GetContract(Snapshot, scriptHash);
             if (contractState != null)
             {
                 script = contractState.Script;

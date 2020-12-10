@@ -17,6 +17,7 @@ using Neo.Network.P2P.Payloads;
 using Neo.Persistence;
 using Neo.SmartContract;
 using Neo.SmartContract.Manifest;
+using Neo.SmartContract.Native;
 using Neo.VM;
 using Neo.Wallets;
 using Newtonsoft.Json;
@@ -112,6 +113,14 @@ namespace NeoDebug.Neo3
             return new TraceApplicationEngine(traceFilePath, contracts);
         }
 
+        // TODO: replace with ManagementContract.ListContracts when https://github.com/neo-project/neo/pull/2134 is merged
+        const byte ManagementContract_PREFIX_CONTRACT = 8;
+        static Lazy<byte[]> listContractsPrefix = new Lazy<byte[]>(() => new KeyBuilder(Neo.SmartContract.Native.NativeContract.Management.Id, ManagementContract_PREFIX_CONTRACT).ToArray());
+
+        static IEnumerable<ContractState> ListContracts(StoreView snapshot)
+            => snapshot.Storages.Find(listContractsPrefix.Value)
+                .Select(kvp => kvp.Value.GetInteroperable<Neo.SmartContract.ContractState>());
+
         async Task<IApplicationEngine> CreateDebugEngineAsync(Invocation invocation)
         {
             var (trigger, witnessChecker) = ParseRuntime(config);
@@ -122,7 +131,7 @@ namespace NeoDebug.Neo3
 
             // CreateBlockchainStorage will call ProtocolSettings.Initialize for checkpoint based storage
             IStore store = CreateBlockchainStorage(config);
-            EnsureNativeContractsDeployed(store);
+            // EnsureNativeContractsDeployed(store);
 
             var launchContractPath = config["program"].Value<string>() ?? throw new Exception("missing program config property");
             var launchContract = LoadContract(launchContractPath);
@@ -139,9 +148,9 @@ namespace NeoDebug.Neo3
             // cache the deployed contracts for use by parameter parser
             using (var snapshotView = new SnapshotView(store))
             {
-                foreach (var (key, value) in snapshotView.Contracts.Find())
+                foreach (var contractState in ListContracts(snapshotView))
                 {
-                    contracts.TryAdd(value.Manifest.Name, value.Hash);
+                    contracts.TryAdd(contractState.Manifest.Name, contractState.Hash);
                 }
             }
 
@@ -172,41 +181,59 @@ namespace NeoDebug.Neo3
             {
                 using var snapshotView = new SnapshotView(store);
 
-                // check to see if there's a contract who's name matches the name in the manifest
-                foreach (var (key, value) in snapshotView.Contracts.Find())
+                // check to see if there's a contract with a name that matches the name in the manifest
+                foreach (var contractState in ListContracts(snapshotView))
                 {
                     // do not update native contracts, even if names match
-                    if (value.Id < 0) continue;
+                    if (contractState.Id <= 0) continue;
 
-                    if (string.Equals(value.Manifest.Name, manifest.Name))
+                    if (string.Equals(contractState.Manifest.Name, manifest.Name))
                     {
                         // if the deployed script doesn't match the script parameter, overwrite the deployed script
-                        if (contract.Script.ToScriptHash() != value.Script.ToScriptHash())
+                        if (contract.Script.ToScriptHash() != contractState.Script.ToScriptHash())
                         {
-                            value.Script = contract.Script;
-                            value.Manifest = manifest;
+                            var key = new KeyBuilder(NativeContract.Management.Id, ManagementContract_PREFIX_CONTRACT).Add(contractState.Hash);
+                            var cs = snapshotView.Storages.GetAndChange(key)?.GetInteroperable<ContractState>();
+                            if (cs == null) throw new Exception();
+
+                            cs.Script = contract.Script;
+                            cs.Manifest = manifest;
                             snapshotView.Commit();
                         }
 
-                        return (value.Id, value.Hash);
+                        return (contractState.Id, contractState.Hash);
                     }
                 }
 
-                // if no existing contract with matching manifest.Name is found, 
-                // add the provided contract to the contract table
-                var hash = Neo.SmartContract.Helper.GetContractHash(UInt160.Zero, contract.Script);
-                var contractState = new ContractState
                 {
-                    Id = snapshotView.ContractId.GetAndChange().NextId++,
-                    UpdateCounter = 0,
-                    Script = contract.Script,
-                    Hash = hash,
-                    Manifest = manifest
-                };
-                snapshotView.Contracts.Add(hash, contractState);
-                snapshotView.Commit();
+                    // if no existing contract with matching manifest.Name is found, 
+                    // add the provided contract to storage
 
-                return (contractState.Id, hash);
+                    // logic from ManagementContract.GetNextAvailableId
+                    const byte ManagementContract_PREFIX_NEXT_ID = 15;
+                    var item = snapshotView.Storages.GetAndChange(
+                        new KeyBuilder(NativeContract.Management.Id, ManagementContract_PREFIX_NEXT_ID),
+                        () => new StorageItem(1));
+                    var id = (int)(System.Numerics.BigInteger)item;
+                    item.Add(1);
+
+                    var hash = Neo.SmartContract.Helper.GetContractHash(UInt160.Zero, contract.Script);
+                    var contractState = new ContractState
+                    {
+                        Id = id,
+                        UpdateCounter = 0,
+                        Script = contract.Script,
+                        Hash = hash,
+                        Manifest = manifest
+                    };
+
+                    var key = new KeyBuilder(NativeContract.Management.Id, ManagementContract_PREFIX_CONTRACT)
+                        .Add(hash);
+                    snapshotView.Storages.Add(key, new StorageItem(contractState));
+                    snapshotView.Commit();
+
+                    return (contractState.Id, hash);
+                }
             }
 
             static void UpdateContractStorage(IStore store, int contractId, Storages storages)
@@ -243,7 +270,7 @@ namespace NeoDebug.Neo3
             return invocation.Match(
                 invoke => Array.Empty<TransactionAttribute>(),
                 oracle => GetTransactionAttributes(oracle, store, contractHash),
-                launch => Array.Empty<TransactionAttribute>())  ;
+                launch => Array.Empty<TransactionAttribute>());
         }
 
         TransactionAttribute[] GetTransactionAttributes(OracleResponseInvocation invocation, IStore store, UInt160 contractHash)
@@ -289,7 +316,6 @@ namespace NeoDebug.Neo3
 
             static Neo.SmartContract.KeyBuilder CreateStorageKey(byte prefix)
             {
-                // TODO: use of KeyBuilder depends on https://github.com/neo-project/neo/pull/2099
                 const int Oracle_ContractId = -4;
                 return new Neo.SmartContract.KeyBuilder(Oracle_ContractId, prefix);
             }
@@ -361,18 +387,18 @@ namespace NeoDebug.Neo3
             }
         }
 
-        private static void EnsureNativeContractsDeployed(IStore store)
-        {
-            using var snapshot = new SnapshotView(store);
-            if (snapshot.Contracts.Find().Any(c => c.Value.Id < 0)) return;
+        // private static void EnsureNativeContractsDeployed(IStore store)
+        // {
+        //     using var snapshot = new SnapshotView(store);
+        //     if (snapshot.Contracts.Find().Any(c => c.Value.Id < 0)) return;
 
-            using var sb = new Neo.VM.ScriptBuilder();
-            sb.EmitSysCall(ApplicationEngine.Neo_Native_Deploy);
+        //     using var sb = new Neo.VM.ScriptBuilder();
+        //     sb.EmitSysCall(ApplicationEngine.Neo_Native_Deploy);
 
-            using var engine = ApplicationEngine.Run(sb.ToArray(), snapshot, persistingBlock: new Block());
-            if (engine.State != VMState.HALT) throw new Exception("Neo_Native_Deploy failed");
-            snapshot.Commit();
-        }
+        //     using var engine = ApplicationEngine.Run(sb.ToArray(), snapshot, persistingBlock: new Block());
+        //     if (engine.State != VMState.HALT) throw new Exception("Neo_Native_Deploy failed");
+        //     snapshot.Commit();
+        // }
 
         private static (TriggerType trigger, Func<byte[], bool>? witnessChecker) ParseRuntime(Dictionary<string, JToken> config)
         {
