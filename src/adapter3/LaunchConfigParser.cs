@@ -292,7 +292,7 @@ namespace NeoDebug.Neo3
             item_id.Value = BitConverter.GetBytes(id);
 
             snapshotView.Storages.Add(CreateStorageKey(Prefix_Request).Add(item_id.Value), new StorageItem(
-                new Neo.SmartContract.Native.Oracle.OracleRequest
+                new Neo.SmartContract.Native.OracleRequest
                 {
                     OriginalTxid = UInt256.Zero,
                     GasForResponse = invocation.GasForResponse,
