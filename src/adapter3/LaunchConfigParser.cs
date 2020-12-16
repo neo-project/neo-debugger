@@ -113,14 +113,6 @@ namespace NeoDebug.Neo3
             return new TraceApplicationEngine(traceFilePath, contracts);
         }
 
-        // TODO: replace with ManagementContract.ListContracts when https://github.com/neo-project/neo/pull/2134 is merged
-        const byte ManagementContract_PREFIX_CONTRACT = 8;
-        static Lazy<byte[]> listContractsPrefix = new Lazy<byte[]>(() => new KeyBuilder(Neo.SmartContract.Native.NativeContract.Management.Id, ManagementContract_PREFIX_CONTRACT).ToArray());
-
-        static IEnumerable<ContractState> ListContracts(StoreView snapshot)
-            => snapshot.Storages.Find(listContractsPrefix.Value)
-                .Select(kvp => kvp.Value.GetInteroperable<Neo.SmartContract.ContractState>());
-
         async Task<IApplicationEngine> CreateDebugEngineAsync(Invocation invocation)
         {
             var (trigger, witnessChecker) = ParseRuntime(config);
@@ -148,7 +140,7 @@ namespace NeoDebug.Neo3
             // cache the deployed contracts for use by parameter parser
             using (var snapshotView = new SnapshotView(store))
             {
-                foreach (var contractState in ListContracts(snapshotView))
+                foreach (var contractState in NativeContract.Management.ListContracts(snapshotView))
                 {
                     contracts.TryAdd(contractState.Manifest.Name, contractState.Hash);
                 }
@@ -179,10 +171,13 @@ namespace NeoDebug.Neo3
 
             static (int id, UInt160 scriptHash) AddContract(IStore store, NefFile contract, ContractManifest manifest)
             {
+                // TODO: Can we refactor NativeContract.Management to support contract add and update from the debugger
+                const byte ManagementContract_PREFIX_CONTRACT = 8;
+
                 using var snapshotView = new SnapshotView(store);
 
                 // check to see if there's a contract with a name that matches the name in the manifest
-                foreach (var contractState in ListContracts(snapshotView))
+                foreach (var contractState in NativeContract.Management.ListContracts(snapshotView))
                 {
                     // do not update native contracts, even if names match
                     if (contractState.Id <= 0) continue;
