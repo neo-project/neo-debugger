@@ -404,9 +404,15 @@ namespace NeoDebug.Neo3
             {
                 if (engine.State == VMState.FAULT)
                 {
-                    var output = engine.FaultException == null
-                        ? "Engine State Faulted\n"
-                        : $"Engine State Fault: {engine.FaultException.Message}\n";
+                    var output = "Engine State Faulted\n";
+                    if (engine.FaultException != null)
+                    {
+                        output = $"Engine State Fault: {engine.FaultException.Message} [{engine.FaultException.GetType().Name}]\n";
+                        if (engine.FaultException.InnerException != null)
+                        {
+                            output += $"  Contract Exception: {engine.FaultException.InnerException.Message} [{engine.FaultException.InnerException.GetType().Name}]\n";
+                        }
+                    }
 
                     sendEvent(new OutputEvent()
                     {

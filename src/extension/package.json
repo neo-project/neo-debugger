@@ -114,6 +114,9 @@
                                             "args"
                                         ],
                                         "properties": {
+                                            "contract": {
+                                                "type": "string"
+                                            },
                                             "operation": {
                                                 "type": "string"
                                             },
