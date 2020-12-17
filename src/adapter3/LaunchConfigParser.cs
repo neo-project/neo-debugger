@@ -338,7 +338,7 @@ namespace NeoDebug.Neo3
                 launch =>
                 {
                     if (launch.Contract.Length > 0
-                        && contracts.TryGetValue(launch.Contract, out var hash))
+                        && paramParser.TryLoadScriptHash(launch.Contract, out var hash))
                     {
                         scriptHash = hash;
                     }
