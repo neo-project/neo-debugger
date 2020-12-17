@@ -165,7 +165,9 @@ namespace NeoDebug.Neo3
                 Witnesses = Array.Empty<Witness>()
             };
 
-            var engine = new DebugApplicationEngine(tx, new SnapshotView(store), witnessChecker);
+            var snapshot = new SnapshotView(store);
+            snapshot.PersistingBlock = new Block();
+            var engine = new DebugApplicationEngine(tx, snapshot, witnessChecker);
             engine.LoadScript(invokeScript);
             return engine;
 
@@ -335,6 +337,12 @@ namespace NeoDebug.Neo3
                 oracle => Task.FromResult<Script>(OracleResponse.FixedScript),
                 launch =>
                 {
+                    if (launch.Contract.Length > 0
+                        && contracts.TryGetValue(launch.Contract, out var hash))
+                    {
+                        scriptHash = hash;
+                    }
+
                     var args = paramParser.ParseParameters(launch.Args).ToArray();
                     using var builder = new ScriptBuilder();
                     builder.EmitAppCall(scriptHash, launch.Operation, args);

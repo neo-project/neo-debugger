@@ -18,11 +18,13 @@ namespace NeoDebug.Neo3
 
         public struct LaunchInvocation
         {
+            public readonly string Contract;
             public readonly string Operation;
             public readonly JArray Args;
 
-            public LaunchInvocation(string operation, JArray args)
+            public LaunchInvocation(string contract, string operation, JArray args)
             {
+                Contract = contract;
                 Operation = operation;
                 Args = args;
             }
@@ -36,12 +38,15 @@ namespace NeoDebug.Neo3
                     return false;
                 }
 
-                var args = token["args"];
-                var array = args == null
-                    ? new JArray()
-                    : args is JArray ? (JArray)args : new JArray(args);
+                var contractJson = token["contract"];
+                var contract = contractJson == null ? string.Empty : contractJson.Value<string>();
 
-                invocation = new LaunchInvocation(operation, array);
+                var argsJson = token["args"];
+                var args = argsJson == null
+                    ? new JArray()
+                    : argsJson is JArray ? (JArray)argsJson : new JArray(argsJson);
+
+                invocation = new LaunchInvocation(contract, operation, args);
                 return true;
             }
         }
