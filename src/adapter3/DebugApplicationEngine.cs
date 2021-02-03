@@ -29,8 +29,6 @@ namespace NeoDebug.Neo3
             var debugServices = new Dictionary<uint, ServiceMethod>();
 
             Register("System.Runtime.CheckWitness", Debug_CheckWitness);
-            Register("System.Blockchain.GetBlock", Debug_GetBlock);
-            Register("System.Blockchain.GetTransactionFromBlock", Debug_GetTransactionFromBlock);
 
             DebugApplicationEngine.debugServices = debugServices;
 
@@ -44,19 +42,13 @@ namespace NeoDebug.Neo3
         public event EventHandler<(UInt160 scriptHash, string scriptName, string eventName, NeoArray state)>? DebugNotify;
         public event EventHandler<(UInt160 scriptHash, string scriptName, string message)>? DebugLog;
         private readonly Func<byte[], bool> witnessChecker;
-        private readonly IReadOnlyDictionary<uint, UInt256> blockHashMap;
         private readonly EvaluationStackAdapter resultStackAdapter;
         private readonly InvocationStackAdapter invocationStackAdapter;
         private readonly IDictionary<UInt160, UInt160> scriptIdMap = new Dictionary<UInt160, UInt160>();
 
-        public DebugApplicationEngine(IVerifiable container, StoreView storeView, Func<byte[], bool>? witnessChecker) : base(TriggerType.Application, container, storeView, TestModeGas)
+        public DebugApplicationEngine(IVerifiable container, DataCache snapshot, Block persistingBlock, Func<byte[], bool>? witnessChecker) : base(TriggerType.Application, container, snapshot, persistingBlock, TestModeGas)
         {
             this.witnessChecker = witnessChecker ?? CheckWitness;
-            this.blockHashMap = storeView.Blocks.Find()
-                .ToDictionary(
-                    t => t.Value.Index,
-                    t => t.Value.Hash == t.Key ? t.Key : throw new Exception("invalid hash"));
-
             Log += OnLog;
             Notify += OnNotify;
             resultStackAdapter = new EvaluationStackAdapter(this.ResultStack);
@@ -72,7 +64,7 @@ namespace NeoDebug.Neo3
 
         private void OnNotify(object? sender, NotifyEventArgs args)
         {
-            var contract = NativeContract.Management.GetContract(Snapshot, args.ScriptHash);
+            var contract = NativeContract.ContractManagement.GetContract(Snapshot, args.ScriptHash);
             var name = contract == null ? string.Empty : (contract.Manifest.Name ?? string.Empty);
 
             if (ReferenceEquals(sender, this))
@@ -83,7 +75,7 @@ namespace NeoDebug.Neo3
 
         private void OnLog(object? sender, LogEventArgs args)
         {
-            var contract = NativeContract.Management.GetContract(Snapshot, args.ScriptHash);
+            var contract = NativeContract.ContractManagement.GetContract(Snapshot, args.ScriptHash);
             var name = contract == null ? string.Empty : (contract.Manifest.Name ?? string.Empty);
 
             if (ReferenceEquals(sender, this))
@@ -142,64 +134,9 @@ namespace NeoDebug.Neo3
             return engine.witnessChecker(hashOrPubkey);
         }
 
-        private static StackItem? Debug_GetBlock(
-            DebugApplicationEngine engine,
-            IReadOnlyList<InteropParameterDescriptor> paramDescriptors)
-        {
-            Debug.Assert(paramDescriptors.Count == 1);
-
-            var indexOrHash = (byte[])engine.Convert(engine.Pop(), paramDescriptors[0]);
-
-            var hash = engine.GetBlockHash(indexOrHash);
-            if (hash is null) return StackItem.Null;
-            Block block = engine.Snapshot.GetBlock(hash);
-            if (block is null) return StackItem.Null;
-            return block.ToStackItem(engine.ReferenceCounter);
-        }
-
-        private static StackItem? Debug_GetTransactionFromBlock(
-            DebugApplicationEngine engine,
-            IReadOnlyList<InteropParameterDescriptor> paramDescriptors)
-        {
-            Debug.Assert(paramDescriptors.Count == 2);
-
-            var blockIndexOrHash = (byte[])engine.Convert(engine.Pop(), paramDescriptors[0]);
-            var txIndex = (int)engine.Convert(engine.Pop(), paramDescriptors[1]);
-
-            var hash = engine.GetBlockHash(blockIndexOrHash);
-            if (hash is null) return StackItem.Null;
-            var block = engine.Snapshot.Blocks.TryGet(hash);
-            if (block is null) return StackItem.Null;
-            if (txIndex < 0 || txIndex >= block.Hashes.Length - 1)
-                throw new ArgumentOutOfRangeException(nameof(txIndex));
-            return engine.Snapshot.GetTransaction(block.Hashes[txIndex + 1])
-                .ToStackItem(engine.ReferenceCounter);
-        }
-
-        private UInt256? GetBlockHash(byte[] indexOrHash)
-        {
-            if (indexOrHash.Length == UInt256.Length)
-            {
-                return new UInt256(indexOrHash);
-            }
-
-            if (indexOrHash.Length < UInt256.Length)
-            {
-                var index = new BigInteger(indexOrHash);
-                if (index < uint.MinValue || index > uint.MaxValue)
-                    throw new ArgumentOutOfRangeException(nameof(indexOrHash));
-                if (blockHashMap.TryGetValue((uint)index, out var hash))
-                {
-                    return hash;
-                }
-            }
-
-            return null;
-        }
-
         public bool TryGetContract(UInt160 scriptHash, [MaybeNullWhen(false)] out Script script)
         {
-            var contractState = NativeContract.Management.GetContract(Snapshot, scriptHash);
+            var contractState = NativeContract.ContractManagement.GetContract(Snapshot, scriptHash);
             if (contractState != null)
             {
                 script = contractState.Script;

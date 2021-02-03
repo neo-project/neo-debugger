@@ -12,19 +12,19 @@
     <PackAsTool>true</PackAsTool>
     <RootNamespace>NeoDebug.Neo3</RootNamespace>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="3.0.0" />
-    <PackageReference Include="Microsoft.VisualStudio.Shared.VsCodeDebugProtocol" Version="16.7.40526.2">
+    <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="3.1.0" />
+    <PackageReference Include="Portable.Microsoft.VisualStudio.Shared.VsCodeDebugProtocol" Version="16.7.40526.2">
       <NoWarn>NU1701</NoWarn>
     </PackageReference>
-    <PackageReference Include="Neo.BlockchainToolkit3" Version="0.4.67-preview" />
+    <PackageReference Include="Neo.BlockchainToolkit3" Version="1.0.2-preview" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
     <PackageReference Include="Nito.Disposables" Version="2.2.0" />
-    <PackageReference Include="System.Collections.Immutable" Version="1.7.1" />
-    <PackageReference Include="System.Linq.Async" Version="4.1.1" />
+    <PackageReference Include="System.Collections.Immutable" Version="5.0.0" />
+    <PackageReference Include="System.Linq.Async" Version="5.0.0" />
   </ItemGroup>
 
 </Project>

@@ -138,9 +138,9 @@ namespace NeoDebug.Neo3
             // during launch configuration.
 
             // cache the deployed contracts for use by parameter parser
-            using (var snapshotView = new SnapshotView(store))
+            using (var snapshotView = new SnapshotCache(store))
             {
-                foreach (var contractState in NativeContract.Management.ListContracts(snapshotView))
+                foreach (var contractState in NativeContract.ContractManagement.ListContracts(snapshotView))
                 {
                     contracts.TryAdd(contractState.Manifest.Name, contractState.Hash);
                 }
@@ -165,9 +165,8 @@ namespace NeoDebug.Neo3
                 Witnesses = Array.Empty<Witness>()
             };
 
-            var snapshot = new SnapshotView(store);
-            snapshot.PersistingBlock = new Block();
-            var engine = new DebugApplicationEngine(tx, snapshot, witnessChecker);
+            using var snapshot = new SnapshotCache(store);
+            var engine = new DebugApplicationEngine(tx, snapshot, new Block(), witnessChecker);
             engine.LoadScript(invokeScript);
             return engine;
 
@@ -176,10 +175,12 @@ namespace NeoDebug.Neo3
                 // TODO: Can we refactor NativeContract.Management to support contract add and update from the debugger
                 const byte ManagementContract_PREFIX_CONTRACT = 8;
 
-                using var snapshotView = new SnapshotView(store);
+                Check(contract.Script, manifest.Abi);
+
+                using var snapshot = new SnapshotCache(store);
 
                 // check to see if there's a contract with a name that matches the name in the manifest
-                foreach (var contractState in NativeContract.Management.ListContracts(snapshotView))
+                foreach (var contractState in NativeContract.ContractManagement.ListContracts(snapshot))
                 {
                     // do not update native contracts, even if names match
                     if (contractState.Id <= 0) continue;
@@ -189,15 +190,16 @@ namespace NeoDebug.Neo3
                         // if the deployed script doesn't match the script parameter, overwrite the deployed script
                         if (contract.Script.ToScriptHash() != contractState.Script.ToScriptHash())
                         {
-                            var key = new KeyBuilder(NativeContract.Management.Id, ManagementContract_PREFIX_CONTRACT).Add(contractState.Hash);
-                            var cs = snapshotView.Storages.GetAndChange(key)?.GetInteroperable<ContractState>();
-                            if (cs == null) throw new Exception();
+                            throw new Exception();
+                            // var key = new KeyBuilder(NativeContract.Management.Id, ManagementContract_PREFIX_CONTRACT).Add(contractState.Hash);
+                            // var cs = snapshotView.Storages.GetAndChange(key)?.GetInteroperable<ContractState>();
+                            // if (cs == null) throw new Exception();
 
-                            cs.Script = contract.Script;
-                            cs.Manifest = manifest;
-                            snapshotView.Commit();
+                            // cs.Script = contract.Script;
+                            // cs.Manifest = manifest;
+                            // snapshotView.Commit();
                         }
-
+                        
                         return (contractState.Id, contractState.Hash);
                     }
                 }
@@ -206,28 +208,23 @@ namespace NeoDebug.Neo3
                     // if no existing contract with matching manifest.Name is found, 
                     // add the provided contract to storage
 
-                    // logic from ManagementContract.GetNextAvailableId
-                    const byte ManagementContract_PREFIX_NEXT_ID = 15;
-                    var item = snapshotView.Storages.GetAndChange(
-                        new KeyBuilder(NativeContract.Management.Id, ManagementContract_PREFIX_NEXT_ID),
-                        () => new StorageItem(1));
-                    var id = (int)(System.Numerics.BigInteger)item;
-                    item.Add(1);
-
-                    var hash = Neo.SmartContract.Helper.GetContractHash(UInt160.Zero, contract.Script);
+                    var id = GetNextAvailableId(snapshot);
+                    var hash = Neo.SmartContract.Helper.GetContractHash(UInt160.Zero, contract.CheckSum, manifest.Name);
                     var contractState = new ContractState
                     {
                         Id = id,
                         UpdateCounter = 0,
-                        Script = contract.Script,
+                        Nef = contract,
                         Hash = hash,
                         Manifest = manifest
                     };
 
-                    var key = new KeyBuilder(NativeContract.Management.Id, ManagementContract_PREFIX_CONTRACT)
+                    if (!contractState.Manifest.IsValid(hash)) throw new InvalidOperationException($"Invalid Manifest Hash: {hash}");
+
+                    var key = new KeyBuilder(NativeContract.ContractManagement.Id, ManagementContract_PREFIX_CONTRACT)
                         .Add(hash);
-                    snapshotView.Storages.Add(key, new StorageItem(contractState));
-                    snapshotView.Commit();
+                    snapshot.Add(key, new StorageItem(contractState));
+                    snapshot.Commit();
 
                     return (contractState.Id, hash);
                 }
@@ -235,17 +232,37 @@ namespace NeoDebug.Neo3
 
             static void UpdateContractStorage(IStore store, int contractId, Storages storages)
             {
-                using var snapshotView = new SnapshotView(store);
-                foreach (var (key, item) in storages)
-                {
-                    var storageKey = new StorageKey()
-                    {
-                        Id = contractId,
-                        Key = key
-                    };
-                    snapshotView.Storages.Add(storageKey, item);
-                }
-                snapshotView.Commit();
+                // using var snapshotView = new SnapshotCache(store);
+                // foreach (var (key, item) in storages)
+                // {
+                //     var storageKey = new StorageKey()
+                //     {
+                //         Id = contractId,
+                //         Key = key
+                //     };
+                //     // snapshotView.Storages.Add(storageKey, item);
+                // }
+                // snapshotView.Commit();
+            }
+
+            static void Check(byte[] script, ContractAbi abi)
+            {
+                Script s = new Script(script, true);
+                foreach (ContractMethodDescriptor method in abi.Methods)
+                    s.GetInstruction(method.Offset);
+                abi.GetMethod(string.Empty, 0); // Trigger the construction of ContractAbi.methodDictionary to check the uniqueness of the method names.
+                _ = abi.Events.ToDictionary(p => p.Name); // Check the uniqueness of the event names.
+            }
+
+            // logic duplicated from ContractManagement.GetNextAvailableId method
+            static int GetNextAvailableId(DataCache snapshot)
+            {
+                const byte Prefix_NextAvailableId = 15;
+                var key = new KeyBuilder(NativeContract.ContractManagement.Id, Prefix_NextAvailableId);
+                StorageItem item = snapshot.GetAndChange(key);
+                int value = (int)(System.Numerics.BigInteger)item;
+                item.Add(1);
+                return value;
             }
         }
 
@@ -272,59 +289,60 @@ namespace NeoDebug.Neo3
 
         TransactionAttribute[] GetTransactionAttributes(OracleResponseInvocation invocation, IStore store, UInt160 contractHash)
         {
-            var userData = invocation.UserData == null
-                ? Neo.VM.Types.Null.Null
-                : paramParser.ParseParameter(invocation.UserData).ToStackItem();
+            return Array.Empty<TransactionAttribute>();
+            // var userData = invocation.UserData == null
+            //     ? Neo.VM.Types.Null.Null
+            //     : paramParser.ParseParameter(invocation.UserData).ToStackItem();
 
-            using var snapshotView = new SnapshotView(store);
+            // using var snapshot = new SnapshotCache(store);
 
-            // the following logic to create the OracleRequest record that drives the response process
-            // is adapted from OracleContract.Request
-            const byte Prefix_RequestId = 9;
-            const byte Prefix_Request = 7;
-            const int MaxUserDataLength = 512;
+            // // the following logic to create the OracleRequest record that drives the response process
+            // // is adapted from OracleContract.Request
+            // const byte Prefix_RequestId = 9;
+            // const byte Prefix_Request = 7;
+            // const int MaxUserDataLength = 512;
 
-            StorageItem item_id = snapshotView.Storages.GetAndChange(CreateStorageKey(Prefix_RequestId));
-            ulong id = BitConverter.ToUInt64(item_id.Value) + 1;
-            item_id.Value = BitConverter.GetBytes(id);
+            // StorageItem item_id = snapshot.Storages.GetAndChange(CreateStorageKey(Prefix_RequestId));
+            // ulong id = BitConverter.ToUInt64(item_id.Value) + 1;
+            // item_id.Value = BitConverter.GetBytes(id);
 
-            snapshotView.Storages.Add(CreateStorageKey(Prefix_Request).Add(item_id.Value), new StorageItem(
-                new Neo.SmartContract.Native.OracleRequest
-                {
-                    OriginalTxid = UInt256.Zero,
-                    GasForResponse = invocation.GasForResponse,
-                    Url = invocation.Url,
-                    Filter = invocation.Filter,
-                    CallbackContract = contractHash,
-                    CallbackMethod = invocation.Callback,
-                    UserData = BinarySerializer.Serialize(userData, MaxUserDataLength)
-                }));
+            // snapshot.Storages.Add(CreateStorageKey(Prefix_Request).Add(item_id.Value), new StorageItem(
+            //     new Neo.SmartContract.Native.OracleRequest
+            //     {
+            //         OriginalTxid = UInt256.Zero,
+            //         GasForResponse = invocation.GasForResponse,
+            //         Url = invocation.Url,
+            //         Filter = invocation.Filter,
+            //         CallbackContract = contractHash,
+            //         CallbackMethod = invocation.Callback,
+            //         UserData = BinarySerializer.Serialize(userData, MaxUserDataLength)
+            //     }));
 
-            snapshotView.Commit();
+            // snapshot.Commit();
 
-            var response = new OracleResponse
-            {
-                Code = invocation.Code,
-                Id = id,
-                Result = Neo.Utility.StrictUTF8.GetBytes(Filter(invocation.Result, invocation.Filter))
-            };
+            // var response = new OracleResponse
+            // {
+            //     Code = invocation.Code,
+            //     Id = id,
+            //     Result = Neo.Utility.StrictUTF8.GetBytes(Filter(invocation.Result, invocation.Filter))
+            // };
 
-            return new TransactionAttribute[] { response };
+            // return new TransactionAttribute[] { response };
 
-            static Neo.SmartContract.KeyBuilder CreateStorageKey(byte prefix)
-            {
-                const int Oracle_ContractId = -4;
-                return new Neo.SmartContract.KeyBuilder(Oracle_ContractId, prefix);
-            }
+            // static Neo.SmartContract.KeyBuilder CreateStorageKey(byte prefix)
+            // {
+            //     const int Oracle_ContractId = -4;
+            //     return new Neo.SmartContract.KeyBuilder(Oracle_ContractId, prefix);
+            // }
 
-            static string Filter(JToken json, string filterArgs)
-            {
-                if (string.IsNullOrEmpty(filterArgs))
-                    return json.ToString();
+            // static string Filter(JToken json, string filterArgs)
+            // {
+            //     if (string.IsNullOrEmpty(filterArgs))
+            //         return json.ToString();
 
-                JArray afterObjects = new JArray(json.SelectTokens(filterArgs, true));
-                return afterObjects.ToString();
-            }
+            //     JArray afterObjects = new JArray(json.SelectTokens(filterArgs, true));
+            //     return afterObjects.ToString();
+            // }
         }
 
         Task<Script> CreateInvokeScriptAsync(Invocation invocation, UInt160 scriptHash)
@@ -345,7 +363,7 @@ namespace NeoDebug.Neo3
 
                     var args = paramParser.ParseParameters(launch.Args).ToArray();
                     using var builder = new ScriptBuilder();
-                    builder.EmitAppCall(scriptHash, launch.Operation, args);
+                    builder.EmitDynamicCall(scriptHash, launch.Operation, args);
                     return Task.FromResult<Script>(builder.ToArray());
                 });
         }

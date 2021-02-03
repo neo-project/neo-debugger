@@ -1,13 +1,9 @@
 ﻿using System;
-using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
-using Neo;
-using Neo.Ledger;
-using Neo.Persistence;
+using Neo.SmartContract;
 
 namespace NeoDebug.Neo3
 {

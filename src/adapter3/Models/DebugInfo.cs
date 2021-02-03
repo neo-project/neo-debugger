@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using Neo;
+using Neo.BlockchainToolkit.Persistence;
 using Neo.IO;
 using Neo.Persistence;
 
@@ -16,24 +17,24 @@ namespace NeoDebug.Neo3
         public IReadOnlyList<Method> Methods { get; set; } = ImmutableList<Method>.Empty;
         public IReadOnlyList<Event> Events { get; set; } = ImmutableList<Event>.Empty;
 
-        const byte DEBUG_INFO_PREFIX = 0xf0;
-        public static DebugInfo? TryGet(IReadOnlyStore store, UInt160 scriptHash)
-        {
-            var value = store.TryGet(DEBUG_INFO_PREFIX, scriptHash.ToArray());
-            return value == null ? null : value.AsSerializable<DebugInfo>();
-        }
+        // const byte DEBUG_INFO_PREFIX = 0xf0;
+        // public static DebugInfo? TryGet(IExpressReadOnlyStore store, UInt160 scriptHash)
+        // {
+        //     var value = store.TryGet(DEBUG_INFO_PREFIX, scriptHash.ToArray());
+        //     return value == null ? null : value.AsSerializable<DebugInfo>();
+        // }
 
-        public void Put(IStore store)
-        {
-            store.Put(DEBUG_INFO_PREFIX, this.ScriptHash.ToArray(), this.ToArray());
-        }
+        // public void Put(IExpressStore store)
+        // {
+        //     store.Put(DEBUG_INFO_PREFIX, this.ScriptHash.ToArray(), this.ToArray());
+        // }
 
-        public static IEnumerable<DebugInfo> Find(IReadOnlyStore store)
-        {
-            return store
-                .Seek(DEBUG_INFO_PREFIX, Array.Empty<byte>(), Neo.IO.Caching.SeekDirection.Forward)
-                .Select(t => t.Value.AsSerializable<DebugInfo>());
-        }
+        // public static IEnumerable<DebugInfo> Find(IExpressReadOnlyStore store)
+        // {
+        //     return store
+        //         .Seek(DEBUG_INFO_PREFIX, Array.Empty<byte>(), SeekDirection.Forward)
+        //         .Select(t => t.Value.AsSerializable<DebugInfo>());
+        // }
 
         public int Size => ScriptHash.Size
             + Documents.GetVarSize()

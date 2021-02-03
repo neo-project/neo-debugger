@@ -201,29 +201,28 @@ async function getDebugAdapterCommand(program: string, config:vscode.WorkspaceCo
     }
 
     if (mode === vscode.ExtensionMode.Development) {
-        const adapterProjectFolder = resolve(extension.extensionPath, "..", 
-            getAdapterProjectPath(program));
-        const adapterProjectPath = resolve(adapterProjectFolder, "bin", "Debug", "netcoreapp3.1", 
-            basename(adapterPath));
+        const [folderName, framework] = getAdapterProjectProperties(program);
+        const adapterProjectFolder = resolve(extension.extensionPath, "..", folderName);
 
+        var adapterProjectPath = resolve(adapterProjectFolder, "bin", "Debug", framework, basename(adapterPath));
         if (await checkFileExists(adapterProjectPath))
         {
             return [adapterProjectPath, []];
         }
 
-        return ["dotnet", ["run", "--project", adapterProjectPath, "--"]];
+        return ["dotnet", ["run", "--project", adapterProjectFolder, "--"]];
     }
 
     throw new Error("cannot locate debug adapter");
 
-    function getAdapterProjectPath(program: string) {
+    function getAdapterProjectProperties(program: string) {
         const ext = extname(program);
         switch (ext)
         {
             case '.nef': 
-                return 'adapter3';
+                return ['adapter3', "net5.0"];
             case '.avm':
-                return 'adapter2';
+                return ['adapter2', "netcoreapp3.1"];
             default: 
                 throw new Error(`Unexpected Neo contract extension {ext}`);
         }

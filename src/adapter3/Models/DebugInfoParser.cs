@@ -83,7 +83,8 @@ namespace NeoDebug.Neo3
             static DebugInfo.Event ParseEvent(JToken token)
             {
                 var (ns, name) = SplitComma(token.Value<string>("name"));
-                var @params = token["params"].Select(t => SplitComma(t.Value<string>()));
+                var @params = (token["params"] ?? Enumerable.Empty<JToken>())
+                    .Select(t => SplitComma(t.Value<string>()));
                 return new DebugInfo.Event()
                 {
                     Id = token.Value<string>("id"),
@@ -115,9 +116,9 @@ namespace NeoDebug.Neo3
             static DebugInfo.Method ParseMethod(JToken token)
             {
                 var (ns, name) = SplitComma(token.Value<string>("name"));
-                var @params = token["params"].Select(t => SplitComma(t.Value<string>()));
-                var variables = token["variables"].Select(t => SplitComma(t.Value<string>()));
-                var sequencePoints = token["sequence-points"]
+                var @params = (token["params"] ?? Enumerable.Empty<JToken>()).Select(t => SplitComma(t.Value<string>()));
+                var variables = (token["variables"] ?? Enumerable.Empty<JToken>()).Select(t => SplitComma(t.Value<string>()));
+                var sequencePoints = (token["sequence-points"] ?? Enumerable.Empty<JToken>())
                     .Select(t => ParseSequencePoint(t.Value<string>()))
                     .OrderBy(sp => sp.Address);
                 var range = token.Value<string>("range").Split('-');
@@ -137,9 +138,10 @@ namespace NeoDebug.Neo3
             }
 
             var hash = Neo.UInt160.Parse(json.Value<string>("hash"));
-            var documents = json["documents"].Select(documentResolver.ResolveDocument).ToImmutableList();
-            var events = json["events"].Select(ParseEvent).ToImmutableList();
-            var methods = json["methods"].Select(t => ParseMethod(t)).ToImmutableList();
+            var documents = (json["documents"] ?? Enumerable.Empty<JToken>())
+                .Select(documentResolver.ResolveDocument).ToImmutableList();
+            var events = (json["events"] ?? Enumerable.Empty<JToken>()).Select(ParseEvent).ToImmutableList();
+            var methods = (json["methods"] ?? Enumerable.Empty<JToken>()).Select(t => ParseMethod(t)).ToImmutableList();
 
             return new DebugInfo
             {
