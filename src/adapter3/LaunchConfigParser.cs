@@ -124,7 +124,7 @@ namespace NeoDebug.Neo3
 
             var launchContractPath = config["program"].Value<string>() ?? throw new Exception("missing program config property");
             var launchContract = LoadContract(launchContractPath);
-            var launchContractManifest = await LoadManifest(launchContractPath);
+            var launchContractManifest = await LoadManifestAsync(launchContractPath);
             ExpressChain? chain = CreateExpressChain(config);
 
             // CreateBlockchainStorage will call ProtocolSettings.Initialize 
@@ -243,21 +243,6 @@ namespace NeoDebug.Neo3
                 }
             }
 
-            static void UpdateContractStorage(IStore store, int contractId, Storages storages)
-            {
-                // using var snapshotView = new SnapshotCache(store);
-                // foreach (var (key, item) in storages)
-                // {
-                //     var storageKey = new StorageKey()
-                //     {
-                //         Id = contractId,
-                //         Key = key
-                //     };
-                //     // snapshotView.Storages.Add(storageKey, item);
-                // }
-                // snapshotView.Commit();
-            }
-
             // duplicated from ApplicationEngine.CreateDummyBlock
             // TODO: remove when https://github.com/neo-project/neo/pull/2291 is merged
             static Block CreateDummyBlock(IStore store, Transaction? tx = null)
@@ -312,6 +297,19 @@ namespace NeoDebug.Neo3
             }
         }
 
+        private static void UpdateContractStorage(IStore store, int contractId, Storages storages)
+        {
+            using var snapshot = new SnapshotCache(store.GetSnapshot());
+            foreach (var (key, item) in storages)
+            {
+                var storageKey = new StorageKey() { Id = contractId, Key = key };
+                var updatedItem = snapshot.GetAndChange(storageKey);
+                updatedItem.Value = item.Value;
+                updatedItem.IsConstant = item.IsConstant;
+            }
+            snapshot.Commit();
+        }
+
         private static NefFile LoadContract(string path)
         {
             using var stream = File.OpenRead(path);
@@ -319,7 +317,7 @@ namespace NeoDebug.Neo3
             return reader.ReadSerializable<NefFile>();
         }
 
-        private static async Task<ContractManifest> LoadManifest(string contractPath)
+        private static async Task<ContractManifest> LoadManifestAsync(string contractPath)
         {
             var manifestBytes = await File.ReadAllBytesAsync(Path.ChangeExtension(contractPath, ".manifest.json")).ConfigureAwait(false);
             return ContractManifest.Parse(manifestBytes);
@@ -394,10 +392,7 @@ namespace NeoDebug.Neo3
         Task<Script> CreateInvokeScriptAsync(Invocation invocation, UInt160 scriptHash)
         {
             return invocation.Match<Task<Script>>(
-                invoke =>
-                {
-                    return paramParser.LoadInvocationScriptAsync(invoke.Path);
-                },
+                invoke => paramParser.LoadInvocationScriptAsync(invoke.Path),
                 oracle => Task.FromResult<Script>(OracleResponse.FixedScript),
                 launch =>
                 {
