@@ -77,6 +77,10 @@
                                 "type": "string",
                                 "description": "Absolute path to Neo smart contract (.avm/.nef)"
                             },
+                            "neo-express": {
+                                "type": "string",
+                                "description": "Absolute path to Neo Express file (.neo-express / .neo-express.json)"
+                            },
                             "sourceFileMap": {
                                 "type": "object",
                                 "description": "Optional source file mappings passed to the debug engine. Example: '{ \"C:\\foo\":\"/home/user/foo\" }'",
