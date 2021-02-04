@@ -24,7 +24,11 @@ steps:
   inputs:
     packageType: 'sdk'
     useGlobalJson: true
-    
+
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'restore'
+
 - task: DotNetCoreCLI@2
   displayName: 'dotnet pack neodebug 2 adapter'
   inputs:
