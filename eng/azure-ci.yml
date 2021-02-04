@@ -26,8 +26,11 @@ steps:
     useGlobalJson: true
 
 - task: DotNetCoreCLI@2
+  displayName: 'dotnet restore'
   inputs:
     command: 'restore'
+    feedsToUse: 'config'
+    nugetConfigPath: './NuGet.Config'
 
 - task: DotNetCoreCLI@2
   displayName: 'dotnet pack neodebug 2 adapter'
