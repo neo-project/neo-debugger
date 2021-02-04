@@ -24,7 +24,17 @@ steps:
   inputs:
     packageType: 'sdk'
     useGlobalJson: true
-    
+
+- script: dotnet --list-sdks
+  displayName: list sdks
+
+- task: DotNetCoreCLI@2
+  displayName: 'dotnet restore'
+  inputs:
+    command: 'restore'
+    feedsToUse: 'select'
+    vstsFeed: 'c96908c2-e4b5-4c77-b955-4b690f24380b/9e84eb49-63f0-4b48-a8c4-039901073643'
+
 - task: DotNetCoreCLI@2
   displayName: 'dotnet pack neodebug 2 adapter'
   inputs:

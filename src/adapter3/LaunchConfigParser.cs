@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
 using Neo.BlockchainToolkit;
+using Neo.BlockchainToolkit.Models;
 using Neo.BlockchainToolkit.Persistence;
 using Neo.Cryptography.ECC;
 using Neo.IO;
@@ -121,26 +122,29 @@ namespace NeoDebug.Neo3
                 throw new Exception($"Trigger Type {trigger} not supported");
             }
 
-            // CreateBlockchainStorage will call ProtocolSettings.Initialize for checkpoint based storage
-            IStore store = CreateBlockchainStorage(config);
-            // EnsureNativeContractsDeployed(store);
-
             var launchContractPath = config["program"].Value<string>() ?? throw new Exception("missing program config property");
             var launchContract = LoadContract(launchContractPath);
-            var launchContractManifest = await LoadManifest(launchContractPath);
-            var (lauchContractId, launchContractHash) = AddContract(store, launchContract, launchContractManifest);
+            var launchContractManifest = await LoadManifestAsync(launchContractPath);
+            ExpressChain? chain = CreateExpressChain(config);
+
+            // CreateBlockchainStorage will call ProtocolSettings.Initialize 
+            var store = CreateBlockchainStorage(config, chain);
+            EnsureLedgerInitialized(store);
+
+            // ParseSigners accesses ProtocolSettings.Default so it needs to be after CreateBlockchainStorage
+            var signers = ParseSigners(config).ToArray();
+            var (lauchContractId, launchContractHash) = AddContract(store, launchContract, launchContractManifest, signers);
 
             // TODO: load other contracts
+            //          Not sure supporting other contracts is a good idea anymore. Since there's no way to calcualte the 
+            //          contract id hash prior to deployment in Neo 3, I'm thinking the better approach would be to simply
+            //          deploy whatever contracts you want and take a snapshot rather than deploying multiple contracts 
+            //          during launch configuration.
 
-            // Not sure supporting other contracts is a good idea anymore. Since there's no way to calcualte the 
-            // contract id hash prior to deployment in Neo 3, I'm thinking the better approach would be to simply
-            // deploy whatever contracts you want and take a snapshot rather than deploying multiple contracts 
-            // during launch configuration.
-
-            // cache the deployed contracts for use by parameter parser
-            using (var snapshotView = new SnapshotView(store))
             {
-                foreach (var contractState in NativeContract.Management.ListContracts(snapshotView))
+                // cache the deployed contracts for use by parameter parser
+                using var snapshot = new SnapshotCache(store);
+                foreach (var contractState in NativeContract.ContractManagement.ListContracts(snapshot))
                 {
                     contracts.TryAdd(contractState.Manifest.Name, contractState.Hash);
                 }
@@ -150,8 +154,6 @@ namespace NeoDebug.Neo3
 
             // TODO: load other contract storage (unless we cut this feature - see comment above)
 
-            // ParseSigners access ProtocolSettings.Default so it needs to be after CreateBlockchainStorage
-            var signers = ParseSigners(config).ToArray();
             var invokeScript = await CreateInvokeScriptAsync(invocation, launchContractHash).ConfigureAwait(false);
 
             var tx = new Transaction
@@ -165,40 +167,53 @@ namespace NeoDebug.Neo3
                 Witnesses = Array.Empty<Witness>()
             };
 
-            var snapshot = new SnapshotView(store);
-            snapshot.PersistingBlock = new Block();
-            var engine = new DebugApplicationEngine(tx, snapshot, witnessChecker);
+            var block = CreateDummyBlock(store, tx);
+
+            var engine = new DebugApplicationEngine(tx, new SnapshotCache(store), block, witnessChecker);
             engine.LoadScript(invokeScript);
             return engine;
 
-            static (int id, UInt160 scriptHash) AddContract(IStore store, NefFile contract, ContractManifest manifest)
+            static (int id, UInt160 scriptHash) AddContract(IStore store, NefFile contract, ContractManifest manifest, Signer[] signers)
             {
-                // TODO: Can we refactor NativeContract.Management to support contract add and update from the debugger
-                const byte ManagementContract_PREFIX_CONTRACT = 8;
-
-                using var snapshotView = new SnapshotView(store);
-
-                // check to see if there's a contract with a name that matches the name in the manifest
-                foreach (var contractState in NativeContract.Management.ListContracts(snapshotView))
+                // TODO: Can we refactor NativeContract.Management to support contract check, add and update from the debugger
                 {
-                    // do not update native contracts, even if names match
-                    if (contractState.Id <= 0) continue;
+                    // logic duplicated from ContractManagement.Check
+                    Script s = new Script(contract.Script, true);
+                    var abi = manifest.Abi;
+                    foreach (ContractMethodDescriptor method in abi.Methods)
+                        s.GetInstruction(method.Offset);
+                    abi.GetMethod(string.Empty, 0); // Trigger the construction of ContractAbi.methodDictionary to check the uniqueness of the method names.
+                    _ = abi.Events.ToDictionary(p => p.Name); // Check the uniqueness of the event names.
+                }
 
-                    if (string.Equals(contractState.Manifest.Name, manifest.Name))
+                {
+                    using var storageView = new SnapshotCache(store);
+                    // check to see if there's a contract with a name that matches the name in the manifest
+                    foreach (var contractState in NativeContract.ContractManagement.ListContracts(storageView))
                     {
-                        // if the deployed script doesn't match the script parameter, overwrite the deployed script
-                        if (contract.Script.ToScriptHash() != contractState.Script.ToScriptHash())
+                        // do not update native contracts, even if names match
+                        if (contractState.Id <= 0) continue;
+
+                        if (string.Equals(contractState.Manifest.Name, manifest.Name))
                         {
-                            var key = new KeyBuilder(NativeContract.Management.Id, ManagementContract_PREFIX_CONTRACT).Add(contractState.Hash);
-                            var cs = snapshotView.Storages.GetAndChange(key)?.GetInteroperable<ContractState>();
-                            if (cs == null) throw new Exception();
+                            // if the deployed script doesn't match the script parameter, overwrite the deployed script
+                            if (contract.Script.ToScriptHash() != contractState.Script.ToScriptHash())
+                            {
+                                const byte Prefix_Contract = 8;
 
-                            cs.Script = contract.Script;
-                            cs.Manifest = manifest;
-                            snapshotView.Commit();
+                                using var snapshot = new SnapshotCache(store.GetSnapshot());
+
+                                var key = new KeyBuilder(NativeContract.ContractManagement.Id, Prefix_Contract).Add(contractState.Hash);
+                                var updateContractState = snapshot.GetAndChange(key)?.GetInteroperable<ContractState>();
+                                if (updateContractState is null) throw new InvalidOperationException($"Updating Contract Does Not Exist: {contractState.Hash}");
+                                updateContractState.Nef = contract;
+                                updateContractState.Manifest = manifest;
+
+                                snapshot.Commit();
+                            }
+
+                            return (contractState.Id, contractState.Hash);
                         }
-
-                        return (contractState.Id, contractState.Hash);
                     }
                 }
 
@@ -206,47 +221,93 @@ namespace NeoDebug.Neo3
                     // if no existing contract with matching manifest.Name is found, 
                     // add the provided contract to storage
 
-                    // logic from ManagementContract.GetNextAvailableId
-                    const byte ManagementContract_PREFIX_NEXT_ID = 15;
-                    var item = snapshotView.Storages.GetAndChange(
-                        new KeyBuilder(NativeContract.Management.Id, ManagementContract_PREFIX_NEXT_ID),
-                        () => new StorageItem(1));
-                    var id = (int)(System.Numerics.BigInteger)item;
-                    item.Add(1);
-
-                    var hash = Neo.SmartContract.Helper.GetContractHash(UInt160.Zero, contract.Script);
-                    var contractState = new ContractState
+                    using var snapshot = new SnapshotCache(store.GetSnapshot());
+                    var tx = new Transaction()
                     {
-                        Id = id,
-                        UpdateCounter = 0,
-                        Script = contract.Script,
-                        Hash = hash,
-                        Manifest = manifest
+                        Signers = signers.Length == 0 ? new[] { new Signer() { Account = UInt160.Zero } } : signers
                     };
 
-                    var key = new KeyBuilder(NativeContract.Management.Id, ManagementContract_PREFIX_CONTRACT)
-                        .Add(hash);
-                    snapshotView.Storages.Add(key, new StorageItem(contractState));
-                    snapshotView.Commit();
+                    var contractState = new ContractState();
+                    using (ApplicationEngine engine = ApplicationEngine.Create(TriggerType.Application, tx, snapshot))
+                    {
+                        using var sb = new ScriptBuilder();
+                        sb.EmitDynamicCall(NativeContract.ContractManagement.Hash, "deploy", contract.ToArray(), manifest.ToJson().ToString());
+                        engine.LoadScript(sb.ToArray());
+                        if (engine.Execute() != VMState.HALT) throw new InvalidOperationException("deploy operation failed");
+                        if (engine.ResultStack.Count < 1) throw new InvalidOperationException("deploy operation returned invalid results");
+                        ((IInteroperable)contractState).FromStackItem(engine.ResultStack.Peek());
+                    }
 
-                    return (contractState.Id, hash);
+                    snapshot.Commit();
+                    return (contractState.Id, contractState.Hash);
                 }
             }
 
-            static void UpdateContractStorage(IStore store, int contractId, Storages storages)
+            // duplicated from ApplicationEngine.CreateDummyBlock
+            // TODO: remove when https://github.com/neo-project/neo/pull/2291 is merged
+            static Block CreateDummyBlock(IStore store, Transaction? tx = null)
             {
-                using var snapshotView = new SnapshotView(store);
-                foreach (var (key, item) in storages)
+                using var snapshot = new SnapshotCache(store);
+                UInt256 hash = NativeContract.Ledger.CurrentHash(snapshot);
+                var currentBlock = NativeContract.Ledger.GetBlock(snapshot, hash);
+                return new Block
                 {
-                    var storageKey = new StorageKey()
+                    Version = 0,
+                    PrevHash = hash,
+                    MerkleRoot = new UInt256(),
+                    Timestamp = currentBlock.Timestamp + Blockchain.MillisecondsPerBlock,
+                    Index = currentBlock.Index + 1,
+                    NextConsensus = currentBlock.NextConsensus,
+                    Witness = new Witness
                     {
-                        Id = contractId,
-                        Key = key
-                    };
-                    snapshotView.Storages.Add(storageKey, item);
-                }
-                snapshotView.Commit();
+                        InvocationScript = Array.Empty<byte>(),
+                        VerificationScript = Array.Empty<byte>()
+                    },
+                    ConsensusData = new ConsensusData(),
+                    Transactions = tx == null ? Array.Empty<Transaction>() : new[] { tx }
+                };
             }
+
+            // stripped down Blockchain.Persist logic to initize empty blockchain
+            static void EnsureLedgerInitialized(IStore store)
+            {
+                using var snapshot = new SnapshotCache(store.GetSnapshot());
+                if (NativeContract.Ledger.Initialized(snapshot)) return;
+
+                var block = Blockchain.GenesisBlock;
+                if (block.Transactions.Length != 0) throw new Exception("Unexpected Transactions in genesis block");
+
+                using (ApplicationEngine engine = ApplicationEngine.Create(TriggerType.OnPersist, null, snapshot, block))
+                {
+                    using var sb = new ScriptBuilder();
+                    sb.EmitSysCall(ApplicationEngine.System_Contract_NativeOnPersist);
+                    engine.LoadScript(sb.ToArray());
+                    if (engine.Execute() != VMState.HALT) throw new InvalidOperationException("NativeOnPersist operation failed");
+                }
+
+                using (ApplicationEngine engine = ApplicationEngine.Create(TriggerType.PostPersist, null, snapshot, block))
+                {
+                    using var sb = new ScriptBuilder();
+                    sb.EmitSysCall(ApplicationEngine.System_Contract_NativePostPersist);
+                    engine.LoadScript(sb.ToArray());
+                    if (engine.Execute() != VMState.HALT) throw new InvalidOperationException("NativePostPersist operation failed");
+                }
+
+                snapshot.Commit();
+            }
+        }
+
+        private static void UpdateContractStorage(IStore store, int contractId, Storages storages)
+        {
+            using var snapshot = new SnapshotCache(store.GetSnapshot());
+            foreach (var (key, item) in storages)
+            {
+                var storageKey = new StorageKey() { Id = contractId, Key = key };
+                var updatedItem = snapshot.GetAndChange(storageKey);
+                updatedItem.Value = item.Value;
+                updatedItem.IsConstant = item.IsConstant;
+            }
+            snapshot.Commit();
         }
 
         private static NefFile LoadContract(string path)
@@ -256,7 +317,7 @@ namespace NeoDebug.Neo3
             return reader.ReadSerializable<NefFile>();
         }
 
-        private static async Task<ContractManifest> LoadManifest(string contractPath)
+        private static async Task<ContractManifest> LoadManifestAsync(string contractPath)
         {
             var manifestBytes = await File.ReadAllBytesAsync(Path.ChangeExtension(contractPath, ".manifest.json")).ConfigureAwait(false);
             return ContractManifest.Parse(manifestBytes);
@@ -272,68 +333,66 @@ namespace NeoDebug.Neo3
 
         TransactionAttribute[] GetTransactionAttributes(OracleResponseInvocation invocation, IStore store, UInt160 contractHash)
         {
-            var userData = invocation.UserData == null
-                ? Neo.VM.Types.Null.Null
-                : paramParser.ParseParameter(invocation.UserData).ToStackItem();
+            return Array.Empty<TransactionAttribute>();
+            // var userData = invocation.UserData == null
+            //     ? Neo.VM.Types.Null.Null
+            //     : paramParser.ParseParameter(invocation.UserData).ToStackItem();
 
-            using var snapshotView = new SnapshotView(store);
+            // using var snapshot = new SnapshotCache(store);
 
-            // the following logic to create the OracleRequest record that drives the response process
-            // is adapted from OracleContract.Request
-            const byte Prefix_RequestId = 9;
-            const byte Prefix_Request = 7;
-            const int MaxUserDataLength = 512;
+            // // the following logic to create the OracleRequest record that drives the response process
+            // // is adapted from OracleContract.Request
+            // const byte Prefix_RequestId = 9;
+            // const byte Prefix_Request = 7;
+            // const int MaxUserDataLength = 512;
 
-            StorageItem item_id = snapshotView.Storages.GetAndChange(CreateStorageKey(Prefix_RequestId));
-            ulong id = BitConverter.ToUInt64(item_id.Value) + 1;
-            item_id.Value = BitConverter.GetBytes(id);
+            // StorageItem item_id = snapshot.Storages.GetAndChange(CreateStorageKey(Prefix_RequestId));
+            // ulong id = BitConverter.ToUInt64(item_id.Value) + 1;
+            // item_id.Value = BitConverter.GetBytes(id);
 
-            snapshotView.Storages.Add(CreateStorageKey(Prefix_Request).Add(item_id.Value), new StorageItem(
-                new Neo.SmartContract.Native.OracleRequest
-                {
-                    OriginalTxid = UInt256.Zero,
-                    GasForResponse = invocation.GasForResponse,
-                    Url = invocation.Url,
-                    Filter = invocation.Filter,
-                    CallbackContract = contractHash,
-                    CallbackMethod = invocation.Callback,
-                    UserData = BinarySerializer.Serialize(userData, MaxUserDataLength)
-                }));
+            // snapshot.Storages.Add(CreateStorageKey(Prefix_Request).Add(item_id.Value), new StorageItem(
+            //     new Neo.SmartContract.Native.OracleRequest
+            //     {
+            //         OriginalTxid = UInt256.Zero,
+            //         GasForResponse = invocation.GasForResponse,
+            //         Url = invocation.Url,
+            //         Filter = invocation.Filter,
+            //         CallbackContract = contractHash,
+            //         CallbackMethod = invocation.Callback,
+            //         UserData = BinarySerializer.Serialize(userData, MaxUserDataLength)
+            //     }));
 
-            snapshotView.Commit();
+            // snapshot.Commit();
 
-            var response = new OracleResponse
-            {
-                Code = invocation.Code,
-                Id = id,
-                Result = Neo.Utility.StrictUTF8.GetBytes(Filter(invocation.Result, invocation.Filter))
-            };
+            // var response = new OracleResponse
+            // {
+            //     Code = invocation.Code,
+            //     Id = id,
+            //     Result = Neo.Utility.StrictUTF8.GetBytes(Filter(invocation.Result, invocation.Filter))
+            // };
 
-            return new TransactionAttribute[] { response };
+            // return new TransactionAttribute[] { response };
 
-            static Neo.SmartContract.KeyBuilder CreateStorageKey(byte prefix)
-            {
-                const int Oracle_ContractId = -4;
-                return new Neo.SmartContract.KeyBuilder(Oracle_ContractId, prefix);
-            }
+            // static Neo.SmartContract.KeyBuilder CreateStorageKey(byte prefix)
+            // {
+            //     const int Oracle_ContractId = -4;
+            //     return new Neo.SmartContract.KeyBuilder(Oracle_ContractId, prefix);
+            // }
 
-            static string Filter(JToken json, string filterArgs)
-            {
-                if (string.IsNullOrEmpty(filterArgs))
-                    return json.ToString();
+            // static string Filter(JToken json, string filterArgs)
+            // {
+            //     if (string.IsNullOrEmpty(filterArgs))
+            //         return json.ToString();
 
-                JArray afterObjects = new JArray(json.SelectTokens(filterArgs, true));
-                return afterObjects.ToString();
-            }
+            //     JArray afterObjects = new JArray(json.SelectTokens(filterArgs, true));
+            //     return afterObjects.ToString();
+            // }
         }
 
         Task<Script> CreateInvokeScriptAsync(Invocation invocation, UInt160 scriptHash)
         {
             return invocation.Match<Task<Script>>(
-                invoke =>
-                {
-                    return paramParser.LoadInvocationScriptAsync(invoke.Path);
-                },
+                invoke => paramParser.LoadInvocationScriptAsync(invoke.Path),
                 oracle => Task.FromResult<Script>(OracleResponse.FixedScript),
                 launch =>
                 {
@@ -345,12 +404,23 @@ namespace NeoDebug.Neo3
 
                     var args = paramParser.ParseParameters(launch.Args).ToArray();
                     using var builder = new ScriptBuilder();
-                    builder.EmitAppCall(scriptHash, launch.Operation, args);
+                    builder.EmitDynamicCall(scriptHash, launch.Operation, args);
                     return Task.FromResult<Script>(builder.ToArray());
                 });
         }
 
-        private static IStore CreateBlockchainStorage(Dictionary<string, JToken> config)
+        private static ExpressChain? CreateExpressChain(Dictionary<string, JToken> config)
+        {
+            if (config.TryGetValue("neo-express", out var neoExpressPath))
+            {
+                var fs = new System.IO.Abstractions.FileSystem();
+                return fs.LoadChain(neoExpressPath.Value<string>());
+            }
+
+            return null;
+        }
+
+        private static IStore CreateBlockchainStorage(Dictionary<string, JToken> config, ExpressChain? chain)
         {
             if (config.TryGetValue("checkpoint", out var checkpoint))
             {
@@ -369,7 +439,25 @@ namespace NeoDebug.Neo3
                     }
                 });
 
-                var magic = RocksDbStore.RestoreCheckpoint(checkpoint.Value<string>(), checkpointTempPath);
+                var checkpointMagic = RocksDbStore.RestoreCheckpoint(checkpoint.Value<string>(), checkpointTempPath);
+                if (chain != null && chain.Magic != checkpointMagic)
+                {
+                    throw new Exception($"checkpoint magic ({checkpointMagic}) doesn't match neo-express magic ({chain.Magic})");
+                }
+                InitializeProtocolSettings(checkpointMagic);
+
+                return new CheckpointStore(
+                    RocksDbStore.OpenReadOnly(checkpointTempPath),
+                    cleanup);
+            }
+            else
+            {
+                if (chain != null) InitializeProtocolSettings(chain.Magic);
+                return new MemoryStore();
+            }
+
+            static void InitializeProtocolSettings(long magic)
+            {
                 var settings = new[] { KeyValuePair.Create("ProtocolConfiguration:Magic", $"{magic}") };
                 var protocolConfig = new ConfigurationBuilder()
                     .AddInMemoryCollection(settings)
@@ -379,29 +467,8 @@ namespace NeoDebug.Neo3
                 {
                     throw new Exception("could not initialize protocol settings");
                 }
-
-                return new CheckpointStore(
-                    RocksDbStore.OpenReadOnly(checkpointTempPath),
-                    cleanup);
-            }
-            else
-            {
-                return new MemoryStore();
             }
         }
-
-        // private static void EnsureNativeContractsDeployed(IStore store)
-        // {
-        //     using var snapshot = new SnapshotView(store);
-        //     if (snapshot.Contracts.Find().Any(c => c.Value.Id < 0)) return;
-
-        //     using var sb = new Neo.VM.ScriptBuilder();
-        //     sb.EmitSysCall(ApplicationEngine.Neo_Native_Deploy);
-
-        //     using var engine = ApplicationEngine.Run(sb.ToArray(), snapshot, persistingBlock: new Block());
-        //     if (engine.State != VMState.HALT) throw new Exception("Neo_Native_Deploy failed");
-        //     snapshot.Commit();
-        // }
 
         private static (TriggerType trigger, Func<byte[], bool>? witnessChecker) ParseRuntime(Dictionary<string, JToken> config)
         {

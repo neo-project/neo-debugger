@@ -4,6 +4,7 @@ using Neo.Persistence;
 using Neo;
 using System.Linq;
 using Neo.Ledger;
+using Neo.SmartContract;
 
 namespace NeoDebug.Neo3
 {
@@ -11,19 +12,19 @@ namespace NeoDebug.Neo3
     {
         private class StorageContainer : StorageContainerBase
         {
-            private readonly StoreView store;
+            private readonly DataCache snapshot;
             private readonly int? contractId;
 
-            public StorageContainer(UInt160 scriptHash, StoreView store)
+            public StorageContainer(UInt160 scriptHash, DataCache snapshot)
             {
-                this.store = store;
-                contractId = Neo.SmartContract.Native.NativeContract.Management.GetContract(store, scriptHash)?.Id;
+                this.snapshot = snapshot;
+                contractId = Neo.SmartContract.Native.NativeContract.ContractManagement.GetContract(snapshot, scriptHash)?.Id;
             }
 
             protected override IEnumerable<(ReadOnlyMemory<byte>, StorageItem)> GetStorages()
             {
                 return contractId.HasValue
-                    ? store.Storages.Find(StorageKey.CreateSearchPrefix(contractId.Value, default))
+                    ? snapshot.Find(StorageKey.CreateSearchPrefix(contractId.Value, default))
                         .Select(t => ((ReadOnlyMemory<byte>)t.Key.Key, t.Value))
                     : Enumerable.Empty<(ReadOnlyMemory<byte>, StorageItem)>();
             }
