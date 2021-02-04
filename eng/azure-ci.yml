@@ -25,6 +25,9 @@ steps:
     packageType: 'sdk'
     useGlobalJson: true
 
+- script: dotnet --list-sdks
+  displayName: list sdks
+
 - task: DotNetCoreCLI@2
   displayName: 'dotnet restore'
   inputs:
