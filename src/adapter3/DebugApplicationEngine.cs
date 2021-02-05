@@ -1,87 +1,61 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Text;
-using Neo.Cryptography;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using Neo;
+using Neo.BlockchainToolkit.SmartContract;
 using Neo.Network.P2P.Payloads;
 using Neo.Persistence;
 using Neo.SmartContract;
-using StackItem = Neo.VM.Types.StackItem;
-using Neo;
-using System.Numerics;
-using System.Linq;
-using Neo.VM;
-using System.Diagnostics.CodeAnalysis;
-using NeoArray = Neo.VM.Types.Array;
-using Neo.Cryptography.ECC;
 using Neo.SmartContract.Native;
+using Neo.VM;
+
+using NeoArray = Neo.VM.Types.Array;
+using StackItem = Neo.VM.Types.StackItem;
 
 namespace NeoDebug.Neo3
 {
-    using ServiceMethod = Func<DebugApplicationEngine, IReadOnlyList<InteropParameterDescriptor>, StackItem?>;
-
-    internal partial class DebugApplicationEngine : ApplicationEngine, IApplicationEngine
+    internal partial class DebugApplicationEngine : TestApplicationEngine, IApplicationEngine
     {
-        private readonly static IReadOnlyDictionary<uint, ServiceMethod> debugServices;
-
-        static DebugApplicationEngine()
-        {
-            var debugServices = new Dictionary<uint, ServiceMethod>();
-
-            Register("System.Runtime.CheckWitness", Debug_CheckWitness);
-
-            DebugApplicationEngine.debugServices = debugServices;
-
-            void Register(string name, ServiceMethod method)
-            {
-                var hash = BitConverter.ToUInt32(Encoding.ASCII.GetBytes(name).Sha256(), 0);
-                debugServices.Add(hash, method);
-            }
-        }
-
-        public event EventHandler<(UInt160 scriptHash, string scriptName, string eventName, NeoArray state)>? DebugNotify;
-        public event EventHandler<(UInt160 scriptHash, string scriptName, string message)>? DebugLog;
-        private readonly Func<byte[], bool> witnessChecker;
         private readonly EvaluationStackAdapter resultStackAdapter;
         private readonly InvocationStackAdapter invocationStackAdapter;
         private readonly IDictionary<UInt160, UInt160> scriptIdMap = new Dictionary<UInt160, UInt160>();
 
-        public DebugApplicationEngine(IVerifiable container, DataCache snapshot, Block persistingBlock, Func<byte[], bool>? witnessChecker) : base(TriggerType.Application, container, snapshot, persistingBlock, TestModeGas)
+        public event EventHandler<(UInt160 scriptHash, string scriptName, string eventName, NeoArray state)>? DebugNotify;
+        public event EventHandler<(UInt160 scriptHash, string scriptName, string message)>? DebugLog;
+
+        public DebugApplicationEngine(IVerifiable container, DataCache snapshot, Block persistingBlock, Func<byte[], bool>? witnessChecker) 
+            : base(TriggerType.Application, container, snapshot, persistingBlock, TestModeGas, witnessChecker)
         {
-            this.witnessChecker = witnessChecker ?? CheckWitness;
-            Log += OnLog;
-            Notify += OnNotify;
+            this.Log += OnLog;
+            this.Notify += OnNotify;
             resultStackAdapter = new EvaluationStackAdapter(this.ResultStack);
             invocationStackAdapter = new InvocationStackAdapter(this);
         }
 
         public override void Dispose()
         {
-            Log -= OnLog;
-            Notify -= OnNotify;
+            this.Log -= OnLog;
+            this.Notify -= OnNotify;
             base.Dispose();
         }
 
         private void OnNotify(object? sender, NotifyEventArgs args)
         {
-            var contract = NativeContract.ContractManagement.GetContract(Snapshot, args.ScriptHash);
-            var name = contract == null ? string.Empty : (contract.Manifest.Name ?? string.Empty);
-
-            if (ReferenceEquals(sender, this))
-            {
-                DebugNotify?.Invoke(sender, (args.ScriptHash, name, args.EventName, args.State));
-            }
+            var name = GetContractName(args.ScriptHash);
+            DebugNotify?.Invoke(sender, (args.ScriptHash, name, args.EventName, args.State));
         }
 
         private void OnLog(object? sender, LogEventArgs args)
         {
-            var contract = NativeContract.ContractManagement.GetContract(Snapshot, args.ScriptHash);
-            var name = contract == null ? string.Empty : (contract.Manifest.Name ?? string.Empty);
+            var name = GetContractName(args.ScriptHash);
+            DebugLog?.Invoke(sender, (args.ScriptHash, name, args.Message));
+        }
 
-            if (ReferenceEquals(sender, this))
-            {
-                DebugLog?.Invoke(sender, (args.ScriptHash, name, args.Message));
-            }
+        private string GetContractName(UInt160 scriptHash)
+        {
+            var contract = NativeContract.ContractManagement.GetContract(Snapshot, scriptHash);
+            return contract?.Manifest?.Name ?? string.Empty;
         }
 
         public bool ExecuteNextInstruction()
@@ -103,35 +77,6 @@ namespace NeoDebug.Neo3
             }
 
             return false;
-        }
-
-        protected override void OnSysCall(uint methodHash)
-        {
-            if (debugServices.TryGetValue(methodHash, out var method))
-            {
-                InteropDescriptor descriptor = Services[methodHash];
-                ValidateCallFlags(descriptor);
-                AddGas(descriptor.FixedPrice);
-
-                var result = method(this, descriptor.Parameters);
-                if (result != null)
-                {
-                    Push(result);
-                }
-            }
-            else
-            {
-                base.OnSysCall(methodHash);
-            }
-        }
-
-        private static StackItem? Debug_CheckWitness(
-            DebugApplicationEngine engine,
-            IReadOnlyList<InteropParameterDescriptor> paramDescriptors)
-        {
-            Debug.Assert(paramDescriptors.Count == 1);
-            var hashOrPubkey = (byte[])engine.Convert(engine.Pop(), paramDescriptors[0]);
-            return engine.witnessChecker(hashOrPubkey);
         }
 
         public bool TryGetContract(UInt160 scriptHash, [MaybeNullWhen(false)] out Script script)
