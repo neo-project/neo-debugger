@@ -24,8 +24,8 @@ namespace NeoDebug.Neo3
         public event EventHandler<(UInt160 scriptHash, string scriptName, string eventName, NeoArray state)>? DebugNotify;
         public event EventHandler<(UInt160 scriptHash, string scriptName, string message)>? DebugLog;
 
-        public DebugApplicationEngine(IVerifiable container, DataCache snapshot, Block persistingBlock, Func<byte[], bool>? witnessChecker) 
-            : base(TriggerType.Application, container, snapshot, persistingBlock, TestModeGas, witnessChecker)
+        public DebugApplicationEngine(IVerifiable container, DataCache snapshot, Block persistingBlock, ProtocolSettings settings, Func<byte[], bool>? witnessChecker) 
+            : base(TriggerType.Application, container, snapshot, persistingBlock, settings, TestModeGas, witnessChecker)
         {
             this.Log += OnLog;
             this.Notify += OnNotify;

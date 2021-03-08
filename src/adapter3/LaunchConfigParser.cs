@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Configuration;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
 using Neo.BlockchainToolkit;
@@ -13,7 +13,6 @@ using Neo.BlockchainToolkit.Models;
 using Neo.BlockchainToolkit.Persistence;
 using Neo.Cryptography.ECC;
 using Neo.IO;
-using Neo.Ledger;
 using Neo.Network.P2P.Payloads;
 using Neo.Persistence;
 using Neo.SmartContract;
@@ -35,14 +34,40 @@ namespace NeoDebug.Neo3
     partial class LaunchConfigParser
     {
         readonly Dictionary<string, JToken> config;
+        readonly ExpressChain? chain;
+        readonly byte addressVersion;
         readonly Dictionary<string, UInt160> contracts = new Dictionary<string, UInt160>();
         readonly Dictionary<string, UInt160> accounts = new Dictionary<string, UInt160>();
         readonly ContractParameterParser paramParser;
 
-        public LaunchConfigParser(LaunchArguments launchArguments)
+        LaunchConfigParser(LaunchArguments launchArguments)
         {
             config = launchArguments.ConfigurationProperties;
-            paramParser = new ContractParameterParser(accounts.TryGetValue, contracts.TryGetValue);
+
+            addressVersion = ProtocolSettings.Default.AddressVersion;
+            chain = CreateExpressChain(config);
+
+            if (chain != null)
+            {
+                addressVersion = chain.AddressVersion;
+            }
+            else if (config.TryGetValue("address-version", out var addressVersionJson))
+            {
+                addressVersion = addressVersionJson.Value<byte>();
+            }
+
+            paramParser = new ContractParameterParser(addressVersion, accounts.TryGetValue, contracts.TryGetValue);
+
+            static ExpressChain? CreateExpressChain(Dictionary<string, JToken> config)
+            {
+                if (config.TryGetValue("neo-express", out var neoExpressPath))
+                {
+                    var fs = new System.IO.Abstractions.FileSystem();
+                    return fs.LoadChain(neoExpressPath.Value<string>());
+                }
+
+                return null;
+            }
         }
 
         public static Task<IDebugSession> CreateDebugSessionAsync(LaunchArguments launchArguments, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
@@ -116,7 +141,7 @@ namespace NeoDebug.Neo3
 
         async Task<IApplicationEngine> CreateDebugEngineAsync(Invocation invocation)
         {
-            var (trigger, witnessChecker) = ParseRuntime(config);
+            var (trigger, witnessChecker) = ParseRuntime(config, addressVersion);
             if (trigger != TriggerType.Application)
             {
                 throw new Exception($"Trigger Type {trigger} not supported");
@@ -125,14 +150,12 @@ namespace NeoDebug.Neo3
             var launchContractPath = config["program"].Value<string>() ?? throw new Exception("missing program config property");
             var launchContract = LoadContract(launchContractPath);
             var launchContractManifest = await LoadManifestAsync(launchContractPath);
-            ExpressChain? chain = CreateExpressChain(config);
 
-            // CreateBlockchainStorage will call ProtocolSettings.Initialize 
             var store = CreateBlockchainStorage(config, chain);
-            EnsureLedgerInitialized(store);
+            EnsureLedgerInitialized(store, chain);
 
             // ParseSigners accesses ProtocolSettings.Default so it needs to be after CreateBlockchainStorage
-            var signers = ParseSigners(config).ToArray();
+            var signers = ParseSigners(config, addressVersion).ToArray();
             var (lauchContractId, launchContractHash) = AddContract(store, launchContract, launchContractManifest, signers);
 
             // TODO: load other contracts
@@ -141,6 +164,13 @@ namespace NeoDebug.Neo3
             //          deploy whatever contracts you want and take a snapshot rather than deploying multiple contracts 
             //          during launch configuration.
 
+            var settings = ProtocolSettings.Default with 
+            {
+                Magic = chain?.Magic ?? ProtocolSettings.Default.Magic,
+                AddressVersion = addressVersion
+            };
+
+            Block dummyBlock;
             {
                 // cache the deployed contracts for use by parameter parser
                 using var snapshot = new SnapshotCache(store);
@@ -148,6 +178,8 @@ namespace NeoDebug.Neo3
                 {
                     contracts.TryAdd(contractState.Manifest.Name, contractState.Hash);
                 }
+
+                dummyBlock = CreateDummyBlock(snapshot, settings);
             }
 
             UpdateContractStorage(store, lauchContractId, ParseStorage());
@@ -167,9 +199,7 @@ namespace NeoDebug.Neo3
                 Witnesses = Array.Empty<Witness>()
             };
 
-            var block = CreateDummyBlock(store, tx);
-
-            var engine = new DebugApplicationEngine(tx, new SnapshotCache(store), block, witnessChecker);
+            var engine = new DebugApplicationEngine(tx, new SnapshotCache(store), dummyBlock, settings, witnessChecker);
             engine.LoadScript(invokeScript);
             return engine;
 
@@ -243,41 +273,17 @@ namespace NeoDebug.Neo3
                 }
             }
 
-            // duplicated from ApplicationEngine.CreateDummyBlock
-            // TODO: remove when https://github.com/neo-project/neo/pull/2291 is merged
-            static Block CreateDummyBlock(IStore store, Transaction? tx = null)
-            {
-                using var snapshot = new SnapshotCache(store);
-                UInt256 hash = NativeContract.Ledger.CurrentHash(snapshot);
-                var currentBlock = NativeContract.Ledger.GetBlock(snapshot, hash);
-                return new Block
-                {
-                    Version = 0,
-                    PrevHash = hash,
-                    MerkleRoot = new UInt256(),
-                    Timestamp = currentBlock.Timestamp + Blockchain.MillisecondsPerBlock,
-                    Index = currentBlock.Index + 1,
-                    NextConsensus = currentBlock.NextConsensus,
-                    Witness = new Witness
-                    {
-                        InvocationScript = Array.Empty<byte>(),
-                        VerificationScript = Array.Empty<byte>()
-                    },
-                    ConsensusData = new ConsensusData(),
-                    Transactions = tx == null ? Array.Empty<Transaction>() : new[] { tx }
-                };
-            }
-
             // stripped down Blockchain.Persist logic to initize empty blockchain
-            static void EnsureLedgerInitialized(IStore store)
+            static void EnsureLedgerInitialized(IStore store, ExpressChain? chain)
             {
                 using var snapshot = new SnapshotCache(store.GetSnapshot());
                 if (NativeContract.Ledger.Initialized(snapshot)) return;
 
-                var block = Blockchain.GenesisBlock;
+                var settings = GetProtocolSettings(chain);
+                var block = CreateGenesisBlock(settings);
                 if (block.Transactions.Length != 0) throw new Exception("Unexpected Transactions in genesis block");
 
-                using (ApplicationEngine engine = ApplicationEngine.Create(TriggerType.OnPersist, null, snapshot, block))
+                using (ApplicationEngine engine = ApplicationEngine.Create(TriggerType.OnPersist, null, snapshot, block, settings, 0))
                 {
                     using var sb = new ScriptBuilder();
                     sb.EmitSysCall(ApplicationEngine.System_Contract_NativeOnPersist);
@@ -295,6 +301,72 @@ namespace NeoDebug.Neo3
 
                 snapshot.Commit();
             }
+
+            // duplicated from ApplicationEngine.CreateDummyBlock
+            static Block CreateDummyBlock(DataCache snapshot, ProtocolSettings settings)
+            {
+                UInt256 hash = NativeContract.Ledger.CurrentHash(snapshot);
+                Block currentBlock = NativeContract.Ledger.GetBlock(snapshot, hash);
+                return new Block
+                {
+                    Header = new Header
+                    {
+                        Version = 0,
+                        PrevHash = hash,
+                        MerkleRoot = new UInt256(),
+                        Timestamp = currentBlock.Timestamp + settings.MillisecondsPerBlock,
+                        Index = currentBlock.Index + 1,
+                        NextConsensus = currentBlock.NextConsensus,
+                        Witness = new Witness
+                        {
+                            InvocationScript = Array.Empty<byte>(),
+                            VerificationScript = Array.Empty<byte>()
+                        },
+                    },
+                    Transactions = Array.Empty<Transaction>()
+                };
+            }
+
+            // TODO: move to lib-bctk
+            static ProtocolSettings GetProtocolSettings(ExpressChain? chain, uint secondsPerBlock = 0)
+            {
+                return chain == null ? ProtocolSettings.Default : ProtocolSettings.Default with {
+                    Magic = chain.Magic,
+                    AddressVersion = chain.AddressVersion,
+                    MillisecondsPerBlock = secondsPerBlock == 0 ? 15000 : secondsPerBlock * 1000,
+                    ValidatorsCount = chain.ConsensusNodes.Count,
+                    StandbyCommittee = chain.ConsensusNodes.Select(GetPublicKey).ToArray(),
+                    SeedList = chain.ConsensusNodes
+                        .Select(n => $"{System.Net.IPAddress.Loopback}:{n.TcpPort}")
+                        .ToArray(),
+                };
+
+                static ECPoint GetPublicKey(ExpressConsensusNode node)
+                    => new KeyPair(node.Wallet.Accounts.Select(a => a.PrivateKey).Distinct().Single().HexToBytes()).PublicKey;
+            }
+
+            // TODO: remove once https://github.com/neo-project/neo/pull/2381 is merged
+            static Block CreateGenesisBlock(ProtocolSettings settings)
+            {
+                return new Block
+                {
+                    Header = new Header
+                    {
+                        PrevHash = UInt256.Zero,
+                        MerkleRoot = UInt256.Zero,
+                        Timestamp = (new DateTime(2016, 7, 15, 15, 8, 21, DateTimeKind.Utc)).ToTimestampMS(),
+                        Index = 0,
+                        PrimaryIndex = 0,
+                        NextConsensus = Contract.GetBFTAddress(settings.StandbyValidators),
+                        Witness = new Witness
+                        {
+                            InvocationScript = Array.Empty<byte>(),
+                            VerificationScript = new[] { (byte)OpCode.PUSH1 }
+                        },
+                    },
+                    Transactions = Array.Empty<Transaction>()
+                };
+            }
         }
 
         private static void UpdateContractStorage(IStore store, int contractId, Storages storages)
@@ -305,7 +377,6 @@ namespace NeoDebug.Neo3
                 var storageKey = new StorageKey() { Id = contractId, Key = key };
                 var updatedItem = snapshot.GetAndChange(storageKey);
                 updatedItem.Value = item.Value;
-                updatedItem.IsConstant = item.IsConstant;
             }
             snapshot.Commit();
         }
@@ -333,60 +404,61 @@ namespace NeoDebug.Neo3
 
         TransactionAttribute[] GetTransactionAttributes(OracleResponseInvocation invocation, IStore store, UInt160 contractHash)
         {
-            return Array.Empty<TransactionAttribute>();
-            // var userData = invocation.UserData == null
-            //     ? Neo.VM.Types.Null.Null
-            //     : paramParser.ParseParameter(invocation.UserData).ToStackItem();
+            var userData = invocation.UserData == null
+                ? Neo.VM.Types.Null.Null
+                : paramParser.ParseParameter(invocation.UserData).ToStackItem();
 
-            // using var snapshot = new SnapshotCache(store);
+            using var snapshot = new SnapshotCache(store);
 
-            // // the following logic to create the OracleRequest record that drives the response process
-            // // is adapted from OracleContract.Request
-            // const byte Prefix_RequestId = 9;
-            // const byte Prefix_Request = 7;
-            // const int MaxUserDataLength = 512;
+            // the following logic to create the OracleRequest record that drives the response process
+            // is adapted from OracleContract.Request
+            const byte Prefix_RequestId = 9;
+            const byte Prefix_Request = 7;
+            const int MaxUserDataLength = 512;
 
-            // StorageItem item_id = snapshot.Storages.GetAndChange(CreateStorageKey(Prefix_RequestId));
-            // ulong id = BitConverter.ToUInt64(item_id.Value) + 1;
-            // item_id.Value = BitConverter.GetBytes(id);
+            StorageItem item_id = snapshot.GetAndChange(CreateStorageKey(Prefix_RequestId));
+            ulong id = (ulong)(BigInteger)item_id;
+            item_id.Add(1);
 
-            // snapshot.Storages.Add(CreateStorageKey(Prefix_Request).Add(item_id.Value), new StorageItem(
-            //     new Neo.SmartContract.Native.OracleRequest
-            //     {
-            //         OriginalTxid = UInt256.Zero,
-            //         GasForResponse = invocation.GasForResponse,
-            //         Url = invocation.Url,
-            //         Filter = invocation.Filter,
-            //         CallbackContract = contractHash,
-            //         CallbackMethod = invocation.Callback,
-            //         UserData = BinarySerializer.Serialize(userData, MaxUserDataLength)
-            //     }));
+            snapshot.Add(
+                CreateStorageKey(Prefix_Request).AddBigEndian(id), 
+                new StorageItem(
+                    new OracleRequest
+                    {
+                        OriginalTxid = UInt256.Zero,
+                        GasForResponse = invocation.GasForResponse,
+                        Url = invocation.Url,
+                        Filter = invocation.Filter,
+                        CallbackContract = contractHash,
+                        CallbackMethod = invocation.Callback,
+                        UserData = BinarySerializer.Serialize(userData, MaxUserDataLength)
+                    }));
 
-            // snapshot.Commit();
+            snapshot.Commit();
 
-            // var response = new OracleResponse
-            // {
-            //     Code = invocation.Code,
-            //     Id = id,
-            //     Result = Neo.Utility.StrictUTF8.GetBytes(Filter(invocation.Result, invocation.Filter))
-            // };
+            var response = new OracleResponse
+            {
+                Code = invocation.Code,
+                Id = id,
+                Result = Neo.Utility.StrictUTF8.GetBytes(Filter(invocation.Result, invocation.Filter))
+            };
 
-            // return new TransactionAttribute[] { response };
+            return new TransactionAttribute[] { response };
 
-            // static Neo.SmartContract.KeyBuilder CreateStorageKey(byte prefix)
-            // {
-            //     const int Oracle_ContractId = -4;
-            //     return new Neo.SmartContract.KeyBuilder(Oracle_ContractId, prefix);
-            // }
+            static Neo.SmartContract.KeyBuilder CreateStorageKey(byte prefix)
+            {
+                const int Oracle_ContractId = -4;
+                return new Neo.SmartContract.KeyBuilder(Oracle_ContractId, prefix);
+            }
 
-            // static string Filter(JToken json, string filterArgs)
-            // {
-            //     if (string.IsNullOrEmpty(filterArgs))
-            //         return json.ToString();
+            static string Filter(JToken json, string filterArgs)
+            {
+                if (string.IsNullOrEmpty(filterArgs))
+                    return json.ToString();
 
-            //     JArray afterObjects = new JArray(json.SelectTokens(filterArgs, true));
-            //     return afterObjects.ToString();
-            // }
+                JArray afterObjects = new JArray(json.SelectTokens(filterArgs, true));
+                return afterObjects.ToString();
+            }
         }
 
         Task<Script> CreateInvokeScriptAsync(Invocation invocation, UInt160 scriptHash)
@@ -407,17 +479,6 @@ namespace NeoDebug.Neo3
                     builder.EmitDynamicCall(scriptHash, launch.Operation, args);
                     return Task.FromResult<Script>(builder.ToArray());
                 });
-        }
-
-        private static ExpressChain? CreateExpressChain(Dictionary<string, JToken> config)
-        {
-            if (config.TryGetValue("neo-express", out var neoExpressPath))
-            {
-                var fs = new System.IO.Abstractions.FileSystem();
-                return fs.LoadChain(neoExpressPath.Value<string>());
-            }
-
-            return null;
         }
 
         private static IStore CreateBlockchainStorage(Dictionary<string, JToken> config, ExpressChain? chain)
@@ -444,7 +505,6 @@ namespace NeoDebug.Neo3
                 {
                     throw new Exception($"checkpoint magic ({checkpointMagic}) doesn't match neo-express magic ({chain.Magic})");
                 }
-                InitializeProtocolSettings(checkpointMagic);
 
                 return new CheckpointStore(
                     RocksDbStore.OpenReadOnly(checkpointTempPath),
@@ -452,25 +512,11 @@ namespace NeoDebug.Neo3
             }
             else
             {
-                if (chain != null) InitializeProtocolSettings(chain.Magic);
                 return new MemoryStore();
-            }
-
-            static void InitializeProtocolSettings(long magic)
-            {
-                var settings = new[] { KeyValuePair.Create("ProtocolConfiguration:Magic", $"{magic}") };
-                var protocolConfig = new ConfigurationBuilder()
-                    .AddInMemoryCollection(settings)
-                    .Build();
-
-                if (!ProtocolSettings.Initialize(protocolConfig))
-                {
-                    throw new Exception("could not initialize protocol settings");
-                }
             }
         }
 
-        private static (TriggerType trigger, Func<byte[], bool>? witnessChecker) ParseRuntime(Dictionary<string, JToken> config)
+        private static (TriggerType trigger, Func<byte[], bool>? witnessChecker) ParseRuntime(Dictionary<string, JToken> config, byte addressVersion)
         {
             var hasCheckpoint = config.TryGetValue("checkpoint", out _);
 
@@ -486,7 +532,7 @@ namespace NeoDebug.Neo3
                 }
                 else if (checkWitness?.Type == JTokenType.Array)
                 {
-                    var witnesses = checkWitness.Select(t => ParseAddress(t.Value<string>())).ToImmutableSortedSet();
+                    var witnesses = checkWitness.Select(t => ParseAddress(t.Value<string>(), addressVersion)).ToImmutableSortedSet();
                     return (trigger, hashOrPubkey => CheckWitness(hashOrPubkey, witnesses));
                 }
                 else if (checkWitness?.Type == JTokenType.String)
@@ -522,7 +568,7 @@ namespace NeoDebug.Neo3
             }
         }
 
-        private static IEnumerable<Signer> ParseSigners(Dictionary<string, JToken> config)
+        private static IEnumerable<Signer> ParseSigners(Dictionary<string, JToken> config, byte addressVersion)
         {
             if (config.TryGetValue("signers", out var signers))
             {
@@ -530,12 +576,12 @@ namespace NeoDebug.Neo3
                 {
                     if (signer.Type == JTokenType.String)
                     {
-                        var account = ParseAddress(signer.Value<string>());
+                        var account = ParseAddress(signer.Value<string>(), addressVersion);
                         yield return new Signer { Account = account, Scopes = WitnessScope.CalledByEntry };
                     }
                     else if (signer.Type == JTokenType.Object)
                     {
-                        var account = ParseAddress(signer.Value<string>("account"));
+                        var account = ParseAddress(signer.Value<string>("account"), addressVersion);
                         var textScopes = signer.Value<string>("scopes");
                         var scopes = textScopes == null
                             ? WitnessScope.CalledByEntry
@@ -546,14 +592,14 @@ namespace NeoDebug.Neo3
             }
         }
 
-        private static UInt160 ParseAddress(string text)
+        private static UInt160 ParseAddress(string text, byte addressVersion)
         {
             if (text[0] == '@')
             {
-                return text[1..].ToScriptHash();
+                return text[1..].ToScriptHash(addressVersion);
             }
 
-            return text.ToScriptHash();
+            return text.ToScriptHash(addressVersion);
         }
 
         async IAsyncEnumerable<DebugInfo> LoadDebugInfosAsync(IReadOnlyDictionary<string, string> sourceFileMap)
@@ -619,8 +665,7 @@ namespace NeoDebug.Neo3
                         var key = ConvertParameter(t["key"], paramParser);
                         var item = new StorageItem
                         {
-                            Value = ConvertParameter(t["value"], paramParser),
-                            IsConstant = t.Value<bool?>("constant") ?? false
+                            Value = ConvertParameter(t["value"], paramParser)
                         };
                         return (key, item);
                     });

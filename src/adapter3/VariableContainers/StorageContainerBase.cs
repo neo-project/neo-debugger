@@ -57,10 +57,6 @@ namespace NeoDebug.Neo3
                 {
                     return tuple.item.Value;
                 }
-                else if (remain.Span.SequenceEqual("isConstant"))
-                {
-                    return tuple.item.IsConstant;
-                }
             }
 
             return null;
@@ -99,7 +95,6 @@ namespace NeoDebug.Neo3
             {
                 yield return ForEvaluation(key.ToVariable(manager, "key"));
                 yield return ForEvaluation(item.Value.ToVariable(manager, "item"));
-                yield return ForEvaluation(item.IsConstant.ToVariable(manager, "isConstant"));
 
                 Variable ForEvaluation(Variable variable)
                 {

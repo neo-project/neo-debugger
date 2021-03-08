@@ -81,6 +81,12 @@
                                 "type": "string",
                                 "description": "Absolute path to Neo Express file (.neo-express / .neo-express.json)"
                             },
+                            "address-version": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 255,
+                                "description": ""
+                            },
                             "sourceFileMap": {
                                 "type": "object",
                                 "description": "Optional source file mappings passed to the debug engine. Example: '{ \"C:\\foo\":\"/home/user/foo\" }'",

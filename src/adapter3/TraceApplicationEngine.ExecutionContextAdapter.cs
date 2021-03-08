@@ -36,7 +36,7 @@ namespace NeoDebug.Neo3
                     {
                         if (scriptHash == nativeContract.Hash)
                         {
-                            script = nativeContract.Script;
+                            script = nativeContract.Nef.Script;
                             return true;
                         }
                     }
