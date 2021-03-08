@@ -107,7 +107,18 @@
                                             "traceFile"
                                         ],
                                         "properties": {
-                                            "invokeFile": {
+                                            "traceFile": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "type": "object",
+                                        "required": [
+                                            "deployContract"
+                                        ],
+                                        "properties": {
+                                            "deployContract": {
                                                 "type": "string"
                                             }
                                         }

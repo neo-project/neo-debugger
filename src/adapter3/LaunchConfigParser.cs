@@ -29,7 +29,7 @@ using Script = Neo.VM.Script;
 
 namespace NeoDebug.Neo3
 {
-    using Invocation = OneOf.OneOf<LaunchConfigParser.InvokeFileInvocation, LaunchConfigParser.OracleResponseInvocation, LaunchConfigParser.LaunchInvocation>;
+    using Invocation = OneOf.OneOf<LaunchConfigParser.InvokeFileInvocation, LaunchConfigParser.OracleResponseInvocation, LaunchConfigParser.LaunchInvocation, LaunchConfigParser.DeployContractInvocation>;
     using Storages = IEnumerable<(byte[] key, StorageItem item)>;
 
     partial class LaunchConfigParser
@@ -85,6 +85,12 @@ namespace NeoDebug.Neo3
                     return true;
                 }
 
+                if (json["deployContract"] != null)
+                {
+                    result = new DeployContractInvocation(json.Value<string>("deployContract"));
+                    return true;
+                }
+
                 if (OracleResponseInvocation.TryFromJson(json["oracleResponse"], out var oracleInvocation))
                 {
                     result = oracleInvocation;
@@ -133,24 +139,29 @@ namespace NeoDebug.Neo3
 
             // ParseSigners accesses ProtocolSettings.Default so it needs to be after CreateBlockchainStorage
             var signers = ParseSigners(config).ToArray();
-            var (lauchContractId, launchContractHash) = AddContract(store, launchContract, launchContractManifest, signers);
-
-            // TODO: load other contracts
-            //          Not sure supporting other contracts is a good idea anymore. Since there's no way to calcualte the 
-            //          contract id hash prior to deployment in Neo 3, I'm thinking the better approach would be to simply
-            //          deploy whatever contracts you want and take a snapshot rather than deploying multiple contracts 
-            //          during launch configuration.
-
+            var launchContractHash = UInt160.Zero;
+            if (!invocation.IsT3)
             {
-                // cache the deployed contracts for use by parameter parser
-                using var snapshot = new SnapshotCache(store);
-                foreach (var contractState in NativeContract.ContractManagement.ListContracts(snapshot))
-                {
-                    contracts.TryAdd(contractState.Manifest.Name, contractState.Hash);
-                }
-            }
+                var (lauchContractId, _launchContractHash) = AddContract(store, launchContract, launchContractManifest, signers);
+                launchContractHash = _launchContractHash;
 
-            UpdateContractStorage(store, lauchContractId, ParseStorage());
+                // TODO: load other contracts
+                //          Not sure supporting other contracts is a good idea anymore. Since there's no way to calcualte the 
+                //          contract id hash prior to deployment in Neo 3, I'm thinking the better approach would be to simply
+                //          deploy whatever contracts you want and take a snapshot rather than deploying multiple contracts 
+                //          during launch configuration.
+
+                {
+                    // cache the deployed contracts for use by parameter parser
+                    using var snapshot = new SnapshotCache(store);
+                    foreach (var contractState in NativeContract.ContractManagement.ListContracts(snapshot))
+                    {
+                        contracts.TryAdd(contractState.Manifest.Name, contractState.Hash);
+                    }
+                }
+
+                UpdateContractStorage(store, lauchContractId, ParseStorage());
+            }
 
             // TODO: load other contract storage (unless we cut this feature - see comment above)
 
@@ -325,10 +336,9 @@ namespace NeoDebug.Neo3
 
         private static TransactionAttribute[] GetTransactionAttributes(Invocation invocation, IStore store, UInt160 contractHash)
         {
-            return invocation.Match(
-                invoke => Array.Empty<TransactionAttribute>(),
-                oracle => GetTransactionAttributes(oracle, store, contractHash),
-                launch => Array.Empty<TransactionAttribute>());
+            return invocation.IsT1
+                ? GetTransactionAttributes(invocation.AsT1, store, contractHash)
+                : Array.Empty<TransactionAttribute>();
         }
 
         TransactionAttribute[] GetTransactionAttributes(OracleResponseInvocation invocation, IStore store, UInt160 contractHash)
@@ -406,6 +416,15 @@ namespace NeoDebug.Neo3
                     using var builder = new ScriptBuilder();
                     builder.EmitDynamicCall(scriptHash, launch.Operation, args);
                     return Task.FromResult<Script>(builder.ToArray());
+                },
+                async deploy => 
+                {
+                    var nefFile = LoadContract(deploy.Path);
+                    var manifest = await LoadManifestAsync(deploy.Path).ConfigureAwait(false);
+
+                    using var builder = new ScriptBuilder();
+                    builder.EmitDynamicCall(NativeContract.ContractManagement.Hash, "deploy", nefFile.ToArray(), manifest.ToJson().ToString());
+                    return builder.ToArray();
                 });
         }
 

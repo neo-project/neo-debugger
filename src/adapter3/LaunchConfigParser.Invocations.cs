@@ -16,6 +16,16 @@ namespace NeoDebug.Neo3
             }
         }
 
+        public struct DeployContractInvocation
+        {
+            public readonly string Path;
+
+            public DeployContractInvocation(string path)
+            {
+                Path = path;
+            }
+        }
+        
         public struct LaunchInvocation
         {
             public readonly string Contract;
