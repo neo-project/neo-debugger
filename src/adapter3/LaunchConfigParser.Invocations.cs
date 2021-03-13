@@ -14,6 +14,18 @@ namespace NeoDebug.Neo3
             {
                 Path = path;
             }
+
+            public static bool TryFromJson(JToken token, out InvokeFileInvocation invocation)
+            {
+                if (token["invoke-file"] != null)
+                {
+                    invocation = new InvokeFileInvocation(token.Value<string>("invoke-file"));
+                    return true;
+                }
+
+                invocation = default;
+                return false;
+            }
         }
 
         public struct LaunchInvocation

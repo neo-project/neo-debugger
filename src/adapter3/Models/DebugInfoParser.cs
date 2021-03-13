@@ -152,7 +152,7 @@ namespace NeoDebug.Neo3
             };
         }
 
-        private static async Task<DebugInfo> Load(Stream stream, IReadOnlyDictionary<string, string> sourceFileMap)
+        private static async Task<DebugInfo> LoadAsync(Stream stream, IReadOnlyDictionary<string, string> sourceFileMap)
         {
             var documentResolver = new DocumentResolver(sourceFileMap);
             using var streamReader = new StreamReader(stream);
@@ -161,7 +161,7 @@ namespace NeoDebug.Neo3
             return Parse(root, documentResolver);
         }
 
-        public static async Task<DebugInfo> Load(string nefFileName, IReadOnlyDictionary<string, string>? sourceFileMap = null)
+        public static async Task<DebugInfo> LoadAsync(string nefFileName, IReadOnlyDictionary<string, string>? sourceFileMap = null)
         {
             sourceFileMap ??= ImmutableDictionary<string, string>.Empty;
             var debugJsonFileName = Path.ChangeExtension(nefFileName, ".nefdbgnfo");
@@ -169,14 +169,14 @@ namespace NeoDebug.Neo3
             {
                 using var avmDbgNfoFile = ZipFile.OpenRead(debugJsonFileName);
                 using var debugJsonStream = avmDbgNfoFile.Entries[0].Open();
-                return await Load(debugJsonStream, sourceFileMap).ConfigureAwait(false);
+                return await LoadAsync(debugJsonStream, sourceFileMap).ConfigureAwait(false);
             }
 
             debugJsonFileName = Path.ChangeExtension(nefFileName, ".debug.json");
             if (File.Exists(debugJsonFileName))
             {
                 using var debugJsonStream = File.OpenRead(debugJsonFileName);
-                return await Load(debugJsonStream, sourceFileMap).ConfigureAwait(false);
+                return await LoadAsync(debugJsonStream, sourceFileMap).ConfigureAwait(false);
             }
 
             throw new ArgumentException($"{nameof(nefFileName)} debug info file doesn't exist");

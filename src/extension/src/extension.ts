@@ -304,7 +304,7 @@ class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDes
         const options = session.workspaceFolder ? { cwd: session.workspaceFolder.uri.fsPath } : {};
         this.channel.appendLine(`launching ${cmd} ${args.join(' ')}`);
         this.channel.appendLine(`current directory ${options.cwd ?? 'missing'}`);
-        return new vscode.DebugAdapterExecutable(cmd, args, options);	
+        return new vscode.DebugAdapterExecutable(cmd, args, options);
     }
 }
 
