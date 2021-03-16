@@ -29,7 +29,7 @@ using StackItem = Neo.VM.Types.StackItem;
 namespace NeoDebug.Neo3
 {
     using ConfigProps = IReadOnlyDictionary<string, JToken>;
-    using Invocation = OneOf<LaunchConfigParser.InvokeFileInvocation, LaunchConfigParser.OracleResponseInvocation, LaunchConfigParser.LaunchInvocation>;
+    using Invocation = OneOf<LaunchConfigParser.InvokeFileInvocation, LaunchConfigParser.OracleResponseInvocation, LaunchConfigParser.LaunchInvocation, LaunchConfigParser.ContractDeployInvocation>;
     // using Storages = IEnumerable<(byte[] key, StorageItem item)>;
 
     partial class LaunchConfigParser
@@ -73,7 +73,7 @@ namespace NeoDebug.Neo3
                 throw new JsonException("missing invocation property");
             }
 
-            if (jsonInvocation["trace-file"] != null)
+            if (jsonInvocation.Type == JTokenType.Object && jsonInvocation["trace-file"] != null)
             {
                 var traceFile = jsonInvocation.Value<string>("trace-file") ?? throw new JsonException("invalid trace-file property");
                 var program = ParseProgram(config);
@@ -92,9 +92,7 @@ namespace NeoDebug.Neo3
         {
             var program = ParseProgram(config);
             var launchNefFile = LoadNefFile(program);
-            var launchManifest = ContractManifest.Parse(
-                await File.ReadAllBytesAsync(
-                    Path.ChangeExtension(program, ".manifest.json")).ConfigureAwait(false));
+            var launchManifest = await LoadContractManifest(program).ConfigureAwait(false);
 
             ExpressChain? chain = null;
             if (config.TryGetValue("neo-express", out var neoExpressPath))
@@ -109,7 +107,9 @@ namespace NeoDebug.Neo3
                     ? oracleInvocation
                     : LaunchInvocation.TryFromJson(jsonInvocation, out var launchInvocation)
                         ? launchInvocation
-                        : throw new JsonException("invalid invocation property");
+                        : ContractDeployInvocation.TryFromJson(jsonInvocation, out var deployInvocation)
+                            ? deployInvocation
+                            : throw new JsonException("invalid invocation property");
 
             var (store, settings) = LoadBlockchainStorage(config, chain?.Magic, chain?.AddressVersion);
             EnsureLedgerInitialized(store, settings);
@@ -121,7 +121,20 @@ namespace NeoDebug.Neo3
             }
 
             var signers = ParseSigners(config, settings.AddressVersion).ToArray();
-            var (lauchContractId, launchContractHash) = EnsureContractDeployed(store, launchNefFile, launchManifest, signers, settings);
+
+            Script invokeScript;
+            if (!invocation.IsT3)
+            {
+                var (lauchContractId, launchContractHash) = EnsureContractDeployed(store, launchNefFile, launchManifest, signers, settings);
+                var paramParser = CreateContractParameterParser(settings.AddressVersion, store, chain);
+                invokeScript = await CreateInvokeScriptAsync(invocation, program, launchContractHash, paramParser);
+            }
+            else
+            {
+                using var builder = new ScriptBuilder();
+                builder.EmitDynamicCall(NativeContract.ContractManagement.Hash, "deploy", launchNefFile.ToArray(), launchManifest.ToJson().ToString());
+                invokeScript = builder.ToArray();
+            }
 
             // TODO: load other contracts
             //          Not sure supporting other contracts is a good idea anymore. Since there's no way to calcualte the 
@@ -129,9 +142,6 @@ namespace NeoDebug.Neo3
             //          deploy whatever contracts you want and take a snapshot rather than deploying multiple contracts 
             //          during launch configuration.
 
-            var paramParser = CreateContractParameterParser(settings.AddressVersion, store, chain);
-
-            var invokeScript = await CreateInvokeScriptAsync(invocation, launchContractHash, paramParser);
             var tx = new Transaction
             {
                 Version = 0,
@@ -156,6 +166,13 @@ namespace NeoDebug.Neo3
             using var stream = File.OpenRead(path);
             using var reader = new BinaryReader(stream, Encoding.UTF8, false);
             return reader.ReadSerializable<NefFile>();
+        }
+
+        static async Task<ContractManifest> LoadContractManifest(string contractPath)
+        {
+            var bytesManifest = await File.ReadAllBytesAsync(
+                Path.ChangeExtension(contractPath, ".manifest.json")).ConfigureAwait(false);
+            return ContractManifest.Parse(bytesManifest);
         }
 
         static (IStore store, ProtocolSettings settings) LoadBlockchainStorage(ConfigProps config, uint? magic = null, byte? addressVersion = null)
@@ -493,7 +510,7 @@ namespace NeoDebug.Neo3
             };
         }
 
-        static Task<Script> CreateInvokeScriptAsync(Invocation invocation, UInt160 scriptHash, ContractParameterParser paramParser)
+        static Task<Script> CreateInvokeScriptAsync(Invocation invocation, string program, UInt160 scriptHash, ContractParameterParser paramParser)
         {
             return invocation.Match<Task<Script>>(
                 invoke => paramParser.LoadInvocationScriptAsync(invoke.Path),
@@ -510,7 +527,8 @@ namespace NeoDebug.Neo3
                     using var builder = new ScriptBuilder();
                     builder.EmitDynamicCall(scriptHash, launch.Operation, args);
                     return Task.FromResult<Script>(builder.ToArray());
-                });
+                },
+                deployment => Task.FromException<Script>(new Exception("CreateInvokeScriptAsync doesn't support ContractDeploymentInvocation")));
         }
 
 

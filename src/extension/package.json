@@ -81,6 +81,12 @@
                             "invocation": {
                                 "oneOf": [
                                     {
+                                        "type": "string",
+                                        "enum": [
+                                            "deploy"
+                                        ]
+                                    },
+                                    {
                                         "type": "object",
                                         "required": [
                                             "args"

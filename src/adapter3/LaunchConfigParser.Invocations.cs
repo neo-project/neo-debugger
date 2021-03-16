@@ -17,9 +17,24 @@ namespace NeoDebug.Neo3
 
             public static bool TryFromJson(JToken token, out InvokeFileInvocation invocation)
             {
-                if (token["invoke-file"] != null)
+                if (token.Type == JTokenType.Object && token["invoke-file"] != null)
                 {
                     invocation = new InvokeFileInvocation(token.Value<string>("invoke-file"));
+                    return true;
+                }
+
+                invocation = default;
+                return false;
+            }
+        }
+
+        public struct ContractDeployInvocation
+        {
+            public static bool TryFromJson(JToken token, out ContractDeployInvocation invocation)
+            {
+                if (token.Type == JTokenType.String && token.Value<string>() == "deploy")
+                {
+                    invocation = new ContractDeployInvocation();
                     return true;
                 }
 
@@ -43,6 +58,12 @@ namespace NeoDebug.Neo3
 
             public static bool TryFromJson(JToken token, out LaunchInvocation invocation)
             {
+                if (token.Type != JTokenType.Object)
+                {
+                    invocation = default;
+                    return false;
+                }
+
                 var operation = token.Value<string>("operation");
                 if (string.IsNullOrEmpty(operation))
                 {
@@ -84,9 +105,9 @@ namespace NeoDebug.Neo3
                 GasForResponse = gasForResponse;
             }
 
-            public static bool TryFromJson(JToken? token, out OracleResponseInvocation invocation)
+            public static bool TryFromJson(JToken token, out OracleResponseInvocation invocation)
             {
-                if (token != null && token.Type == JTokenType.Object)
+                if (token.Type == JTokenType.Object)
                 {
                     var url = token.Value<string>("url");
                     var callback = token.Value<string>("callback");
