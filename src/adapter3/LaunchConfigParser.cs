@@ -123,17 +123,17 @@ namespace NeoDebug.Neo3
             var signers = ParseSigners(config, settings.AddressVersion).ToArray();
 
             Script invokeScript;
-            if (!invocation.IsT3)
-            {
-                var (lauchContractId, launchContractHash) = EnsureContractDeployed(store, launchNefFile, launchManifest, signers, settings);
-                var paramParser = CreateContractParameterParser(settings.AddressVersion, store, chain);
-                invokeScript = await CreateInvokeScriptAsync(invocation, program, launchContractHash, paramParser);
-            }
-            else
+            if (invocation.IsT3) // T3 == ContractDeploymentInvocation
             {
                 using var builder = new ScriptBuilder();
                 builder.EmitDynamicCall(NativeContract.ContractManagement.Hash, "deploy", launchNefFile.ToArray(), launchManifest.ToJson().ToString());
                 invokeScript = builder.ToArray();
+            }
+            else
+            {
+                var (lauchContractId, launchContractHash) = EnsureContractDeployed(store, launchNefFile, launchManifest, signers, settings);
+                var paramParser = CreateContractParameterParser(settings.AddressVersion, store, chain);
+                invokeScript = await CreateInvokeScriptAsync(invocation, program, launchContractHash, paramParser);
             }
 
             // TODO: load other contracts
@@ -425,10 +425,10 @@ namespace NeoDebug.Neo3
                 {
                     using (var engine = ApplicationEngine.Create(TriggerType.Application, null, snapshot, null, settings))
                     {
-                        var context = engine.LoadContract(contract, deployMethod, CallFlags.None);
+                        var context = engine.LoadContract(contract, deployMethod, CallFlags.All);
                         context.EvaluationStack.Push(StackItem.Null);
                         context.EvaluationStack.Push(update ? StackItem.True : StackItem.False);
-                        if (engine.Execute() != VMState.HALT) throw new InvalidOperationException("_deploy operation failed");
+                        if (engine.Execute() != VMState.HALT) throw new InvalidOperationException("_deploy operation failed", engine.FaultException);
                     }
                 }
             }
@@ -470,7 +470,7 @@ namespace NeoDebug.Neo3
                 using var sb = new ScriptBuilder();
                 sb.EmitSysCall(ApplicationEngine.System_Contract_NativeOnPersist);
                 engine.LoadScript(sb.ToArray());
-                if (engine.Execute() != VMState.HALT) throw new InvalidOperationException("NativeOnPersist operation failed");
+                if (engine.Execute() != VMState.HALT) throw new InvalidOperationException("NativeOnPersist operation failed", engine.FaultException);
             }
 
             using (var engine = ApplicationEngine.Create(TriggerType.PostPersist, null, snapshot, block, settings, 0))
@@ -478,7 +478,7 @@ namespace NeoDebug.Neo3
                 using var sb = new ScriptBuilder();
                 sb.EmitSysCall(ApplicationEngine.System_Contract_NativePostPersist);
                 engine.LoadScript(sb.ToArray());
-                if (engine.Execute() != VMState.HALT) throw new InvalidOperationException("NativePostPersist operation failed");
+                if (engine.Execute() != VMState.HALT) throw new InvalidOperationException("NativePostPersist operation failed", engine.FaultException);
             }
 
             snapshot.Commit();
@@ -741,6 +741,10 @@ namespace NeoDebug.Neo3
                         yield return new Signer { Account = account, Scopes = scopes };
                     }
                 }
+            }
+            else
+            {
+                yield return new Signer { Account = UInt160.Zero, Scopes = WitnessScope.CalledByEntry };
             }
         }
 
