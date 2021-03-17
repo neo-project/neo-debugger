@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
@@ -111,54 +112,58 @@ namespace NeoDebug.Neo3
                             ? deployInvocation
                             : throw new JsonException("invalid invocation property");
 
-            var (store, settings) = LoadBlockchainStorage(config, chain?.Magic, chain?.AddressVersion);
-            EnsureLedgerInitialized(store, settings);
-
-            var (trigger, witnessChecker) = ParseRuntime(config, settings.AddressVersion);
-            if (trigger != TriggerType.Application)
+            var (storageProvider, settings) = LoadBlockchainStorage(config, chain?.Magic, chain?.AddressVersion);
+            using (storageProvider)
+            using (var store = storageProvider.GetStore(null))
             {
-                throw new Exception($"Trigger Type {trigger} not supported");
+                EnsureLedgerInitialized(store, settings);
+
+                var (trigger, witnessChecker) = ParseRuntime(config, settings.AddressVersion);
+                if (trigger != TriggerType.Application)
+                {
+                    throw new Exception($"Trigger Type {trigger} not supported");
+                }
+
+                var signers = ParseSigners(config, settings.AddressVersion).ToArray();
+
+                Script invokeScript;
+                if (invocation.IsT3) // T3 == ContractDeploymentInvocation
+                {
+                    using var builder = new ScriptBuilder();
+                    builder.EmitDynamicCall(NativeContract.ContractManagement.Hash, "deploy", launchNefFile.ToArray(), launchManifest.ToJson().ToString());
+                    invokeScript = builder.ToArray();
+                }
+                else
+                {
+                    var (lauchContractId, launchContractHash) = EnsureContractDeployed(store, launchNefFile, launchManifest, signers, settings);
+                    var paramParser = CreateContractParameterParser(settings.AddressVersion, store, chain);
+                    invokeScript = await CreateInvokeScriptAsync(invocation, program, launchContractHash, paramParser);
+                }
+
+                // TODO: load other contracts
+                //          Not sure supporting other contracts is a good idea anymore. Since there's no way to calcualte the 
+                //          contract id hash prior to deployment in Neo 3, I'm thinking the better approach would be to simply
+                //          deploy whatever contracts you want and take a snapshot rather than deploying multiple contracts 
+                //          during launch configuration.
+
+                var tx = new Transaction
+                {
+                    Version = 0,
+                    Nonce = (uint)new Random().Next(),
+                    Script = invokeScript,
+                    Signers = signers,
+                    ValidUntilBlock = Transaction.MaxValidUntilBlockIncrement,
+                    Attributes = Array.Empty<TransactionAttribute>(),
+                    // Attributes = GetTransactionAttributes(invocation, store, launchContractHash),
+                    Witnesses = Array.Empty<Witness>()
+                };
+
+                var block = CreateDummyBlock(store, tx);
+
+                var engine = new DebugApplicationEngine(tx, new SnapshotCache(store), block, settings, witnessChecker);
+                engine.LoadScript(invokeScript);
+                return engine;
             }
-
-            var signers = ParseSigners(config, settings.AddressVersion).ToArray();
-
-            Script invokeScript;
-            if (invocation.IsT3) // T3 == ContractDeploymentInvocation
-            {
-                using var builder = new ScriptBuilder();
-                builder.EmitDynamicCall(NativeContract.ContractManagement.Hash, "deploy", launchNefFile.ToArray(), launchManifest.ToJson().ToString());
-                invokeScript = builder.ToArray();
-            }
-            else
-            {
-                var (lauchContractId, launchContractHash) = EnsureContractDeployed(store, launchNefFile, launchManifest, signers, settings);
-                var paramParser = CreateContractParameterParser(settings.AddressVersion, store, chain);
-                invokeScript = await CreateInvokeScriptAsync(invocation, program, launchContractHash, paramParser);
-            }
-
-            // TODO: load other contracts
-            //          Not sure supporting other contracts is a good idea anymore. Since there's no way to calcualte the 
-            //          contract id hash prior to deployment in Neo 3, I'm thinking the better approach would be to simply
-            //          deploy whatever contracts you want and take a snapshot rather than deploying multiple contracts 
-            //          during launch configuration.
-
-            var tx = new Transaction
-            {
-                Version = 0,
-                Nonce = (uint)new Random().Next(),
-                Script = invokeScript,
-                Signers = signers,
-                ValidUntilBlock = Transaction.MaxValidUntilBlockIncrement,
-                Attributes = Array.Empty<TransactionAttribute>(),
-                // Attributes = GetTransactionAttributes(invocation, store, launchContractHash),
-                Witnesses = Array.Empty<Witness>()
-            };
-
-            var block = CreateDummyBlock(store, tx);
-
-            var engine = new DebugApplicationEngine(tx, new SnapshotCache(store), block, settings, witnessChecker);
-            engine.LoadScript(invokeScript);
-            return engine;
         }
 
         static NefFile LoadNefFile(string path)
@@ -175,7 +180,7 @@ namespace NeoDebug.Neo3
             return ContractManifest.Parse(bytesManifest);
         }
 
-        static (IStore store, ProtocolSettings settings) LoadBlockchainStorage(ConfigProps config, uint? magic = null, byte? addressVersion = null)
+        static (IDisposableStorageProvider storageProvider, ProtocolSettings settings) LoadBlockchainStorage(ConfigProps config, uint? magic = null, byte? addressVersion = null)
         {
             if (config.TryGetValue("checkpoint", out var checkpoint))
             {
@@ -194,20 +199,20 @@ namespace NeoDebug.Neo3
                     }
                 });
 
-                var metadata = RocksDbStore.RestoreCheckpoint(checkpoint.Value<string>(), checkpointTempPath);
+                var metadata = RocksDbStorageProvider.RestoreCheckpoint(checkpoint.Value<string>(), checkpointTempPath);
                 if (magic.HasValue && magic.Value != metadata.magic)
                     throw new Exception($"checkpoint magic ({metadata.magic}) doesn't match ({magic.Value})");
                 if (addressVersion.HasValue && addressVersion.Value != metadata.addressVersion)
                     throw new Exception($"checkpoint address version ({metadata.addressVersion}) doesn't match ({addressVersion.Value})");
 
-                var store = new CheckpointStore(RocksDbStore.OpenReadOnly(checkpointTempPath), cleanup);
+                var storageProvider = new CheckpointStorageProvider(RocksDbStorageProvider.OpenReadOnly(checkpointTempPath), checkpointCleanup: cleanup);
                 var settings = ProtocolSettings.Default with
                 {
                     Magic = metadata.magic,
                     AddressVersion = metadata.addressVersion
                 };
 
-                return (store, settings);
+                return (storageProvider, settings);
             }
             else
             {
@@ -216,8 +221,23 @@ namespace NeoDebug.Neo3
                     Magic = magic.HasValue ? magic.Value : ProtocolSettings.Default.Magic,
                     AddressVersion = addressVersion.HasValue ? addressVersion.Value : ProtocolSettings.Default.AddressVersion
                 };
-                return (new MemoryStore(), settings);
+                return (new MemoryStorageProvider(), settings);
             }
+        }
+
+        class MemoryStorageProvider : IDisposableStorageProvider
+        {
+            ConcurrentDictionary<string, MemoryStore> storages = new ConcurrentDictionary<string, MemoryStore>();
+
+            public void Dispose()
+            {
+                foreach (var (key, value) in storages)
+                {
+                    value.Dispose();
+                }
+            }
+
+            public IStore GetStore(string path) => storages.GetOrAdd(path, _ => new MemoryStore());
         }
 
         static ContractParameterParser CreateContractParameterParser(byte addressVersion, IStore store, ExpressChain? chain)
@@ -231,7 +251,7 @@ namespace NeoDebug.Neo3
                         contract => contract.Hash);
             }
 
-            ContractParameterParser.TryGetUInt160? tryGetAccount = chain == null 
+            ContractParameterParser.TryGetUInt160? tryGetAccount = chain == null
                 ? null
                 : (string name, out UInt160 scriptHash) =>
                 {
