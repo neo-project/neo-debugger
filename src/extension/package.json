@@ -145,7 +145,7 @@
                                                         "type": "string"
                                                     },
                                                     "result": {},
-                                                    "resultFile": {
+                                                    "result-file": {
                                                         "type": "string"
                                                     },
                                                     "filter": {
@@ -167,7 +167,7 @@
                                                     "gas": {
                                                         "type": "number"
                                                     },
-                                                    "userData": {}
+                                                    "user-data": {}
                                                 }
                                             }
                                         }

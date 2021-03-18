@@ -88,13 +88,13 @@ namespace NeoDebug.Neo3
         {
             public readonly string Url;
             public readonly string Callback;
+            public readonly string Result;
             public readonly string Filter;
             public readonly OracleResponseCode Code;
             public readonly JToken? UserData;
-            public readonly JToken Result;
             public readonly long GasForResponse;
 
-            public OracleResponseInvocation(OracleResponseCode code, string url, string callback, string filter, JToken? userData, JToken result, long gasForResponse)
+            public OracleResponseInvocation(OracleResponseCode code, string url, string callback, string result, string filter, JToken? userData, long gasForResponse)
             {
                 Code = code;
                 Url = url;
@@ -109,35 +109,38 @@ namespace NeoDebug.Neo3
             {
                 if (token.Type == JTokenType.Object)
                 {
-                    var url = token.Value<string>("url");
-                    var callback = token.Value<string>("callback");
-                    var result = token["result"] == null
-                        ? (TryLoadResultFile(token, out var resultFileContents) ? resultFileContents : null)
-                        : token["result"];
-
-                    if (!string.IsNullOrEmpty(url) && !string.IsNullOrEmpty(callback) && result != null)
+                    var response = token["oracle-response"];
+                    if (response != null)
                     {
-                        var filter = token.Value<string>("filter") ?? string.Empty;
-                        var code = token["code"] == null ? OracleResponseCode.Success : Enum.Parse<OracleResponseCode>(token.Value<string>("code"), true);
-                        var gas = token["gas"] == null ? (long)0 : token.Value<long>("gas");
+                        var url = response.Value<string>("url");
+                        var callback = response.Value<string>("callback");
+                        var result = response["result"] != null
+                            ? response.Value<string>()
+                            : (TryLoadResultFile(response, out var resultFileContents) ? resultFileContents : null);
 
-                        invocation = new OracleResponseInvocation(code, url, callback, filter, token["userData"], result, gas);
-                        return true;
+                        if (!string.IsNullOrEmpty(url) && !string.IsNullOrEmpty(callback) && result != null)
+                        {
+                            var filter = response.Value<string>("filter") ?? string.Empty;
+                            var code = response["code"] == null ? OracleResponseCode.Success : Enum.Parse<OracleResponseCode>(token.Value<string>("code"), true);
+                            var gas = response["gas"] == null ? (long)0 : token.Value<long>("gas");
+
+                            invocation = new OracleResponseInvocation(code, url, callback, result, filter, token["user-data"], gas);
+                            return true;
+                        }
                     }
                 }
 
                 invocation = default;
                 return false;
 
-                static bool TryLoadResultFile(JToken token, out JToken resultFileContents)
+                static bool TryLoadResultFile(JToken response, out string resultFileContents)
                 {
-                    var resultFile = token.Value<string>("resultFile");
+                    var resultFile = response.Value<string>("result-file");
                     if (!string.IsNullOrEmpty(resultFile) && System.IO.File.Exists(resultFile))
                     {
                         try
                         {
-                            var text = System.IO.File.ReadAllText(resultFile);
-                            resultFileContents = JToken.Parse(text);
+                            resultFileContents = System.IO.File.ReadAllText(resultFile);
                             return true;
                         }
                         catch (Exception)
