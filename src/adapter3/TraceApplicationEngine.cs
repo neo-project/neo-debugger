@@ -114,11 +114,13 @@ namespace NeoDebug.Neo3
             }
         }
 
+        public bool AtStart => traceFile.AtStart;
         public VMState State { get; private set; }
         public IReadOnlyCollection<IExecutionContext> InvocationStack { get; private set; } = new List<IExecutionContext>();
         public IExecutionContext? CurrentContext => InvocationStack.FirstOrDefault();
         public IReadOnlyList<StackItem> ResultStack { get; private set; } = new List<StackItem>();
         public Exception? FaultException { get; private set; }
+
         public event EventHandler<(UInt160 scriptHash, string scriptName, string eventName, NeoArray state)>? DebugNotify;
         public event EventHandler<(UInt160 scriptHash, string scriptName, string message)>? DebugLog;
 

@@ -402,7 +402,17 @@ namespace NeoDebug.Neo3
         {
             while (true)
             {
-                if (engine.State == VMState.FAULT)
+                if (stepBack && engine.AtStart)
+                {
+                    sendEvent(new OutputEvent()
+                    {
+                        Category = OutputEvent.CategoryValue.Stdout,
+                        Output = "Reached start of trace"
+                    });
+                    break;
+                }
+
+                if (!stepBack && engine.State == VMState.FAULT)
                 {
                     var output = "Engine State Faulted\n";
                     if (engine.FaultException != null)
@@ -420,10 +430,10 @@ namespace NeoDebug.Neo3
                         Output = output
                     });
                     sendEvent(new TerminatedEvent());
-                    return;
+                    break;
                 }
 
-                if (engine.State == VMState.HALT)
+                if (!stepBack && engine.State == VMState.HALT)
                 {
                     for (int index = 0; index < engine.ResultStack.Count; index++)
                     {
@@ -438,7 +448,7 @@ namespace NeoDebug.Neo3
                     }
                     sendEvent(new ExitedEvent());
                     sendEvent(new TerminatedEvent());
-                    return;
+                    break;
                 }
 
                 if (stepBack)
@@ -465,7 +475,7 @@ namespace NeoDebug.Neo3
                             || (!handled && breakOnUncaughtExceptions))
                         {
                             FireStoppedEvent(StoppedEvent.ReasonValue.Exception);
-                            return;
+                            break;
                         }
                     }
                     else
@@ -479,14 +489,14 @@ namespace NeoDebug.Neo3
                 if (breakpointManager.CheckBreakpoint(engine.CurrentContext?.ScriptIdentifier ?? UInt160.Zero, engine.CurrentContext?.InstructionPointer))
                 {
                     FireStoppedEvent(StoppedEvent.ReasonValue.Breakpoint);
-                    return;
+                    break;
                 }
 
                 if (compareStepDepth(engine.InvocationStack.Count)
                     && (disassemblyView || CheckSequencePoint()))
                 {
                     FireStoppedEvent(StoppedEvent.ReasonValue.Step);
-                    return;
+                    break;
                 }
             }
 
@@ -519,6 +529,9 @@ namespace NeoDebug.Neo3
         public void ReverseContinue()
         {
             Step((_) => false, true);
+            // if we are in source view and we've stepped back before the first sequence point
+            // step forward to first sequence point
+            if (!disassemblyView && engine.AtStart) StepIn();
         }
 
         public void StepIn()
