@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Neo;
+using Neo.BlockchainToolkit.Persistence;
 using Neo.BlockchainToolkit.SmartContract;
 using Neo.Network.P2P.Payloads;
 using Neo.Persistence;
@@ -17,6 +18,7 @@ namespace NeoDebug.Neo3
 {
     internal partial class DebugApplicationEngine : TestApplicationEngine, IApplicationEngine
     {
+        private readonly IDisposableStorageProvider storageProvider;
         private readonly EvaluationStackAdapter resultStackAdapter;
         private readonly InvocationStackAdapter invocationStackAdapter;
         private readonly IDictionary<UInt160, UInt160> scriptIdMap = new Dictionary<UInt160, UInt160>();
@@ -24,11 +26,12 @@ namespace NeoDebug.Neo3
         public event EventHandler<(UInt160 scriptHash, string scriptName, string eventName, NeoArray state)>? DebugNotify;
         public event EventHandler<(UInt160 scriptHash, string scriptName, string message)>? DebugLog;
 
-        public DebugApplicationEngine(IVerifiable container, DataCache snapshot, Block persistingBlock, Func<byte[], bool>? witnessChecker) 
-            : base(TriggerType.Application, container, snapshot, persistingBlock, TestModeGas, witnessChecker)
+        public DebugApplicationEngine(IVerifiable container, IDisposableStorageProvider storageProvider, Block persistingBlock, ProtocolSettings settings, Func<byte[], bool>? witnessChecker)
+            : base(TriggerType.Application, container, new SnapshotCache(storageProvider.GetStore(null)), persistingBlock, settings, TestModeGas, witnessChecker)
         {
             this.Log += OnLog;
             this.Notify += OnNotify;
+            this.storageProvider = storageProvider;
             resultStackAdapter = new EvaluationStackAdapter(this.ResultStack);
             invocationStackAdapter = new InvocationStackAdapter(this);
         }
@@ -37,6 +40,7 @@ namespace NeoDebug.Neo3
         {
             this.Log -= OnLog;
             this.Notify -= OnNotify;
+            storageProvider.Dispose();
             base.Dispose();
         }
 

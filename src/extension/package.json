@@ -70,47 +70,21 @@
                 "configurationAttributes": {
                     "launch": {
                         "required": [
-                            "program"
+                            "program",
+                            "invocation"
                         ],
                         "properties": {
                             "program": {
                                 "type": "string",
                                 "description": "Absolute path to Neo smart contract (.avm/.nef)"
                             },
-                            "neo-express": {
-                                "type": "string",
-                                "description": "Absolute path to Neo Express file (.neo-express / .neo-express.json)"
-                            },
-                            "sourceFileMap": {
-                                "type": "object",
-                                "description": "Optional source file mappings passed to the debug engine. Example: '{ \"C:\\foo\":\"/home/user/foo\" }'",
-                                "additionalProperties": {
-                                    "type": "string"
-                                }
-                            },
                             "invocation": {
                                 "oneOf": [
                                     {
-                                        "type": "object",
-                                        "required": [
-                                            "invokeFile"
-                                        ],
-                                        "properties": {
-                                            "invokeFile": {
-                                                "type": "string"
-                                            }
-                                        }
-                                    },
-                                    {
-                                        "type": "object",
-                                        "required": [
-                                            "traceFile"
-                                        ],
-                                        "properties": {
-                                            "invokeFile": {
-                                                "type": "string"
-                                            }
-                                        }
+                                        "type": "string",
+                                        "enum": [
+                                            "deploy"
+                                        ]
                                     },
                                     {
                                         "type": "object",
@@ -132,10 +106,32 @@
                                     {
                                         "type": "object",
                                         "required": [
-                                            "oracleResponse"
+                                            "invoke-file"
                                         ],
                                         "properties": {
-                                            "oracleResponse": {
+                                            "invoke-file": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "type": "object",
+                                        "required": [
+                                            "trace-file"
+                                        ],
+                                        "properties": {
+                                            "trace-file": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "type": "object",
+                                        "required": [
+                                            "oracle-response"
+                                        ],
+                                        "properties": {
+                                            "oracle-response": {
                                                 "type": "object",
                                                 "required": [
                                                     "url",
@@ -149,7 +145,7 @@
                                                         "type": "string"
                                                     },
                                                     "result": {},
-                                                    "resultFile": {
+                                                    "result-file": {
                                                         "type": "string"
                                                     },
                                                     "filter": {
@@ -171,12 +167,43 @@
                                                     "gas": {
                                                         "type": "number"
                                                     },
-                                                    "userData": {}
+                                                    "user-data": {}
                                                 }
                                             }
                                         }
                                     }
                                 ]
+                            },
+                            "sourceFileMap": {
+                                "type": "object",
+                                "description": "Optional source file mappings passed to the debug engine. Example: '{ \"C:\\foo\":\"/home/user/foo\" }'",
+                                "additionalProperties": {
+                                    "type": "string"
+                                }
+                            },
+                            "return-types": {
+                                "type": "array",
+                                "description": "Specifies the expected return type of the contract entry-point.",
+                                "items": {
+                                    "type": "string",
+                                    "enum": [
+                                        "int",
+                                        "bool",
+                                        "string",
+                                        "hex",
+                                        "byte[]"
+                                    ]
+                                }
+                            },
+                            "neo-express": {
+                                "type": "string",
+                                "description": "Absolute path to Neo Express file (.neo-express / .neo-express.json)"
+                            },
+                            "address-version": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 255,
+                                "description": ""
                             },
                             "stored-contracts": {
                                 "type": "array",
@@ -342,20 +369,6 @@
                                             "type": "boolean"
                                         }
                                     }
-                                }
-                            },
-                            "return-types": {
-                                "type": "array",
-                                "description": "Specifies the expected return type of the contract entry-point.",
-                                "items": {
-                                    "type": "string",
-                                    "enum": [
-                                        "int",
-                                        "bool",
-                                        "string",
-                                        "hex",
-                                        "byte[]"
-                                    ]
                                 }
                             },
                             "runtime": {
