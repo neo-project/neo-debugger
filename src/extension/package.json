@@ -1,5 +1,6 @@
 {
     "name": "neo-contract-debug",
+    "license": "MIT",
     "publisher": "ngd-seattle",
     "version": "0.0.0",
     "displayName": "Neo Smart Contract Debugger",
