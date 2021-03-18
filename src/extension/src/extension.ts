@@ -297,7 +297,7 @@ class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDes
             args.push(defaultDebugView);
         }
 
-        if (session.configuration["traceFile"]) {
+        if (session.configuration["invocation"]?.["trace-file"]) {
             args.push("--trace");
         }
 

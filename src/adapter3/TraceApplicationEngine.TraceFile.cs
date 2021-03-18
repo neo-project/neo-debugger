@@ -40,6 +40,8 @@ namespace NeoDebug.Neo3
                 }
             }
 
+            public bool AtStart => previousRecords.Count == 0;
+
             public bool TryGetPrev([MaybeNullWhen(false)] out ITraceDebugRecord record)
             {
                 if (disposedValue) throw new ObjectDisposedException(nameof(TraceFile));

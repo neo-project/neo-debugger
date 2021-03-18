@@ -26,5 +26,6 @@ namespace NeoDebug.Neo3
         IReadOnlyList<StackItem> ResultStack { get; }
         Exception? FaultException { get; }
         VMState State { get; }
+        bool AtStart { get; }
     }
 }

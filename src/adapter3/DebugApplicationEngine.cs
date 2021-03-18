@@ -64,6 +64,7 @@ namespace NeoDebug.Neo3
 
         public bool ExecuteNextInstruction()
         {
+            AtStart = false;
             ExecuteNext();
             return true;
         }
@@ -106,5 +107,7 @@ namespace NeoDebug.Neo3
         IExecutionContext? IApplicationEngine.CurrentContext => CurrentContext == null
             ? null
             : new ExecutionContextAdapter(CurrentContext, scriptIdMap);
+
+        public bool AtStart { get; private set; } = true;
     }
 }
