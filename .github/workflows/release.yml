@@ -32,6 +32,16 @@ jobs:
     - name: NPM run package
       run: npm run package
       working-directory: './src/extension'
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: packages
+        path: ./adapters/*
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: packages
+        path: ./src/extension/*.vsix
     - name: Create Release
       uses: marvinpinto/action-automatic-releases@v1.1.0
       with:
