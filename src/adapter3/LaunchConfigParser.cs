@@ -638,17 +638,23 @@ namespace NeoDebug.Neo3
                     else if (signer.Type == JTokenType.Object)
                     {
                         var account = ParseAddress(signer.Value<string>("account"), chain, version);
-                        var textScopes = signer.Value<string>("scopes");
-                        var scopes = textScopes == null
-                            ? WitnessScope.CalledByEntry
-                            : (WitnessScope)Enum.Parse(typeof(WitnessScope), textScopes);
-                        yield return new Signer { Account = account, Scopes = scopes };
+                        var scopes = signer.Value<string>("scopes");
+                        var allowedContracts = signer["allowedcontracts"]?.Select(j => UInt160.Parse(j.Value<string>())).ToArray();
+                        var allowedGropus = signer["allowedgroups"]?.Select(j => ECPoint.Parse(j.Value<string>(), ECCurve.Secp256r1)).ToArray();
+
+                        yield return new Signer
+                        {
+                            Account = account, 
+                            Scopes = string.IsNullOrEmpty(scopes) ? WitnessScope.CalledByEntry : Enum.Parse<WitnessScope>(scopes),
+                            AllowedContracts = allowedContracts,
+                            AllowedGroups = allowedGropus,
+                        };
                     }
                 }
             }
             else
             {
-                yield return new Signer { Account = UInt160.Zero, Scopes = WitnessScope.CalledByEntry };
+                yield return new Signer { Account = UInt160.Zero, Scopes = WitnessScope.None };
             }
         }
 

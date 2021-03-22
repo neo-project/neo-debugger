@@ -293,12 +293,20 @@
                                                 "scopes": {
                                                     "type": "string",
                                                     "enum": [
-                                                        "FeeOnly",
+                                                        "None",
                                                         "CalledByEntry",
                                                         "CustomContracts",
                                                         "CustomGroups",
                                                         "Global"
                                                     ]
+                                                },
+                                                "allowedcontracts": {
+                                                    "type": "array",
+                                                    "items": "string"
+                                                },
+                                                "allowedgroups": {
+                                                    "type": "array",
+                                                    "items": "string"
                                                 }
                                             }
                                         }
