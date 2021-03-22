@@ -11,7 +11,7 @@
         "color": "#242424",
         "theme": "dark"
     },
-    "author": "Neo Global Development Seattle",
+    "author": "Neo Project",
     "engines": {
         "vscode": "^1.47.0"
     },
