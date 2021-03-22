@@ -3,6 +3,7 @@
     "license": "MIT",
     "publisher": "ngd-seattle",
     "version": "0.0.0",
+    "preview": true,
     "displayName": "Neo Smart Contract Debugger",
     "description": "Debugger Extension for Neo Smart Contracts",
     "icon": "neo-logo-256.png",
@@ -28,6 +29,13 @@
         "Neo",
         "Blockchain",
         "Smart Contract"
+    ],
+    "badges": [
+        {
+            "url": "https://dev.azure.com/ngdenterprise/Build/_apis/build/status/neo-project.neo-debugger?branchName=master",
+            "href": "https://dev.azure.com/ngdenterprise/Build/_build/latest?definitionId=4&branchName=master",
+            "description": "Build Status"
+        }
     ],
     "activationEvents": [
         "onDebug"
