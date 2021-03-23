@@ -3,6 +3,7 @@
     "license": "MIT",
     "publisher": "ngd-seattle",
     "version": "0.0.0",
+    "preview": true,
     "displayName": "Neo Smart Contract Debugger",
     "description": "Debugger Extension for Neo Smart Contracts",
     "icon": "neo-logo-256.png",
@@ -10,7 +11,7 @@
         "color": "#242424",
         "theme": "dark"
     },
-    "author": "Neo Global Development Seattle",
+    "author": "Neo Project",
     "engines": {
         "vscode": "^1.47.0"
     },
@@ -28,6 +29,13 @@
         "Neo",
         "Blockchain",
         "Smart Contract"
+    ],
+    "badges": [
+        {
+            "url": "https://dev.azure.com/ngdenterprise/Build/_apis/build/status/neo-project.neo-debugger?branchName=master",
+            "href": "https://dev.azure.com/ngdenterprise/Build/_build/latest?definitionId=4&branchName=master",
+            "description": "Build Status"
+        }
     ],
     "activationEvents": [
         "onDebug"
@@ -293,12 +301,20 @@
                                                 "scopes": {
                                                     "type": "string",
                                                     "enum": [
-                                                        "FeeOnly",
+                                                        "None",
                                                         "CalledByEntry",
                                                         "CustomContracts",
                                                         "CustomGroups",
                                                         "Global"
                                                     ]
+                                                },
+                                                "allowedcontracts": {
+                                                    "type": "array",
+                                                    "items": "string"
+                                                },
+                                                "allowedgroups": {
+                                                    "type": "array",
+                                                    "items": "string"
                                                 }
                                             }
                                         }
@@ -384,26 +400,24 @@
                                             "application"
                                         ]
                                     },
-                                    "check-witness": {
-                                        "description": "Runtime.CheckWitness behavior",
+                                    "witnesses": {
                                         "oneOf": [
                                             {
                                                 "type": "array",
-                                                "items": {
-                                                    "type": "string"
-                                                },
-                                                "description": "Witnesses to check against"
+                                                "description": "Witnesses to check against",
+                                                "items": "string"
                                             },
                                             {
-                                                "type": "boolean",
-                                                "description": "hard coded return value (no actual checking performed)"
-                                            },
-                                            {
-                                                "type": "string",
-                                                "enum": [
-                                                    "checkpoint"
+                                                "type": "object",
+                                                "description": "Runtime.CheckWitness return value (no actual checking performed)",
+                                                "required": [
+                                                    "check-result"
                                                 ],
-                                                "description": "use checkpoint witness information"
+                                                "properties": {
+                                                    "check-result": {
+                                                        "type": "boolean"
+                                                    }
+                                                }
                                             }
                                         ]
                                     }
@@ -507,7 +521,7 @@
         "nerdbank-gitversioning": "^3.3.37",
         "tslint": "^6.1.3",
         "typescript": "^4.0.5",
-        "vsce": "^1.81.1",
+        "vsce": "^1.87.0",
         "vscode-test": "^1.4.0"
     }
 }

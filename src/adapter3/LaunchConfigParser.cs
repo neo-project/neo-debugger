@@ -574,42 +574,27 @@ namespace NeoDebug.Neo3
 
         static (TriggerType trigger, Func<byte[], bool>? witnessChecker) ParseRuntime(ConfigProps config, ExpressChain? chain, byte version)
         {
-            var hasCheckpoint = config.TryGetValue("checkpoint", out _);
-
-            if (config.TryGetValue("runtime", out var token))
+            if (config.TryGetValue("runtime", out var jsonRuntime))
             {
-                var trigger = "verification".Equals(token.Value<string>("trigger"), StringComparison.InvariantCultureIgnoreCase)
+                var trigger = "verification".Equals(jsonRuntime.Value<string>("trigger"), StringComparison.OrdinalIgnoreCase)
                     ? TriggerType.Verification : TriggerType.Application;
 
-                var checkWitness = token["check-witness"];
-                if (checkWitness?.Type == JTokenType.Boolean)
+                var jsonWitnesses = jsonRuntime["witnesses"];
+                if (jsonWitnesses?.Type == JTokenType.Object)
                 {
-                    return (trigger, _ => checkWitness.Value<bool>());
+                    var checkResult = jsonWitnesses.Value<bool>("check-result");
+                    return (trigger, _ => checkResult);
                 }
-                else if (checkWitness?.Type == JTokenType.Array)
+                else if (jsonWitnesses?.Type == JTokenType.Array)
                 {
-                    var witnesses = checkWitness.Select(t => ParseAddress(t.Value<string>(), chain, version)).ToImmutableSortedSet();
+                    var witnesses = jsonWitnesses.Select(t => ParseAddress(t.Value<string>(), chain, version)).ToImmutableSortedSet();
                     return (trigger, hashOrPubkey => CheckWitness(hashOrPubkey, witnesses));
                 }
-                else if (checkWitness?.Type == JTokenType.String)
-                {
-                    if (checkWitness.Value<string>() != "checkpoint")
-                    {
-                        throw new Exception($"invalid check-witness value \"{checkWitness.Value<string>()}\"");
-                    }
 
-                    if (!hasCheckpoint)
-                    {
-                        throw new Exception("invalid launch config - checkpoint not specified");
-                    }
-                }
-
-                return (trigger, DefaultWitnessChecker());
+                return (trigger, _ => true);
             }
 
-            return (TriggerType.Application, DefaultWitnessChecker());
-
-            Func<byte[], bool>? DefaultWitnessChecker() => hasCheckpoint ? (Func<byte[], bool>?)null : _ => true;
+            return (TriggerType.Application, _ => true);
 
             static bool CheckWitness(byte[] hashOrPubkey, ImmutableSortedSet<UInt160> witnesses)
             {
@@ -638,17 +623,23 @@ namespace NeoDebug.Neo3
                     else if (signer.Type == JTokenType.Object)
                     {
                         var account = ParseAddress(signer.Value<string>("account"), chain, version);
-                        var textScopes = signer.Value<string>("scopes");
-                        var scopes = textScopes == null
-                            ? WitnessScope.CalledByEntry
-                            : (WitnessScope)Enum.Parse(typeof(WitnessScope), textScopes);
-                        yield return new Signer { Account = account, Scopes = scopes };
+                        var scopes = signer.Value<string>("scopes");
+                        var allowedContracts = signer["allowedcontracts"]?.Select(j => UInt160.Parse(j.Value<string>())).ToArray();
+                        var allowedGropus = signer["allowedgroups"]?.Select(j => ECPoint.Parse(j.Value<string>(), ECCurve.Secp256r1)).ToArray();
+
+                        yield return new Signer
+                        {
+                            Account = account, 
+                            Scopes = string.IsNullOrEmpty(scopes) ? WitnessScope.CalledByEntry : Enum.Parse<WitnessScope>(scopes),
+                            AllowedContracts = allowedContracts,
+                            AllowedGroups = allowedGropus,
+                        };
                     }
                 }
             }
             else
             {
-                yield return new Signer { Account = UInt160.Zero, Scopes = WitnessScope.CalledByEntry };
+                yield return new Signer { Account = UInt160.Zero, Scopes = WitnessScope.None };
             }
         }
 
