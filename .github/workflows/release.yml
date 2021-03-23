@@ -26,6 +26,8 @@ jobs:
       run: dotnet pack --output ./adapters --configuration Release --no-restore --verbosity normal --include-symbols
     - name: copy adapters nuget package into extension folder
       run: cp adapters/*.nupkg src/extension/
+    - name: copy repo root readme into extension folder
+      run: cp readme.md src/extension/
     - name: NPM install
       run: npm ci
       working-directory: './src/extension'

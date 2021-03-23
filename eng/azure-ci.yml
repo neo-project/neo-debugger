@@ -72,6 +72,13 @@ steps:
     sourceFolder:  './src/extension'
     contents: '*.symbols.nupkg'
 
+- task: CopyFiles@2
+  displayName: 'update extension readme from root repo readme'
+  inputs:
+    SourceFolder: '.'
+    Contents: 'readme.md'
+    TargetFolder: './src/extension'
+
 - task: Npm@1
   displayName: 'npm install'
   inputs:
