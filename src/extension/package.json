@@ -400,26 +400,24 @@
                                             "application"
                                         ]
                                     },
-                                    "check-witness": {
-                                        "description": "Runtime.CheckWitness behavior",
+                                    "witnesses": {
                                         "oneOf": [
                                             {
                                                 "type": "array",
-                                                "items": {
-                                                    "type": "string"
-                                                },
-                                                "description": "Witnesses to check against"
+                                                "description": "Witnesses to check against",
+                                                "items": "string"
                                             },
                                             {
-                                                "type": "boolean",
-                                                "description": "hard coded return value (no actual checking performed)"
-                                            },
-                                            {
-                                                "type": "string",
-                                                "enum": [
-                                                    "checkpoint"
+                                                "type": "object",
+                                                "description": "Runtime.CheckWitness return value (no actual checking performed)",
+                                                "required": [
+                                                    "check-result"
                                                 ],
-                                                "description": "use checkpoint witness information"
+                                                "properties": {
+                                                    "check-result": {
+                                                        "type": "boolean"
+                                                    }
+                                                }
                                             }
                                         ]
                                     }

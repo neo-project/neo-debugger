@@ -47,7 +47,7 @@ namespace NeoDebug.Neo3
 
         public static bool PathEquals(this DebugInfo.SequencePoint? @this, DebugInfo? debugInfo, string path)
         {
-            return string.Equals(@this.GetDocumentPath(debugInfo), path, StringComparison.InvariantCultureIgnoreCase);
+            return string.Equals(@this.GetDocumentPath(debugInfo), path, StringComparison.OrdinalIgnoreCase);
         }
 
         public static DebugInfo.SequencePoint GetCurrentSequencePoint(this DebugInfo.Method method, int instructionPointer)
