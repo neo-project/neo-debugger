@@ -16,6 +16,7 @@ The debug information format is [fully documented](https://github.com/ngdseattle
 This format is supported by a variety of Neo smart contract compilers including 
 
 * [NEON (C#)](https://github.com/neo-project/neo-devpack-dotnet)
+* [neo3wj (Java/Kotlin/Android)](https://neow3j.io/)
 * [neo-boa (Python)](https://github.com/CityOfZion/neo-boa)
 * [NeoGo (GoLang)](https://github.com/nspcc-dev/neo-go)
 * [NEO•ONE (TypeScript)](https://neo-one.io/)
