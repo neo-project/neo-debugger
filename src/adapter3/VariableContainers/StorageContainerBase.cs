@@ -16,7 +16,7 @@ namespace NeoDebug.Neo3
             var storages = GetStorages();
             foreach (var (key, item) in storages)
             {
-                var keyHashCode = key.Span.GetSequenceHashCode().ToString("x");
+                var keyHashCode = key.Span.GetSequenceHashCode().ToString("x8");
                 var kvp = new KvpContainer(key, item, keyHashCode);
                 yield return new Variable()
                 {
