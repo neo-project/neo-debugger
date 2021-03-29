@@ -33,7 +33,7 @@ namespace NeoDebug.Neo3
 {
     using ConfigProps = IReadOnlyDictionary<string, JToken>;
     using Invocation = OneOf<LaunchConfigParser.InvokeFileInvocation, LaunchConfigParser.OracleResponseInvocation, LaunchConfigParser.LaunchInvocation, LaunchConfigParser.ContractDeployInvocation>;
-    // using Storages = IEnumerable<(byte[] key, StorageItem item)>;
+    using Storages = IEnumerable<(byte[] key, StorageItem item)>;
 
     partial class LaunchConfigParser
     {
@@ -134,8 +134,10 @@ namespace NeoDebug.Neo3
                 }
                 else
                 {
-                    var (lauchContractId, launchContractHash) = EnsureContractDeployed(store, launchNefFile, launchManifest, signers, settings);
                     var paramParser = CreateContractParameterParser(settings.AddressVersion, store, chain);
+
+                    var (lauchContractId, launchContractHash) = EnsureContractDeployed(store, launchNefFile, launchManifest, signers, settings);
+                    UpdateContractStorage(store, lauchContractId, ParseStorage(config, paramParser));
                     invokeScript = await CreateInvokeScriptAsync(invocation, program, launchContractHash, paramParser);
 
                     if (invocation.IsT1) // T1 == OracleResponseInvocation
@@ -380,6 +382,25 @@ namespace NeoDebug.Neo3
             }
         }
 
+        static void UpdateContractStorage(IStore store, int contractId, Storages storages)
+        {
+            using var snapshot = new SnapshotCache(store.GetSnapshot());
+            foreach (var (key, storageItem) in storages)
+            {
+                var storageKey = new StorageKey() { Id = contractId, Key = key };
+                var item = snapshot.GetAndChange(storageKey);
+                if (item == null)
+                {
+                    snapshot.Add(storageKey, new StorageItem() { Value = storageItem.Value });
+                }
+                else
+                {
+                    item.Value = storageItem.Value;
+                }
+            }
+            snapshot.Commit();
+        }
+
         // stripped down Blockchain.Persist logic to initize empty blockchain
         static void EnsureLedgerInitialized(IStore store, ProtocolSettings settings)
         {
@@ -454,19 +475,6 @@ namespace NeoDebug.Neo3
                 },
                 deployment => Task.FromException<Script>(new Exception("CreateInvokeScriptAsync doesn't support ContractDeploymentInvocation")));
         }
-
-
-        // static void UpdateContractStorage(IStore store, int contractId, Storages storages)
-        // {
-        //     using var snapshot = new SnapshotCache(store.GetSnapshot());
-        //     foreach (var (key, item) in storages)
-        //     {
-        //         var storageKey = new StorageKey() { Id = contractId, Key = key };
-        //         var updatedItem = snapshot.GetAndChange(storageKey);
-        //         updatedItem.Value = item.Value;
-        //     }
-        //     snapshot.Commit();
-        // }
 
         static TransactionAttribute[] GetTransactionAttributes(in OracleResponseInvocation invocation, IStore store, UInt160 contractHash, ContractParameterParser paramParser)
         {
@@ -569,6 +577,32 @@ namespace NeoDebug.Neo3
             public StackItem ToStackItem(ReferenceCounter referenceCounter)
             {
                 return new Neo.VM.Types.Array(referenceCounter, this.Select(p => (Neo.VM.Types.Integer)p));
+            }
+        }
+
+        static Storages ParseStorage(ConfigProps config, ContractParameterParser paramParser)
+            => config.TryGetValue("storage", out var token)
+                ? ParseStorage(token, paramParser)
+                : Enumerable.Empty<(byte[], StorageItem)>();
+
+        static Storages ParseStorage(JToken? token, ContractParameterParser paramParser)
+        {
+            return token == null
+                ? Enumerable.Empty<(byte[], StorageItem)>()
+                : token.Select(t =>
+                    {
+                        var key = ConvertParameter(t["key"], paramParser);
+                        var item = new StorageItem
+                        {
+                            Value = ConvertParameter(t["value"], paramParser)
+                        };
+                        return (key, item);
+                    });
+
+            static byte[] ConvertParameter(JToken? token, ContractParameterParser paramParser)
+            {
+                var arg = paramParser.ParseParameter(token ?? JValue.CreateNull());
+                return arg.ToStackItem().GetSpan().ToArray();
             }
         }
 
@@ -748,35 +782,5 @@ namespace NeoDebug.Neo3
         // //         }
         // //     }
         // // }
-
-
-        // static Storages ParseStorage(Dictionary<string, JToken> config, ContractParameterParser paramParser)
-        // {
-        //     return config.TryGetValue("storage", out var token)
-        //         ? ParseStorage(token, paramParser)
-        //         : Enumerable.Empty<(byte[], StorageItem)>();
-        // }
-
-        // static Storages ParseStorage(JToken? token, ContractParameterParser paramParser)
-        // {
-        //     return token == null
-        //         ? Enumerable.Empty<(byte[], StorageItem)>()
-        //         : token.Select(t =>
-        //             {
-        //                 var key = ConvertParameter(t["key"], paramParser);
-        //                 var item = new StorageItem
-        //                 {
-        //                     Value = ConvertParameter(t["value"], paramParser)
-        //                 };
-        //                 return (key, item);
-        //             });
-
-        //     static byte[] ConvertParameter(JToken? token, ContractParameterParser paramParser)
-        //     {
-        //         var arg = paramParser.ParseParameter(token ?? JValue.CreateNull());
-        //         return arg.ToStackItem().GetSpan().ToArray();
-        //     }
-        // }
-
     }
 }
