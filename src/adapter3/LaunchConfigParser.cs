@@ -754,7 +754,9 @@ namespace NeoDebug.Neo3
         static async IAsyncEnumerable<DebugInfo> LoadDebugInfosAsync(ConfigProps config, IReadOnlyDictionary<string, string> sourceFileMap)
         {
             var program = ParseProgram(config);
-            yield return await DebugInfoParser.LoadAsync(program, sourceFileMap).ConfigureAwait(false);
+
+            yield return (await DebugInfo.LoadAsync(program, sourceFileMap).ConfigureAwait(false))
+                .Match(di => di, _ => throw new FileNotFoundException(program));
         }
 
         // // IEnumerable<(string contractPath, Storages storages)> ParseStoredContracts()
