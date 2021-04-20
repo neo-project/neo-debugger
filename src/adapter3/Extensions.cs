@@ -5,6 +5,7 @@ using System.Numerics;
 using System.Text;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
+using Neo.BlockchainToolkit.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 

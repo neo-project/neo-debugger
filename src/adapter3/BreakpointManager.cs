@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
+using Neo.BlockchainToolkit.Models;
 
 namespace NeoDebug.Neo3
 {
