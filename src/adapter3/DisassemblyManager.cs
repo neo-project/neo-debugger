@@ -127,7 +127,7 @@ namespace NeoDebug.Neo3
                                 srcLine = srcLine.Substring(0, sp.End.column - sp.Start.column);
                             }
                             
-                            sourceBuilder.Append($"\n# Code {doc.fileName} line {sp.Start.line}: \"{srcLine}\"");
+                            sourceBuilder.Append($"\n# {doc.fileName} line {sp.Start.line}: \"{srcLine}\"");
                             line++;
                         }
 
