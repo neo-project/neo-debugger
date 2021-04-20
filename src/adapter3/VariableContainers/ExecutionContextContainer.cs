@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using Neo.BlockchainToolkit.Models;
 using Neo.VM;
 using Neo.VM.Types;
 
