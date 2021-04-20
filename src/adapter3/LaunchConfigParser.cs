@@ -111,7 +111,7 @@ namespace NeoDebug.Neo3
                             : throw new JsonException("invalid invocation property");
 
 
-            var (storageProvider, settings) = LoadBlockchainStorage(config, chain?.Magic, chain?.AddressVersion);
+            var (storageProvider, settings) = LoadBlockchainStorage(config, chain?.Network, chain?.AddressVersion);
             using (var store = storageProvider.GetStore(null))
             {
                 EnsureLedgerInitialized(store, settings);
@@ -213,7 +213,7 @@ namespace NeoDebug.Neo3
                 var storageProvider = new CheckpointStorageProvider(RocksDbStorageProvider.OpenReadOnly(checkpointTempPath), checkpointCleanup: cleanup);
                 var settings = ProtocolSettings.Default with
                 {
-                    Magic = metadata.magic,
+                    Network = metadata.magic,
                     AddressVersion = metadata.addressVersion
                 };
 
@@ -223,7 +223,7 @@ namespace NeoDebug.Neo3
             {
                 var settings = ProtocolSettings.Default with
                 {
-                    Magic = magic.HasValue ? magic.Value : ProtocolSettings.Default.Magic,
+                    Network = magic.HasValue ? magic.Value : ProtocolSettings.Default.Network,
                     AddressVersion = addressVersion.HasValue ? addressVersion.Value : ProtocolSettings.Default.AddressVersion
                 };
                 return (new MemoryStorageProvider(), settings);
