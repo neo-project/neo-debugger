@@ -321,6 +321,42 @@
                                     ]
                                 }
                             },
+                            "deploy-signer": {
+                                "oneOf": [
+                                    {
+                                        "type": "string"
+                                    },
+                                    {
+                                        "type": "object",
+                                        "required": [
+                                            "account"
+                                        ],
+                                        "properties": {
+                                            "account": {
+                                                "type": "string"
+                                            },
+                                            "scopes": {
+                                                "type": "string",
+                                                "enum": [
+                                                    "None",
+                                                    "CalledByEntry",
+                                                    "CustomContracts",
+                                                    "CustomGroups",
+                                                    "Global"
+                                                ]
+                                            },
+                                            "allowedcontracts": {
+                                                "type": "array",
+                                                "items": "string"
+                                            },
+                                            "allowedgroups": {
+                                                "type": "array",
+                                                "items": "string"
+                                            }
+                                        }
+                                    }
+                                ]
+                            },
                             "utxo": {
                                 "type": "object",
                                 "description": "UTXO assets (aka NEO and GAS) to attach to the transaction being debugged",
