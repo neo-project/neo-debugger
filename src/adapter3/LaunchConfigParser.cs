@@ -167,7 +167,7 @@ namespace NeoDebug.Neo3
                     Nonce = (uint)new Random().Next(),
                     Script = invokeScript,
                     Signers = signers,
-                    ValidUntilBlock = Transaction.MaxValidUntilBlockIncrement,
+                    ValidUntilBlock = settings.MaxValidUntilBlockIncrement,
                     Attributes = attributes,
                     Witnesses = Array.Empty<Witness>()
                 };
