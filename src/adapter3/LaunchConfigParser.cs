@@ -53,7 +53,7 @@ namespace NeoDebug.Neo3
                 var builder = ImmutableList.CreateBuilder<string>();
                 foreach (var returnType in jsonReturnTypes)
                 {
-                    builder.Add(VariableManager.CastOperations[returnType.Value<string>()]);
+                    builder.Add(VariableManager.CastOperations[returnType.Value<string>() ?? ""]);
                 }
                 returnTypes = builder.ToImmutable();
             }
@@ -97,7 +97,7 @@ namespace NeoDebug.Neo3
             if (config.TryGetValue("neo-express", out var neoExpressPath))
             {
                 var fs = new System.IO.Abstractions.FileSystem();
-                chain = fs.LoadChain(neoExpressPath.Value<string>());
+                chain = fs.LoadChain(neoExpressPath.Value<string>() ?? "");
             }
 
             Invocation invocation = InvokeFileInvocation.TryFromJson(jsonInvocation, out var invokeFileInvocation)
@@ -224,7 +224,7 @@ namespace NeoDebug.Neo3
                     }
                 });
 
-                var metadata = RocksDbStorageProvider.RestoreCheckpoint(checkpoint.Value<string>(), checkpointTempPath);
+                var metadata = RocksDbStorageProvider.RestoreCheckpoint(checkpoint.Value<string>() ?? "", checkpointTempPath);
                 if (magic.HasValue && magic.Value != metadata.magic)
                     throw new Exception($"checkpoint magic ({metadata.magic}) doesn't match ({magic.Value})");
                 if (addressVersion.HasValue && addressVersion.Value != metadata.addressVersion)
@@ -648,7 +648,7 @@ namespace NeoDebug.Neo3
                 }
                 else if (jsonWitnesses?.Type == JTokenType.Array)
                 {
-                    var witnesses = jsonWitnesses.Select(t => ParseAddress(t.Value<string>(), chain, version)).ToImmutableSortedSet();
+                    var witnesses = jsonWitnesses.Select(t => ParseAddress(t.Value<string>() ?? "", chain, version)).ToImmutableSortedSet();
                     return (trigger, hashOrPubkey => CheckWitness(hashOrPubkey, witnesses));
                 }
 
@@ -674,14 +674,14 @@ namespace NeoDebug.Neo3
         {
             if (token.Type == JTokenType.String)
             {
-                var account = ParseAddress(token.Value<string>(), chain, version);
+                var account = ParseAddress(token.Value<string>() ?? "", chain, version);
                 signer = new Signer { Account = account, Scopes = WitnessScope.CalledByEntry };
                 return true;
             }
 
             if (token.Type == JTokenType.Object)
             {
-                var account = ParseAddress(token.Value<string>("account"), chain, version);
+                var account = ParseAddress(token.Value<string>("account") ?? "", chain, version);
                 var scopes = token.Value<string>("scopes");
                 var allowedContracts = token["allowedcontracts"]?.Select(j => UInt160.Parse(j.Value<string>())).ToArray();
                 var allowedGropus = token["allowedgroups"]?.Select(j => ECPoint.Parse(j.Value<string>(), ECCurve.Secp256r1)).ToArray();
