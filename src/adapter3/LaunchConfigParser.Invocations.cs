@@ -121,8 +121,8 @@ namespace NeoDebug.Neo3
                         if (!string.IsNullOrEmpty(url) && !string.IsNullOrEmpty(callback) && result != null)
                         {
                             var filter = response.Value<string>("filter") ?? string.Empty;
-                            var code = response["code"] == null 
-                                ? OracleResponseCode.Success 
+                            var code = response["code"] == null
+                                ? OracleResponseCode.Success
                                 : Enum.Parse<OracleResponseCode>(token.Value<string>("code") ?? "", true);
                             var gas = response["gas"] == null ? (long)0 : token.Value<long>("gas");
 

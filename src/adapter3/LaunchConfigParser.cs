@@ -128,7 +128,7 @@ namespace NeoDebug.Neo3
                 var attributes = Array.Empty<TransactionAttribute>();
                 if (invocation.IsT3) // T3 == ContractDeploymentInvocation
                 {
-                    if ((signers.Length == 0 || (signers.Length == 1 && signers[0].Account == UInt160.Zero)) 
+                    if ((signers.Length == 0 || (signers.Length == 1 && signers[0].Account == UInt160.Zero))
                         && TryGetDeploymentSigner(config, chain, settings.AddressVersion, out var deploySigner))
                     {
                         signers = new[] { deploySigner };
