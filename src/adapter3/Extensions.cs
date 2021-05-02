@@ -100,12 +100,22 @@ namespace NeoDebug.Neo3
                     Neo.VM.Types.ByteString byteString => byteString.GetSpan().ToHexString(),
                     Neo.VM.Types.Integer @int => @int.GetInteger().ToString(),
                     // Neo.VM.Types.InteropInterface _ => MakeVariable("InteropInterface"),
-                    // Neo.VM.Types.Map _ => MakeVariable("Map"),
+                    Neo.VM.Types.Map map => MapToJson(map),
                     Neo.VM.Types.Null _ => new JValue((object?)null),
                     // Neo.VM.Types.Pointer _ => MakeVariable("Pointer"),
                     Neo.VM.Types.Array array => new JArray(array.Select(i => i.ToJson())),
                     _ => throw new NotSupportedException(),
                 };
+
+            static JObject MapToJson(Neo.VM.Types.Map map)
+            {
+                var json = new JObject();
+                foreach (var (key, value) in map)
+                {
+                    json.Add(key.GetString() ?? throw new Exception(), value.ToJson());
+                }
+                return json;
+            }
         }
 
         public static string ToResult(this StackItem item, string typeHint = "")

@@ -19,7 +19,7 @@ namespace NeoDebug.Neo3
             {
                 if (token.Type == JTokenType.Object && token["invoke-file"] != null)
                 {
-                    invocation = new InvokeFileInvocation(token.Value<string>("invoke-file"));
+                    invocation = new InvokeFileInvocation(token.Value<string>("invoke-file") ?? "");
                     return true;
                 }
 
@@ -72,7 +72,7 @@ namespace NeoDebug.Neo3
                 }
 
                 var contractJson = token["contract"];
-                var contract = contractJson == null ? string.Empty : contractJson.Value<string>();
+                var contract = contractJson == null ? string.Empty : contractJson.Value<string>() ?? "";
 
                 var argsJson = token["args"];
                 var args = argsJson == null
@@ -121,7 +121,9 @@ namespace NeoDebug.Neo3
                         if (!string.IsNullOrEmpty(url) && !string.IsNullOrEmpty(callback) && result != null)
                         {
                             var filter = response.Value<string>("filter") ?? string.Empty;
-                            var code = response["code"] == null ? OracleResponseCode.Success : Enum.Parse<OracleResponseCode>(token.Value<string>("code"), true);
+                            var code = response["code"] == null
+                                ? OracleResponseCode.Success
+                                : Enum.Parse<OracleResponseCode>(token.Value<string>("code") ?? "", true);
                             var gas = response["gas"] == null ? (long)0 : token.Value<long>("gas");
 
                             invocation = new OracleResponseInvocation(code, url, callback, result, filter, token["user-data"], gas);

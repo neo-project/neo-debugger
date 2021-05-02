@@ -1,15 +1,8 @@
-﻿using McMaster.Extensions.CommandLineUtils;
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
-using Neo.VM;
-using Neo.SmartContract;
-using Newtonsoft.Json.Linq;
-using System;
+﻿using System;
 using System.IO;
-using System.Text;
-using Neo.SmartContract.Manifest;
-using Neo.Persistence;
-using Neo.Ledger;
+using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
+using McMaster.Extensions.CommandLineUtils;
+
 
 namespace NeoDebug.Neo3
 {

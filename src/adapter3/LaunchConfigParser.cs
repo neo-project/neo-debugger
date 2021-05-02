@@ -53,7 +53,7 @@ namespace NeoDebug.Neo3
                 var builder = ImmutableList.CreateBuilder<string>();
                 foreach (var returnType in jsonReturnTypes)
                 {
-                    builder.Add(VariableManager.CastOperations[returnType.Value<string>()]);
+                    builder.Add(VariableManager.CastOperations[returnType.Value<string>() ?? ""]);
                 }
                 returnTypes = builder.ToImmutable();
             }
@@ -97,7 +97,7 @@ namespace NeoDebug.Neo3
             if (config.TryGetValue("neo-express", out var neoExpressPath))
             {
                 var fs = new System.IO.Abstractions.FileSystem();
-                chain = fs.LoadChain(neoExpressPath.Value<string>());
+                chain = fs.LoadChain(neoExpressPath.Value<string>() ?? "");
             }
 
             Invocation invocation = InvokeFileInvocation.TryFromJson(jsonInvocation, out var invokeFileInvocation)
@@ -111,7 +111,7 @@ namespace NeoDebug.Neo3
                             : throw new JsonException("invalid invocation property");
 
 
-            var (storageProvider, settings) = LoadBlockchainStorage(config, chain?.Magic, chain?.AddressVersion);
+            var (storageProvider, settings) = LoadBlockchainStorage(config, chain?.Network, chain?.AddressVersion);
             using (var store = storageProvider.GetStore(null))
             {
                 EnsureLedgerInitialized(store, settings);
@@ -128,6 +128,12 @@ namespace NeoDebug.Neo3
                 var attributes = Array.Empty<TransactionAttribute>();
                 if (invocation.IsT3) // T3 == ContractDeploymentInvocation
                 {
+                    if ((signers.Length == 0 || (signers.Length == 1 && signers[0].Account == UInt160.Zero))
+                        && TryGetDeploymentSigner(config, chain, settings.AddressVersion, out var deploySigner))
+                    {
+                        signers = new[] { deploySigner };
+                    }
+
                     using var builder = new ScriptBuilder();
                     builder.EmitDynamicCall(NativeContract.ContractManagement.Hash, "deploy", launchNefFile.ToArray(), launchManifest.ToJson().ToString());
                     invokeScript = builder.ToArray();
@@ -135,8 +141,11 @@ namespace NeoDebug.Neo3
                 else
                 {
                     var paramParser = CreateContractParameterParser(settings.AddressVersion, store, chain);
+                    var deploySigner = TryGetDeploymentSigner(config, chain, settings.AddressVersion, out var _deploySigner)
+                        ? _deploySigner
+                        : new Signer { Account = UInt160.Zero };
 
-                    var (lauchContractId, launchContractHash) = EnsureContractDeployed(store, launchNefFile, launchManifest, signers, settings);
+                    var (lauchContractId, launchContractHash) = EnsureContractDeployed(store, launchNefFile, launchManifest, deploySigner, settings);
                     UpdateContractStorage(store, lauchContractId, ParseStorage(config, paramParser));
                     invokeScript = await CreateInvokeScriptAsync(invocation, program, launchContractHash, paramParser);
 
@@ -158,7 +167,7 @@ namespace NeoDebug.Neo3
                     Nonce = (uint)new Random().Next(),
                     Script = invokeScript,
                     Signers = signers,
-                    ValidUntilBlock = Transaction.MaxValidUntilBlockIncrement,
+                    ValidUntilBlock = settings.MaxValidUntilBlockIncrement,
                     Attributes = attributes,
                     Witnesses = Array.Empty<Witness>()
                 };
@@ -168,6 +177,17 @@ namespace NeoDebug.Neo3
                 var engine = new DebugApplicationEngine(tx, storageProvider, block, settings, witnessChecker);
                 engine.LoadScript(invokeScript);
                 return engine;
+            }
+
+            static bool TryGetDeploymentSigner(ConfigProps config, ExpressChain? chain, byte version, [MaybeNullWhen(false)] out Signer signer)
+            {
+                if (config.TryGetValue("deploy-signer", out var deploySignerToken))
+                {
+                    return TryParseSigner(deploySignerToken, chain, version, out signer);
+                }
+
+                signer = default;
+                return false;
             }
         }
 
@@ -204,7 +224,7 @@ namespace NeoDebug.Neo3
                     }
                 });
 
-                var metadata = RocksDbStorageProvider.RestoreCheckpoint(checkpoint.Value<string>(), checkpointTempPath);
+                var metadata = RocksDbStorageProvider.RestoreCheckpoint(checkpoint.Value<string>() ?? "", checkpointTempPath);
                 if (magic.HasValue && magic.Value != metadata.magic)
                     throw new Exception($"checkpoint magic ({metadata.magic}) doesn't match ({magic.Value})");
                 if (addressVersion.HasValue && addressVersion.Value != metadata.addressVersion)
@@ -213,7 +233,7 @@ namespace NeoDebug.Neo3
                 var storageProvider = new CheckpointStorageProvider(RocksDbStorageProvider.OpenReadOnly(checkpointTempPath), checkpointCleanup: cleanup);
                 var settings = ProtocolSettings.Default with
                 {
-                    Magic = metadata.magic,
+                    Network = metadata.magic,
                     AddressVersion = metadata.addressVersion
                 };
 
@@ -223,7 +243,7 @@ namespace NeoDebug.Neo3
             {
                 var settings = ProtocolSettings.Default with
                 {
-                    Magic = magic.HasValue ? magic.Value : ProtocolSettings.Default.Magic,
+                    Network = magic.HasValue ? magic.Value : ProtocolSettings.Default.Network,
                     AddressVersion = addressVersion.HasValue ? addressVersion.Value : ProtocolSettings.Default.AddressVersion
                 };
                 return (new MemoryStorageProvider(), settings);
@@ -274,7 +294,7 @@ namespace NeoDebug.Neo3
             return new ContractParameterParser(addressVersion, tryGetAccount, deployedContracts.TryGetValue);
         }
 
-        static (int id, UInt160 scriptHash) EnsureContractDeployed(IStore store, NefFile nefFile, ContractManifest manifest, Signer[] signers, ProtocolSettings settings)
+        static (int id, UInt160 scriptHash) EnsureContractDeployed(IStore store, NefFile nefFile, ContractManifest manifest, Signer deploySigner, ProtocolSettings settings)
         {
             const byte Prefix_Contract = 8;
 
@@ -292,7 +312,7 @@ namespace NeoDebug.Neo3
                         if (nefFile.Script.ToScriptHash() != contract.Script.ToScriptHash())
                         {
                             using var snapshot = new SnapshotCache(store.GetSnapshot());
-                            Update(snapshot, contract.Hash, nefFile, manifest, settings);
+                            Update(snapshot, deploySigner, contract.Hash, nefFile, manifest, settings);
                             snapshot.Commit();
                         }
 
@@ -304,19 +324,18 @@ namespace NeoDebug.Neo3
             // if no existing contract with matching manifest.Name is found, deploy the contract
             using (var snapshot = new SnapshotCache(store.GetSnapshot()))
             {
-                var sender = signers.Length == 0 ? UInt160.Zero : signers[0].Account;
-                var contractState = Deploy(snapshot, sender, nefFile, manifest, settings);
+                var contractState = Deploy(snapshot, deploySigner, nefFile, manifest, settings);
                 snapshot.Commit();
 
                 return (contractState.Id, contractState.Hash);
             }
 
             // following logic lifted from ContractManagement.Deploy
-            static ContractState Deploy(DataCache snapshot, UInt160 sender, NefFile nefFile, ContractManifest manifest, ProtocolSettings settings)
+            static ContractState Deploy(DataCache snapshot, Signer deploySigner, NefFile nefFile, ContractManifest manifest, ProtocolSettings settings)
             {
                 Neo.SmartContract.Helper.Check(nefFile.Script, manifest.Abi);
 
-                var hash = Neo.SmartContract.Helper.GetContractHash(sender, nefFile.CheckSum, manifest.Name);
+                var hash = Neo.SmartContract.Helper.GetContractHash(deploySigner.Account, nefFile.CheckSum, manifest.Name);
                 var key = new KeyBuilder(NativeContract.ContractManagement.Id, Prefix_Contract).Add(hash);
 
                 if (snapshot.Contains(key)) throw new InvalidOperationException($"Contract Already Exists: {hash}");
@@ -324,20 +343,20 @@ namespace NeoDebug.Neo3
 
                 var contract = new ContractState
                 {
-                    Id = GetNextAvailableId(snapshot),
-                    UpdateCounter = 0,
-                    Nef = nefFile,
                     Hash = hash,
-                    Manifest = manifest
+                    Id = GetNextAvailableId(snapshot),
+                    Manifest = manifest,
+                    Nef = nefFile,
+                    UpdateCounter = 0,
                 };
 
                 snapshot.Add(key, new StorageItem(contract));
-                OnDeploy(contract, snapshot, settings, false);
+                OnDeploy(contract, deploySigner, snapshot, settings, false);
                 return contract;
             }
 
             // following logic lifted from ContractManagement.Update
-            static void Update(DataCache snapshot, UInt160 contractHash, NefFile nefFile, ContractManifest manifest, ProtocolSettings settings)
+            static void Update(DataCache snapshot, Signer deploySigner, UInt160 contractHash, NefFile nefFile, ContractManifest manifest, ProtocolSettings settings)
             {
                 Neo.SmartContract.Helper.Check(nefFile.Script, manifest.Abi);
 
@@ -350,16 +369,24 @@ namespace NeoDebug.Neo3
                 contract.Manifest = manifest;
                 contract.UpdateCounter++;
 
-                OnDeploy(contract, snapshot, settings, true);
+                OnDeploy(contract, deploySigner, snapshot, settings, true);
             }
 
             // following logic lifted from ContractManagement.OnDeploy
-            static void OnDeploy(ContractState contract, DataCache snapshot, ProtocolSettings settings, bool update)
+            static void OnDeploy(ContractState contract, Signer deploySigner, DataCache snapshot, ProtocolSettings settings, bool update)
             {
                 var deployMethod = contract.Manifest.Abi.GetMethod("_deploy", 2);
                 if (deployMethod is not null)
                 {
-                    using (var engine = ApplicationEngine.Create(TriggerType.Application, null, snapshot, null, settings))
+                    var tx = new Transaction
+                    {
+                        Attributes = Array.Empty<TransactionAttribute>(),
+                        Script = Array.Empty<byte>(),
+                        Signers = new[] { deploySigner },
+                        Witnesses = Array.Empty<Witness>()
+                    };
+
+                    using (var engine = ApplicationEngine.Create(TriggerType.Application, tx, snapshot, null, settings))
                     {
                         var context = engine.LoadContract(contract, deployMethod, CallFlags.All);
                         context.EvaluationStack.Push(StackItem.Null);
@@ -529,7 +556,7 @@ namespace NeoDebug.Neo3
 
                     if (Neo.Utility.StrictUTF8.GetByteCount(invocation.Url) > MaxUrlLength
                         || Neo.Utility.StrictUTF8.GetByteCount(invocation.Filter) > MaxFilterLength
-                        || Neo.Utility.StrictUTF8.GetByteCount(invocation.Callback) > MaxCallbackLength 
+                        || Neo.Utility.StrictUTF8.GetByteCount(invocation.Callback) > MaxCallbackLength
                         || invocation.Callback.StartsWith('_'))
                     {
                         throw new ArgumentException();
@@ -621,7 +648,7 @@ namespace NeoDebug.Neo3
                 }
                 else if (jsonWitnesses?.Type == JTokenType.Array)
                 {
-                    var witnesses = jsonWitnesses.Select(t => ParseAddress(t.Value<string>(), chain, version)).ToImmutableSortedSet();
+                    var witnesses = jsonWitnesses.Select(t => ParseAddress(t.Value<string>() ?? "", chain, version)).ToImmutableSortedSet();
                     return (trigger, hashOrPubkey => CheckWitness(hashOrPubkey, witnesses));
                 }
 
@@ -643,31 +670,45 @@ namespace NeoDebug.Neo3
             }
         }
 
+        static bool TryParseSigner(JToken token, ExpressChain? chain, byte version, [MaybeNullWhen(false)] out Signer signer)
+        {
+            if (token.Type == JTokenType.String)
+            {
+                var account = ParseAddress(token.Value<string>() ?? "", chain, version);
+                signer = new Signer { Account = account, Scopes = WitnessScope.CalledByEntry };
+                return true;
+            }
+
+            if (token.Type == JTokenType.Object)
+            {
+                var account = ParseAddress(token.Value<string>("account") ?? "", chain, version);
+                var scopes = token.Value<string>("scopes");
+                var allowedContracts = token["allowedcontracts"]?.Select(j => UInt160.Parse(j.Value<string>())).ToArray();
+                var allowedGropus = token["allowedgroups"]?.Select(j => ECPoint.Parse(j.Value<string>(), ECCurve.Secp256r1)).ToArray();
+
+                signer = new Signer
+                {
+                    Account = account,
+                    Scopes = string.IsNullOrEmpty(scopes) ? WitnessScope.CalledByEntry : Enum.Parse<WitnessScope>(scopes),
+                    AllowedContracts = allowedContracts,
+                    AllowedGroups = allowedGropus,
+                };
+                return true;
+            }
+
+            signer = default;
+            return false;
+        }
+
         static IEnumerable<Signer> ParseSigners(ConfigProps config, ExpressChain? chain, byte version)
         {
-            if (config.TryGetValue("signers", out var signers))
+            if (config.TryGetValue("signers", out var signersJson))
             {
-                foreach (var signer in signers)
+                foreach (var token in signersJson)
                 {
-                    if (signer.Type == JTokenType.String)
+                    if (TryParseSigner(token, chain, version, out var signer))
                     {
-                        var account = ParseAddress(signer.Value<string>(), chain, version);
-                        yield return new Signer { Account = account, Scopes = WitnessScope.CalledByEntry };
-                    }
-                    else if (signer.Type == JTokenType.Object)
-                    {
-                        var account = ParseAddress(signer.Value<string>("account"), chain, version);
-                        var scopes = signer.Value<string>("scopes");
-                        var allowedContracts = signer["allowedcontracts"]?.Select(j => UInt160.Parse(j.Value<string>())).ToArray();
-                        var allowedGropus = signer["allowedgroups"]?.Select(j => ECPoint.Parse(j.Value<string>(), ECCurve.Secp256r1)).ToArray();
-
-                        yield return new Signer
-                        {
-                            Account = account, 
-                            Scopes = string.IsNullOrEmpty(scopes) ? WitnessScope.CalledByEntry : Enum.Parse<WitnessScope>(scopes),
-                            AllowedContracts = allowedContracts,
-                            AllowedGroups = allowedGropus,
-                        };
+                        yield return signer;
                     }
                 }
             }
