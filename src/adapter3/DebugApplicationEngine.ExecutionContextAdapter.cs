@@ -38,16 +38,18 @@ namespace NeoDebug.Neo3
 
             public IReadOnlyList<StackItem> EvaluationStack => evalStackAdapter;
 
-            public IReadOnlyList<StackItem> LocalVariables => context.LocalVariables;
+            public IReadOnlyList<StackItem> LocalVariables => Coalese(context.LocalVariables);
 
-            public IReadOnlyList<StackItem> StaticFields => context.StaticFields;
+            public IReadOnlyList<StackItem> StaticFields => Coalese(context.StaticFields);
 
-            public IReadOnlyList<StackItem> Arguments => context.Arguments;
+            public IReadOnlyList<StackItem> Arguments => Coalese(context.Arguments);
 
             public Script Script => context.Script;
 
             public UInt160 ScriptIdentifier { get; }
             public UInt160 ScriptHash { get; }
+
+            static IReadOnlyList<StackItem> Coalese(Neo.VM.Slot? slot) => (slot == null) ? Array.Empty<StackItem>() : slot;
         }
 
     }

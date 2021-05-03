@@ -5,6 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
+using Neo.BlockchainToolkit.Models;
 using Neo.Persistence;
 using Neo.VM;
 using NeoArray = Neo.VM.Types.Array;

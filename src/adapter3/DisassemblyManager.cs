@@ -7,6 +7,8 @@ using System.Linq;
 using System.Numerics;
 using System.Text;
 using Neo;
+using Neo.BlockchainToolkit;
+using Neo.BlockchainToolkit.Models;
 using Neo.SmartContract;
 using Neo.VM;
 using Helper = Neo.SmartContract.Helper;
@@ -78,45 +80,63 @@ namespace NeoDebug.Neo3
 
         static Disassembly ToDisassembly(int sourceRef, UInt160 scriptHash, Script script, DebugInfo? debugInfo)
         {
-            var digitCount = Utility.DigitCount(EnumerateInstructions(script).Last().address);
-            var padString = new string('0', digitCount);
-
+            var padString = script.GetInstructionAddressPadding();
             var sourceBuilder = new StringBuilder();
             var addressMapBuilder = ImmutableDictionary.CreateBuilder<int, int>();
             var lineMapBuilder = ImmutableDictionary.CreateBuilder<int, int>();
 
+            var instructions = script.EnumerateInstructions().ToList();
             if (debugInfo == null)
             {
                 var line = 1;
-                foreach (var t in EnumerateInstructions(script))
+                for (int i = 0; i < instructions.Count; i++)
                 {
-                    AddSource(sourceBuilder, t.address, t.instruction, padString);
-                    addressMapBuilder.Add(t.address, line);
-                    lineMapBuilder.Add(line, t.address);
+                    AddSource(sourceBuilder, instructions[i].address, instructions[i].instruction, padString);
+                    addressMapBuilder.Add(instructions[i].address, line);
+                    lineMapBuilder.Add(line, instructions[i].address);
                     line++;
                 }
             }
             else
             {
-                var instructions = EnumerateInstructions(script).ToList();
+                var documents = debugInfo.Documents
+                    .Select(path => (fileName: System.IO.Path.GetFileName(path), lines: System.IO.File.ReadAllLines(path)))
+                    .ToArray();
+
                 int line = 1;
-                foreach (var m in debugInfo.Methods.OrderBy(m => m.Range.Start))
+                foreach (var method in debugInfo.Methods.OrderBy(m => m.Range.Start))
                 {
                     if (sourceBuilder.Length > 0) sourceBuilder.Append("\n");
-                    sourceBuilder.Append($"# Start Method {m.Namespace}.{m.Name}");
+                    sourceBuilder.Append($"# Start Method {method.Namespace}.{method.Name}");
                     line++;
 
                     var methodInstructions = instructions
-                        .SkipWhile(t => t.address < m.Range.Start)
-                        .TakeWhile(t => t.address <= m.Range.End);
+                        .SkipWhile(t => t.address < method.Range.Start)
+                        .TakeWhile(t => t.address <= method.Range.End);
+                    var sequencePoints = method.SequencePoints.ToDictionary(sp => sp.Address);
+
                     foreach (var t in methodInstructions)
                     {
+                        if (sequencePoints.TryGetValue(t.address, out var sp)
+                            && sp.Document < documents.Length)
+                        {
+                            var doc = documents[sp.Document];
+                            var srcLine = doc.lines[sp.Start.line - 1].Substring(sp.Start.column - 1);
+                            if (sp.Start.line == sp.End.line)
+                            {
+                                srcLine = srcLine.Substring(0, sp.End.column - sp.Start.column);
+                            }
+
+                            sourceBuilder.Append($"\n# {doc.fileName} line {sp.Start.line}: \"{srcLine}\"");
+                            line++;
+                        }
+
                         AddSource(sourceBuilder, t.address, t.instruction, padString);
                         addressMapBuilder.Add(t.address, line);
                         lineMapBuilder.Add(line, t.address);
                         line++;
                     }
-                    sourceBuilder.Append($"\n# End Method {m.Namespace}.{m.Name}");
+                    sourceBuilder.Append($"\n# End Method {method.Namespace}.{method.Name}");
                     line++;
                 }
             }
@@ -135,114 +155,14 @@ namespace NeoDebug.Neo3
                 sourceBuilder.Append($"{address.ToString(padString)} {instruction.OpCode}");
                 if (!instruction.Operand.IsEmpty)
                 {
-                    sourceBuilder.Append($" {GetOperandString(instruction)}");
+                    sourceBuilder.Append($" {instruction.GetOperandString()}");
                 }
-                var comment = GetComment(instruction, address);
+                var comment = instruction.GetComment(address);
                 if (comment.Length > 0)
                 {
                     sourceBuilder.Append($" # {comment}");
                 }
             }
-        }
-
-        static IEnumerable<(int address, Instruction instruction)> EnumerateInstructions(Script script)
-        {
-            var address = 0;
-            var opcode = OpCode.PUSH0;
-            while (address < script.Length)
-            {
-                var instruction = script.GetInstruction(address);
-                opcode = instruction.OpCode;
-                yield return (address, instruction);
-                address += instruction.Size;
-            }
-
-            if (opcode != OpCode.RET)
-            {
-                yield return (address, Instruction.RET);
-            }
-        }
-
-        static string GetOperandString(Instruction instruction)
-        {
-            return string.Create<ReadOnlyMemory<byte>>(instruction.Operand.Length * 3 - 1,
-                instruction.Operand, (span, memory) =>
-                {
-                    var first = memory.Span[0];
-                    span[0] = GetHexValue(first / 16);
-                    span[1] = GetHexValue(first % 16);
-
-                    var index = 1;
-                    for (var i = 2; i < span.Length; i += 3)
-                    {
-                        var b = memory.Span[index++];
-                        span[i] = '-';
-                        span[i + 1] = GetHexValue(b / 16);
-                        span[i + 2] = GetHexValue(b % 16);
-                    }
-                });
-
-            static char GetHexValue(int i) => (i < 10) ? (char)(i + '0') : (char)(i - 10 + 'A');
-        }
-
-        static string GetComment(Instruction instruction, int ip)
-        {
-            switch (instruction.OpCode)
-            {
-                case OpCode.PUSHINT8:
-                case OpCode.PUSHINT16:
-                case OpCode.PUSHINT32:
-                case OpCode.PUSHINT64:
-                case OpCode.PUSHINT128:
-                case OpCode.PUSHINT256:
-                    return $"{new BigInteger(instruction.Operand.Span)}";
-                case OpCode.PUSHM1:
-                    return $"{(int)instruction.OpCode - (int)OpCode.PUSH0}";
-                case OpCode.PUSHDATA1:
-                case OpCode.PUSHDATA2:
-                case OpCode.PUSHDATA4:
-                    {
-                        var text = Encoding.UTF8.GetString(instruction.Operand.Span)
-                            .Replace("\r", "\"\\r\"").Replace("\n", "\"\\n\"");
-                        if (instruction.Operand.Length == 20)
-                        {
-                            return $"as script hash: {new UInt160(instruction.Operand.Span)}, as text: \"{text}\"";
-                        }
-                        return $"as text: \"{text}\"";
-                    }
-                case OpCode.SYSCALL:
-                    return sysCallNames.TryGetValue(instruction.TokenU32, out var name)
-                        ? name
-                        : $"Unknown SysCall {instruction.TokenU32}";
-                case OpCode.INITSLOT:
-                    return $"{instruction.TokenU8} local variables, {instruction.TokenU8_1} arguments";
-                case OpCode.JMP_L:
-                case OpCode.JMPEQ_L:
-                case OpCode.JMPGE_L:
-                case OpCode.JMPGT_L:
-                case OpCode.JMPIF_L:
-                case OpCode.JMPIFNOT_L:
-                case OpCode.JMPLE_L:
-                case OpCode.JMPLT_L:
-                case OpCode.JMPNE_L:
-                case OpCode.CALL_L:
-                    return OffsetComment(instruction.TokenI32);
-                case OpCode.JMP:
-                case OpCode.JMPEQ:
-                case OpCode.JMPGE:
-                case OpCode.JMPGT:
-                case OpCode.JMPIF:
-                case OpCode.JMPIFNOT:
-                case OpCode.JMPLE:
-                case OpCode.JMPLT:
-                case OpCode.JMPNE:
-                case OpCode.CALL:
-                    return OffsetComment(instruction.TokenI8);
-                default:
-                    return string.Empty;
-            }
-
-            string OffsetComment(int offset) => $"pos: {ip + offset}, offset: {offset}";
         }
     }
 }
