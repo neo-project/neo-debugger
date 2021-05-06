@@ -29,6 +29,7 @@ using Nito.Disposables;
 using OneOf;
 using Script = Neo.VM.Script;
 using StackItem = Neo.VM.Types.StackItem;
+
 namespace NeoDebug.Neo3
 {
     using ConfigProps = IReadOnlyDictionary<string, JToken>;
@@ -39,10 +40,10 @@ namespace NeoDebug.Neo3
     {
         public static async Task<IDebugSession> CreateDebugSessionAsync(LaunchArguments launchArguments, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
         {
-            var sourceFileMap = ImmutableDictionary<string, string>.Empty;
+            IReadOnlyDictionary<string, string> sourceFileMap = ImmutableDictionary<string, string>.Empty;
             if (launchArguments.ConfigurationProperties.TryGetValue("sourceFileMap", out var jsonSourceFileMap) && jsonSourceFileMap.Type == JTokenType.Object)
             {
-                sourceFileMap = ((IEnumerable<KeyValuePair<string, JToken?>>)jsonSourceFileMap).ToImmutableDictionary(
+                sourceFileMap = ((IEnumerable<KeyValuePair<string, JToken?>>)jsonSourceFileMap).ToDictionary(
                     kvp => kvp.Key,
                     kvp => kvp.Value?.Value<string>() ?? string.Empty);
             }
@@ -92,6 +93,8 @@ namespace NeoDebug.Neo3
             var program = ParseProgram(config);
             var launchNefFile = LoadNefFile(program);
             var launchManifest = await LoadContractManifest(program).ConfigureAwait(false);
+
+            await ValidateDebugInfoAsync(program, launchNefFile).ConfigureAwait(false);
 
             ExpressChain? chain = null;
             if (config.TryGetValue("neo-express", out var neoExpressPath))
@@ -177,6 +180,19 @@ namespace NeoDebug.Neo3
                 var engine = new DebugApplicationEngine(tx, storageProvider, block, settings, witnessChecker);
                 engine.LoadScript(invokeScript);
                 return engine;
+            }
+
+            static async Task ValidateDebugInfoAsync(string program, NefFile nefFile)
+            {
+                var debugInfo = (await DebugInfo.LoadAsync(program).ConfigureAwait(false))
+                    .Match(
+                        di => di, 
+                        _ => throw new FileNotFoundException($"could not locate debug info for {program}"));
+
+                if (nefFile.Script.ToScriptHash() != debugInfo.ScriptHash)
+                {
+                    throw new Exception(".nef script hash does not match script hash value debug info hash");
+                }
             }
 
             static bool TryGetDeploymentSigner(ConfigProps config, ExpressChain? chain, byte version, [MaybeNullWhen(false)] out Signer signer)
@@ -797,7 +813,9 @@ namespace NeoDebug.Neo3
             var program = ParseProgram(config);
 
             yield return (await DebugInfo.LoadAsync(program, sourceFileMap).ConfigureAwait(false))
-                .Match(di => di, _ => throw new FileNotFoundException(program));
+                .Match(
+                    di => di, 
+                    _ => throw new FileNotFoundException($"could not locate debug info for {program}"));
         }
 
         // // IEnumerable<(string contractPath, Storages storages)> ParseStoredContracts()
