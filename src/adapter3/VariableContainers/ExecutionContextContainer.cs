@@ -1,12 +1,13 @@
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.BlockchainToolkit.Models;
-using Neo.VM;
-using Neo.VM.Types;
 
 namespace NeoDebug.Neo3
 {
+    using StackItem = Neo.VM.Types.StackItem;
+
     class ExecutionContextContainer : IVariableContainer
     {
         private readonly IExecutionContext context;
@@ -24,23 +25,26 @@ namespace NeoDebug.Neo3
 
             var args = EnumerateSlot("arg", context.Arguments, method?.Parameters);
             var locals = EnumerateSlot("local", context.LocalVariables, method?.Variables);
-            // TODO: statics
+            var statics = EnumerateSlot("static", context.StaticFields, debugInfo?.StaticVariables);
 
-            return args.Concat(locals);
+            return args.Concat(locals).Concat(statics);
 
             IEnumerable<Variable> EnumerateSlot(string prefix, IReadOnlyList<StackItem>? slot, IReadOnlyList<(string name, string type)>? variableInfo = null)
             {
-                variableInfo ??= new List<(string name, string type)>();
-                slot ??= new List<StackItem>();
-                for (int i = 0; i < variableInfo.Count; i++)
+                variableInfo ??= ImmutableList<(string name, string type)>.Empty;
+                slot ??= ImmutableList<StackItem>.Empty;
+
+                var variableCount = System.Math.Max(variableInfo.Count, slot.Count);
+                for (int i = 0; i < variableCount; i++)
                 {
-                    var (name, type) = variableInfo[i];
-                    if (name.Contains(':')) continue;
-                    var v = i < slot.Count
-                        ? slot[i].ToVariable(manager, name, type)
-                        : StackItem.Null.ToVariable(manager, name, type);
-                    v.EvaluateName = v.Name;
-                    yield return v;
+                    var (name, type) = i < variableInfo.Count
+                        ? variableInfo[i]
+                        : ($"${prefix}{i}", "");
+
+                    var item = i < slot.Count ? slot[i] : StackItem.Null;
+                    var variable = item.ToVariable(manager, name, type);
+                    variable.EvaluateName = variable.Name;
+                    yield return variable;
                 }
             }
         }
