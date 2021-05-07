@@ -85,58 +85,51 @@ namespace NeoDebug.Neo3
             var addressMapBuilder = ImmutableDictionary.CreateBuilder<int, int>();
             var lineMapBuilder = ImmutableDictionary.CreateBuilder<int, int>();
 
+            var documents = debugInfo?.Documents
+                .Select(path => (fileName: System.IO.Path.GetFileName(path), lines: System.IO.File.ReadAllLines(path)))
+                .ToImmutableList() ?? ImmutableList<(string, string[])>.Empty;
+            var methodStarts = debugInfo?.Methods.ToImmutableDictionary(m => m.Range.Start) 
+                ?? ImmutableDictionary<int, DebugInfo.Method>.Empty;
+            var methodEnds = debugInfo?.Methods.ToImmutableDictionary(m => m.Range.End)
+                ?? ImmutableDictionary<int, DebugInfo.Method>.Empty;
+            var sequencePoints = debugInfo?.Methods.SelectMany(m => m.SequencePoints).ToImmutableDictionary(s => s.Address)
+                ?? ImmutableDictionary<int, DebugInfo.SequencePoint>.Empty;
+
             var instructions = script.EnumerateInstructions().ToList();
-            if (debugInfo == null)
+
+            var line = 1;
+            for (int i = 0; i < instructions.Count; i++)
             {
-                var line = 1;
-                for (int i = 0; i < instructions.Count; i++)
+                if (sourceBuilder.Length > 0) sourceBuilder.Append("\n");
+
+                if (methodStarts.TryGetValue(instructions[i].address, out var methodStart))
                 {
-                    AddSource(sourceBuilder, instructions[i].address, instructions[i].instruction, padString);
-                    addressMapBuilder.Add(instructions[i].address, line);
-                    lineMapBuilder.Add(line, instructions[i].address);
+                    sourceBuilder.AppendLine($"# Start Method {methodStart.Namespace}.{methodStart.Name}");
                     line++;
                 }
-            }
-            else
-            {
-                var documents = debugInfo.Documents
-                    .Select(path => (fileName: System.IO.Path.GetFileName(path), lines: System.IO.File.ReadAllLines(path)))
-                    .ToArray();
 
-                int line = 1;
-                foreach (var method in debugInfo.Methods.OrderBy(m => m.Range.Start))
+                if (sequencePoints.TryGetValue(instructions[i].address, out var sp)
+                    && sp.Document < documents.Count)
                 {
-                    if (sourceBuilder.Length > 0) sourceBuilder.Append("\n");
-                    sourceBuilder.Append($"# Start Method {method.Namespace}.{method.Name}");
-                    line++;
-
-                    var methodInstructions = instructions
-                        .SkipWhile(t => t.address < method.Range.Start)
-                        .TakeWhile(t => t.address <= method.Range.End);
-                    var sequencePoints = method.SequencePoints.ToDictionary(sp => sp.Address);
-
-                    foreach (var t in methodInstructions)
+                    var doc = documents[sp.Document];
+                    var srcLine = doc.lines[sp.Start.line - 1].Substring(sp.Start.column - 1);
+                    if (sp.Start.line == sp.End.line)
                     {
-                        if (sequencePoints.TryGetValue(t.address, out var sp)
-                            && sp.Document < documents.Length)
-                        {
-                            var doc = documents[sp.Document];
-                            var srcLine = doc.lines[sp.Start.line - 1].Substring(sp.Start.column - 1);
-                            if (sp.Start.line == sp.End.line)
-                            {
-                                srcLine = srcLine.Substring(0, sp.End.column - sp.Start.column);
-                            }
-
-                            sourceBuilder.Append($"\n# {doc.fileName} line {sp.Start.line}: \"{srcLine}\"");
-                            line++;
-                        }
-
-                        AddSource(sourceBuilder, t.address, t.instruction, padString);
-                        addressMapBuilder.Add(t.address, line);
-                        lineMapBuilder.Add(line, t.address);
-                        line++;
+                        srcLine = srcLine.Substring(0, sp.End.column - sp.Start.column);
                     }
-                    sourceBuilder.Append($"\n# End Method {method.Namespace}.{method.Name}");
+
+                    sourceBuilder.AppendLine($"# Code {doc.fileName} line {sp.Start.line}: \"{srcLine}\"");
+                    line++;
+                }
+
+                AddSource(sourceBuilder, instructions[i].address, instructions[i].instruction, padString);
+                addressMapBuilder.Add(instructions[i].address, line);
+                lineMapBuilder.Add(line, instructions[i].address);
+                line++;
+
+                if (methodEnds.TryGetValue(instructions[i].address, out var methodEnd))
+                {
+                    sourceBuilder.Append($"\n# End Method {methodEnd.Namespace}.{methodEnd.Name}");
                     line++;
                 }
             }
@@ -150,8 +143,6 @@ namespace NeoDebug.Neo3
 
             static void AddSource(StringBuilder sourceBuilder, int address, Instruction instruction, string padString)
             {
-                if (sourceBuilder.Length > 0) sourceBuilder.Append("\n");
-
                 sourceBuilder.Append($"{address.ToString(padString)} {instruction.OpCode}");
                 if (!instruction.Operand.IsEmpty)
                 {
