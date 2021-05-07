@@ -19,7 +19,8 @@ namespace NeoDebug.Neo3
             for (int i = 0; i < evalStack.Count; i++)
             {
                 var v = evalStack[i].ToVariable(manager, $"eval{evalStack.Count - i - 1}");
-                yield return v.ForEvaluation("#");
+                v.EvaluateName = $"#{v.Name}";
+                yield return v;
             }
         }
     }

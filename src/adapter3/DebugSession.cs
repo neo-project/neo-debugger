@@ -6,12 +6,11 @@ using System.Linq;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
 using Neo.BlockchainToolkit.Models;
-using Neo.Persistence;
 using Neo.VM;
-using NeoArray = Neo.VM.Types.Array;
 
 namespace NeoDebug.Neo3
 {
+    using NeoArray = Neo.VM.Types.Array;
     using StackItem = Neo.VM.Types.StackItem;
 
     internal class DebugSession : IDebugSession, IDisposable
@@ -46,9 +45,10 @@ namespace NeoDebug.Neo3
 
         private void OnNotify(object? sender, (UInt160 scriptHash, string scriptName, string eventName, NeoArray state) args)
         {
+            var state = args.state.ToJson().ToString(Newtonsoft.Json.Formatting.Indented);
             sendEvent(new OutputEvent()
             {
-                Output = $"Runtime.Notify: {(string.IsNullOrEmpty(args.scriptName) ? args.scriptHash.ToString() : args.scriptName)} {args.eventName} {args.state.ToResult()}\n",
+                Output = $"Runtime.Notify: {(string.IsNullOrEmpty(args.scriptName) ? args.scriptHash.ToString() : args.scriptName)} {args.eventName} {state}\n",
             });
         }
 
@@ -343,9 +343,8 @@ namespace NeoDebug.Neo3
 
                 if (item != null)
                 {
-                    return item
-                        .ToVariable(variableManager, string.Empty, string.IsNullOrEmpty(typeHint) ? type : typeHint)
-                        .ToEvaluateResponse();
+                    var variable = item.ToVariable(variableManager, string.Empty, string.IsNullOrEmpty(typeHint) ? type : typeHint);
+                    return new EvaluateResponse(variable.Value, variable.VariablesReference);
                 }
 
                 return DebugAdapter.FailedEvaluation;
@@ -369,9 +368,8 @@ namespace NeoDebug.Neo3
 
         public string GetExceptionInfo()
         {
-            var item = engine.CurrentContext?.EvaluationStack[0];
-            return item?.ToStrictUTF8String()
-                ?? throw new InvalidOperationException("missing exception information");
+            var item = engine.CurrentContext?.EvaluationStack[0] ?? throw new InvalidOperationException("missing exception information");
+            return Neo.Utility.StrictUTF8.GetString(item.GetSpan());
         }
 
         public void SetDebugView(DebugView debugView)
@@ -439,12 +437,13 @@ namespace NeoDebug.Neo3
                     for (int index = 0; index < engine.ResultStack.Count; index++)
                     {
                         var result = engine.ResultStack[index];
-                        var typeHint = index < returnTypes.Count
-                            ? returnTypes[index] : string.Empty;
+                        var resultString = ((index < returnTypes.Count) ? result.TryConvert(returnTypes[index]) : null)
+                            ?? result.ToJson().ToString(Newtonsoft.Json.Formatting.Indented);
+
                         sendEvent(new OutputEvent()
                         {
                             Category = OutputEvent.CategoryValue.Stdout,
-                            Output = $"Return: {result.ToResult(typeHint)}\n",
+                            Output = $"Return: {resultString}\n",
                         });
                     }
                     sendEvent(new ExitedEvent());

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using Neo;
 
 namespace NeoDebug.Neo3
 {
@@ -35,7 +36,7 @@ namespace NeoDebug.Neo3
                 var keyString = key switch
                 {
                     Neo.VM.Types.Boolean @bool => @bool.GetBoolean().ToString(),
-                    Neo.VM.Types.ByteString byteString => byteString.ToHexString(),
+                    Neo.VM.Types.ByteString byteString => byteString.GetSpan().ToHexString(),
                     Neo.VM.Types.Integer @int => @int.GetInteger().ToString(),
                     _ => throw new NotImplementedException($"Unknown primitive type {key.GetType()}"),
                 };

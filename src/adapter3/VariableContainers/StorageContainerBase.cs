@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.SmartContract;
+using Neo.VM.Types;
 
 namespace NeoDebug.Neo3
 {
@@ -93,14 +94,13 @@ namespace NeoDebug.Neo3
 
             public IEnumerable<Variable> Enumerate(IVariableManager manager)
             {
-                yield return ForEvaluation(key.ToVariable(manager, "key"));
-                yield return ForEvaluation(item.Value.ToVariable(manager, "item"));
+                var keyItem = ByteArrayContainer.Create(manager, key, "key");
+                keyItem.EvaluateName = $"#storage[{hashCode}].key";
+                yield return keyItem;
 
-                Variable ForEvaluation(Variable variable)
-                {
-                    variable.EvaluateName = $"#storage[{hashCode}].{variable.Name}";
-                    return variable;
-                }
+                var valueItem = ByteArrayContainer.Create(manager, item.Value, "item");
+                valueItem.EvaluateName = $"#storage[{hashCode}].item";
+                yield return valueItem;
             }
         }
     }
