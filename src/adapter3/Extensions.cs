@@ -202,7 +202,7 @@ namespace NeoDebug.Neo3
                 Neo.VM.Types.ByteString byteString => ByteArrayContainer.Create(manager, byteString, name),
                 Neo.VM.Types.Integer @int => MakeVariable($"{@int.GetInteger()}", "Integer"),
                 Neo.VM.Types.InteropInterface _ => MakeVariable("InteropInterface"),
-                Neo.VM.Types.Map _ => MakeVariable("Map"),
+                Neo.VM.Types.Map map => NeoMapContainer.Create(manager, map, name),
                 Neo.VM.Types.Null _ => MakeVariable("null", "Null"),
                 Neo.VM.Types.Pointer _ => MakeVariable("Pointer"),
                 Neo.VM.Types.Array array => NeoArrayContainer.Create(manager, array, name),
