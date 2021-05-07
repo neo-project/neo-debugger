@@ -47,10 +47,10 @@ namespace NeoDebug.Neo3
                     kvp => kvp.Value?.Value<string>() ?? string.Empty);
             }
 
-            var returnTypes = ImmutableList<string>.Empty;
+            var returnTypes = ImmutableList<CastOperation>.Empty;
             if (launchArguments.ConfigurationProperties.TryGetValue("return-types", out var jsonReturnTypes))
             {
-                var builder = ImmutableList.CreateBuilder<string>();
+                var builder = ImmutableList.CreateBuilder<CastOperation>();
                 foreach (var returnType in jsonReturnTypes)
                 {
                     builder.Add(VariableManager.CastOperations[returnType.Value<string>() ?? ""]);

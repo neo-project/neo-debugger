@@ -19,7 +19,7 @@ namespace NeoDebug.Neo3
         public const string UNCAUGHT_EXCEPTION_FILTER = "uncaught";
 
         private readonly IApplicationEngine engine;
-        private readonly IReadOnlyList<string> returnTypes;
+        private readonly IReadOnlyList<CastOperation> returnTypes;
         private readonly IReadOnlyDictionary<UInt160, DebugInfo> debugInfoMap;
         private readonly Action<DebugEvent> sendEvent;
         private bool disassemblyView;
@@ -29,7 +29,7 @@ namespace NeoDebug.Neo3
         private bool breakOnCaughtExceptions;
         private bool breakOnUncaughtExceptions = true;
 
-        public DebugSession(IApplicationEngine engine, IReadOnlyList<DebugInfo> debugInfoList, IReadOnlyList<string> returnTypes, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
+        public DebugSession(IApplicationEngine engine, IReadOnlyList<DebugInfo> debugInfoList, IReadOnlyList<CastOperation> returnTypes, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
         {
             this.engine = engine;
             this.returnTypes = returnTypes;
@@ -337,13 +337,13 @@ namespace NeoDebug.Neo3
             try
             {
                 var context = engine.InvocationStack.ElementAt(args.FrameId.Value);
-                var (name, typeHint, remaining) = VariableManager.ParseEvalExpression(args.Expression);
+                var (name, castOp, remaining) = VariableManager.ParseEvalExpression(args.Expression);
                 var (item, type) = Evaluate(context, name);
                 (item, type) = EvaluateRemaining(item, type, remaining);
 
                 if (item != null)
                 {
-                    var variable = item.ToVariable(variableManager, string.Empty, string.IsNullOrEmpty(typeHint) ? type : typeHint);
+                    var variable = item.ToVariable(variableManager, string.Empty);
                     return new EvaluateResponse(variable.Value, variable.VariablesReference);
                 }
 

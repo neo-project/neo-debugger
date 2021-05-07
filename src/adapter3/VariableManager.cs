@@ -7,16 +7,24 @@ namespace NeoDebug.Neo3
 {
     public class VariableManager : IVariableManager
     {
-        public static readonly IReadOnlyDictionary<string, string> CastOperations = new Dictionary<string, string>()
+        public static readonly IReadOnlyDictionary<string, CastOperation> CastOperations = new Dictionary<string, CastOperation>()
             {
-                { "int", "Integer" },
-                { "bool", "Boolean" },
-                { "string", "String" },
-                { "hex", "HexString" },
-                { "byte[]", "ByteArray" },
+                { "int", CastOperation.Integer },
+                { "integer", CastOperation.Integer },
+                { "bool", CastOperation.Boolean },
+                { "boolean", CastOperation.Boolean },
+                { "string", CastOperation.String },
+                { "str", CastOperation.String },
+                { "hex", CastOperation.HexString },
+                { "hexstring", CastOperation.HexString },
+                { "byte[]", CastOperation.ByteArray },
+                { "bytearray", CastOperation.ByteArray },
+                // { "addr", CastOperation.Address }
+                // { "address", CastOperation.Address }
             }.ToImmutableDictionary();
 
-        static (string typeHint, ReadOnlyMemory<char> text) ParsePrefix(string expression)
+
+        static (CastOperation castOperation, ReadOnlyMemory<char> text) ParsePrefix(string expression)
         {
             if (expression[0] == '(')
             {
@@ -33,7 +41,7 @@ namespace NeoDebug.Neo3
                 throw new Exception("invalid cast operation");
             }
 
-            return (string.Empty, expression.AsMemory());
+            return (CastOperation.None, expression.AsMemory());
         }
 
         static (ReadOnlyMemory<char> name, ReadOnlyMemory<char> remaining) ParseName(ReadOnlyMemory<char> expression)
@@ -50,15 +58,15 @@ namespace NeoDebug.Neo3
             return (expression, default);
         }
 
-        public static (ReadOnlyMemory<char> name, string typeHint, ReadOnlyMemory<char> remaining) ParseEvalExpression(string expression)
+        public static (ReadOnlyMemory<char> name, CastOperation castOperation, ReadOnlyMemory<char> remaining) ParseEvalExpression(string expression)
         {
-            var (typeHint, text) = ParsePrefix(expression);
+            var (castOperation, text) = ParsePrefix(expression);
             if (text.StartsWith("#storage"))
             {
-                return (text, typeHint, default);
+                return (text, castOperation, default);
             }
             var (name, remaining) = ParseName(text);
-            return (name, typeHint, remaining);
+            return (name, castOperation, remaining);
         }
 
         private readonly Dictionary<int, IVariableContainer> containers = new Dictionary<int, IVariableContainer>();

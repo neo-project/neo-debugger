@@ -112,19 +112,20 @@ namespace NeoDebug.Neo3
             }
         }
 
-        public static string? TryConvert(this StackItem item, string typeHint)
+        public static string? TryConvert(this StackItem item, CastOperation typeHint = CastOperation.None)
         {
             try
             {
                 return typeHint switch
                 {
-                    "Boolean" => item.GetBoolean().ToString(),
-                    "Integer" => item.IsNull
+                    CastOperation.Boolean => item.GetBoolean().ToString(),
+                    CastOperation.Integer => item.IsNull
                         ? BigInteger.Zero.ToString()
                         : ((Neo.VM.Types.Integer)item.ConvertTo(StackItemType.Integer)).GetInteger().ToString(),
-                    "String" => item.GetString(),
-                    "HexString" => ToHexString(item),
-                    "ByteArray" => ToHexString(item),
+                    CastOperation.String => item.GetString(),
+                    CastOperation.HexString => ToHexString(item),
+                    CastOperation.ByteArray => ToHexString(item),
+                    // CastOperation.Address => ToAddress(item, 0x35),
                     _ => null
                 };
             }
@@ -133,35 +134,47 @@ namespace NeoDebug.Neo3
                 return null;
             }
 
+            // static string? ToAddress(StackItem item, byte version = 0x35)
+            // {
+            //     var span = item.GetSpan();
+            //     if (span.Length == UInt160.Length)
+            //     {
+            //         var uint160 = new UInt160(span);
+            //         return Neo.Wallets.Helper.ToAddress(uint160, version);
+            //     }
+
+            //     return null;
+            // }
+
             static string ToHexString(StackItem item) => item.IsNull
                 ? "<null>"
                 : ((ByteString)item.ConvertTo(StackItemType.ByteString)).GetSpan().ToHexString();
         }
 
-        public static Variable ToVariable(this StackItem item, IVariableManager manager, string name, string typeHint = "")
+        public static Variable ToVariable(this StackItem item, IVariableManager manager, string name)
         {
-            if (typeHint == "ByteArray")
-            {
-                if (item.IsNull) return new Variable { Name = name, Value = "<null>", Type = typeHint };
+            // if (castOperation == CastOperation.ByteArray)
+            // {
+            //     if (item.IsNull) return new Variable { Name = name, Value = "<null>", Type = castOperation.ToString() };
 
-                try
-                {
-                    var byteString = (ByteString)item.ConvertTo(StackItemType.ByteString);
-                    return ByteArrayContainer.Create(manager, byteString, name);
-                }
-                catch
-                {
-                    // if ConvertTo ByteString fails, continue into non type-hinted variable resolution
-                }
-            }
-            else
-            {
-                var value = item.TryConvert(typeHint);
-                if (value != null)
-                {
-                    return new Variable { Name = name, Value = value, Type = typeHint };
-                }
-            }
+            //     try
+            //     {
+            //         var byteString = (ByteString)item.ConvertTo(StackItemType.ByteString);
+            //         return ByteArrayContainer.Create(manager, byteString, name);
+            //     }
+            //     catch
+            //     {
+            //         // if ConvertTo ByteString fails, continue into non type-hinted variable resolution
+            //     }
+            // }
+            // else
+            // {
+            //     var value = item.TryConvert(castOperation);
+            //     if (value != null)
+            //     {
+            //         return new Variable { Name = name, Value = value, Type = castOperation.ToString() };
+            //     }
+            // }
 
             return item switch
             {
