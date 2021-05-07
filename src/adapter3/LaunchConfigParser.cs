@@ -795,9 +795,53 @@ namespace NeoDebug.Neo3
         static async IAsyncEnumerable<DebugInfo> LoadDebugInfosAsync(ConfigProps config, IReadOnlyDictionary<string, string> sourceFileMap)
         {
             var program = ParseProgram(config);
+            var debugInfo = await LoadDebugInfoAsync(program, sourceFileMap).ConfigureAwait(false);
+            yield return debugInfo;
+        }
 
-            yield return (await DebugInfo.LoadAsync(program, sourceFileMap).ConfigureAwait(false))
+        static async Task<DebugInfo> LoadDebugInfoAsync(string program, IReadOnlyDictionary<string, string> sourceFileMap)
+        {
+            var debugInfo = (await DebugInfo.LoadAsync(program, sourceFileMap).ConfigureAwait(false))
                 .Match(di => di, _ => throw new FileNotFoundException(program));
+
+            // TODO: remove debug info fixup code once https://github.com/neo-project/neo-devpack-dotnet/issues/610 is resolved
+            var nefFile = LoadNefFile(program);
+            var instructions = ((Script)nefFile.Script).EnumerateInstructions().ToArray();
+            var methodBuilder = ImmutableList.CreateBuilder<DebugInfo.Method>();
+            for (int i = 0; i < debugInfo.Methods.Count; i++)
+            {
+                var method = debugInfo.Methods[i];
+                var argCount = GetArgumentCount(instructions, method.Range);
+                if (argCount.HasValue && argCount.Value == method.Parameters.Count + 1)
+                {
+                    // if argCount is one higher than the method parameter count, we have likely hit nccs issue #610.
+                    // add an extra parameter (this,Any) parameter so that debugger can resolve variables correctly
+                    method.Parameters = method.Parameters.Prepend(("this", "Any")).ToImmutableList();
+                }
+                methodBuilder.Add(method);
+            }
+            debugInfo.Methods = methodBuilder.ToImmutable();
+
+            return debugInfo;
+
+            // loop thru the instructions in range looking for first INITSLOT opcode
+            // if found, return the TokenU8_1 instruction value (represents method parameter count)
+            // if not found, return null
+            static byte? GetArgumentCount(IReadOnlyList<(int address, Instruction instruction)> instructions, (int start, int end) range)
+            {
+                for (int i = 0; i < instructions.Count; i++)
+                {
+                    var (address, instruction) = instructions[i];
+                    if (address < range.start) continue;
+                    if (address > range.end) break;
+                    if (instruction.OpCode == OpCode.INITSLOT)
+                    {
+                        return instruction.TokenU8_1;
+                    }
+                }
+
+                return null;
+            }
         }
 
         // // IEnumerable<(string contractPath, Storages storages)> ParseStoredContracts()
