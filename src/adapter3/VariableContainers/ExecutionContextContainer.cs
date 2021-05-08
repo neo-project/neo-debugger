@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -24,9 +25,9 @@ namespace NeoDebug.Neo3
         {
             var method = debugInfo?.GetMethod(context.InstructionPointer);
 
-            var args = EnumerateSlot("arg", context.Arguments, method?.Parameters);
-            var locals = EnumerateSlot("local", context.LocalVariables, method?.Variables);
-            var statics = EnumerateSlot("static", context.StaticFields, debugInfo?.StaticVariables);
+            var args = EnumerateSlot(DebugSession.ARG_SLOTS_PREFIX, context.Arguments, method?.Parameters);
+            var locals = EnumerateSlot(DebugSession.LOCAL_SLOTS_PREFIX, context.LocalVariables, method?.Variables);
+            var statics = EnumerateSlot(DebugSession.STATIC_SLOTS_PREFIX, context.StaticFields, debugInfo?.StaticVariables);
 
             return args.Concat(locals).Concat(statics);
 
@@ -38,16 +39,13 @@ namespace NeoDebug.Neo3
                 var variableCount = System.Math.Max(variableInfo.Count, slot.Count);
                 for (int i = 0; i < variableCount; i++)
                 {
-                    var (name, typeString) = i < variableInfo.Count
-                        ? variableInfo[i]
-                        : ($"${prefix}{i}", "Any");
-
-                    var type = System.Enum.TryParse<ContractParameterType>(typeString, out var _type)
-                        ? _type : ContractParameterType.Any;
-
+                    var name = i < variableInfo.Count ? variableInfo[i].name : $"{prefix}{i}";
+                    var type = i < variableInfo.Count && Enum.TryParse<ContractParameterType>(variableInfo[i].type, out var _type) 
+                        ? _type 
+                        : ContractParameterType.Any;
                     var item = i < slot.Count ? slot[i] : StackItem.Null;
                     var variable = item.ToVariable(manager, name, type);
-                    variable.EvaluateName = manager.AddVariable(name, item, type);
+                    variable.EvaluateName = variable.Name;
                     yield return variable;
                 }
             }

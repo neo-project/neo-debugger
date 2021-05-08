@@ -30,8 +30,8 @@ namespace NeoDebug.Neo3
 
         public Neo.VM.Types.StackItem? Evaluate(ReadOnlyMemory<char> expression)
         {
-            if (TryGetKeyHash(out var keyHash)
-                && TryFindStorage(keyHash, out var storage))
+            if (TryGetKeyHash(expression, out var keyHash)
+                && TryFindStorage(GetStorages(), keyHash, out var storage))
             {
                 var remain = expression.Slice(19);
                 if (remain.Span.SequenceEqual("key"))
@@ -46,10 +46,11 @@ namespace NeoDebug.Neo3
 
             return null;
 
-            bool TryGetKeyHash(out int value)
+            static bool TryGetKeyHash(ReadOnlyMemory<char> expression, out int value)
             {
                 if (expression.Length >= 18
-                    && expression.StartsWith("#storage[")
+                    && expression.StartsWith(DebugSession.STORAGE_PREFIX)
+                    && expression.Span[8] == '['
                     && expression.Span[17] == ']'
                     && expression.Span[18] == '.'
                     && int.TryParse(expression.Slice(9, 8).Span, NumberStyles.HexNumber, null, out value))
@@ -61,9 +62,9 @@ namespace NeoDebug.Neo3
                 return false;
             }
 
-            bool TryFindStorage(int hashCode, out (ReadOnlyMemory<byte> key, StorageItem item) storage)
+            static bool TryFindStorage(IEnumerable<(ReadOnlyMemory<byte> key, StorageItem item)> storages, int hashCode, out (ReadOnlyMemory<byte> key, StorageItem item) storage)
             {
-                foreach (var (key, item) in GetStorages())
+                foreach (var (key, item) in storages)
                 {
                     var keyHashCode = key.Span.GetSequenceHashCode();
                     if (hashCode == keyHashCode)
@@ -82,23 +83,23 @@ namespace NeoDebug.Neo3
         {
             private readonly ReadOnlyMemory<byte> key;
             private readonly StorageItem item;
-            private readonly string hashCode;
+            private readonly string prefix;
 
             public KvpContainer(ReadOnlyMemory<byte> key, StorageItem item, string hashCode)
             {
                 this.key = key;
                 this.item = item;
-                this.hashCode = hashCode;
+                this.prefix = $"{DebugSession.STORAGE_PREFIX}[{hashCode}].";
             }
 
             public IEnumerable<Variable> Enumerate(IVariableManager manager)
             {
                 var keyItem = ByteArrayContainer.Create(manager, key, "key");
-                keyItem.EvaluateName = $"#storage[{hashCode}].key";
+                keyItem.EvaluateName = prefix + "key";
                 yield return keyItem;
 
                 var valueItem = ByteArrayContainer.Create(manager, item.Value.AsMemory(), "item");
-                valueItem.EvaluateName = $"#storage[{hashCode}].item";
+                valueItem.EvaluateName = prefix + "item";
                 yield return valueItem;
             }
         }

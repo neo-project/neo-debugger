@@ -6,6 +6,7 @@ using System.Linq;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
 using Neo.BlockchainToolkit.Models;
+using Neo.SmartContract;
 using Neo.VM;
 
 namespace NeoDebug.Neo3
@@ -166,6 +167,13 @@ namespace NeoDebug.Neo3
             }
         }
 
+        const string EVAL_STACK_PREFIX = "#eval";
+        const string RESULT_STACK_PREFIX = "#result";
+        public const string STORAGE_PREFIX = "#storage";
+        public const string ARG_SLOTS_PREFIX = "#arg";
+        public const string LOCAL_SLOTS_PREFIX = "#local";
+        public const string STATIC_SLOTS_PREFIX = "#static";
+
         public IEnumerable<Scope> GetScopes(ScopesArguments args)
         {
             var context = engine.InvocationStack.ElementAt(args.FrameId);
@@ -173,11 +181,11 @@ namespace NeoDebug.Neo3
 
             if (disassemblyView)
             {
-                yield return AddScope("Evaluation Stack", new SlotContainer("eval", context.EvaluationStack));
-                yield return AddScope("Arguments", new SlotContainer("arg", context.Arguments));
-                yield return AddScope("Locals", new SlotContainer("local", context.LocalVariables));
-                yield return AddScope("Statics", new SlotContainer("static", context.StaticFields));
-                yield return AddScope("Result Stack", new SlotContainer("result", engine.ResultStack));
+                yield return AddScope("Evaluation Stack", new SlotContainer(EVAL_STACK_PREFIX, context.EvaluationStack));
+                yield return AddScope("Arguments", new SlotContainer(ARG_SLOTS_PREFIX, context.Arguments));
+                yield return AddScope("Locals", new SlotContainer(LOCAL_SLOTS_PREFIX, context.LocalVariables));
+                yield return AddScope("Statics", new SlotContainer(STATIC_SLOTS_PREFIX, context.StaticFields));
+                yield return AddScope("Result Stack", new SlotContainer(RESULT_STACK_PREFIX, engine.ResultStack));
             }
             else
             {
@@ -218,65 +226,81 @@ namespace NeoDebug.Neo3
             throw new InvalidOperationException();
         }
 
-        private (StackItem? item, string typeHint) Evaluate(IExecutionContext context, ReadOnlyMemory<char> name)
+        private (StackItem? item, ContractParameterType type) Evaluate(IExecutionContext context, ReadOnlyMemory<char> name)
         {
             if (name.Length > 0 && name.Span[0] == '#')
             {
-                if (name.StartsWith("#arg")) return (EvaluateSlot(context.Arguments, 4), string.Empty);
-                if (name.StartsWith("#eval")) return (EvaluateSlot(context.EvaluationStack, 5), string.Empty);
-                if (name.StartsWith("#local")) return (EvaluateSlot(context.LocalVariables, 6), string.Empty);
-                if (name.StartsWith("#result")) return (EvaluateSlot(engine.ResultStack, 7), string.Empty);
-                if (name.StartsWith("#static")) return (EvaluateSlot(context.StaticFields, 7), string.Empty);
-                if (name.StartsWith("#storage"))
+                (StackItem? item, ContractParameterType type) result;
+                if (TryEvaluateIndexedSlot(name, ARG_SLOTS_PREFIX, context.Arguments, out result)) return result;
+                if (TryEvaluateIndexedSlot(name, EVAL_STACK_PREFIX, context.EvaluationStack, out result)) return result;
+                if (TryEvaluateIndexedSlot(name, LOCAL_SLOTS_PREFIX, context.LocalVariables, out result)) return result;
+                if (TryEvaluateIndexedSlot(name, RESULT_STACK_PREFIX, engine.ResultStack, out result)) return result;
+                if (TryEvaluateIndexedSlot(name, STATIC_SLOTS_PREFIX, context.StaticFields, out result)) return result;
+
+                if (name.StartsWith(STORAGE_PREFIX))
                 {
                     var container = engine.GetStorageContainer(context.ScriptIdentifier);
-                    return (container.Evaluate(name), string.Empty);
+                    return (container.Evaluate(name), ContractParameterType.Any);
                 }
             }
 
-            if (debugInfoMap.TryGetValue(context.ScriptHash, out var debugInfo)
-                && debugInfo.TryGetMethod(context.InstructionPointer, out var method))
+            if (debugInfoMap.TryGetValue(context.ScriptHash, out var debugInfo))
             {
-                if (TryEvaluateSlot(context.Arguments, method.Parameters, out (StackItem?, string) result))
+                (StackItem?, ContractParameterType) result = default;
+
+                if (TryEvaluateNamedSlot(context.StaticFields, debugInfo.StaticVariables, name, out result))
                 {
                     return result;
                 }
 
-                if (TryEvaluateSlot(context.LocalVariables, method.Variables, out result))
+                if (debugInfo.TryGetMethod(context.InstructionPointer, out var method))
                 {
-                    return result;
-                }
-            }
-
-            return default;
-
-            bool TryEvaluateSlot(IReadOnlyList<StackItem> slot, IReadOnlyList<(string name, string type)> variables, out (StackItem?, string) result)
-            {
-                for (int i = 0; i < variables.Count; i++)
-                {
-                    if (i < slot.Count)
+                    if (TryEvaluateNamedSlot(context.Arguments, method.Parameters, name, out result))
                     {
-                        if (name.Span.SequenceEqual(variables[i].name))
-                        {
-                            result = (slot[i], variables[i].type);
-                            return true;
-                        }
+                        return result;
                     }
+
+                    if (TryEvaluateNamedSlot(context.LocalVariables, method.Variables, name, out result))
+                    {
+                        return result;
+                    }
+                }
+            }
+ 
+            return default;
+ 
+            static bool TryEvaluateIndexedSlot(ReadOnlyMemory<char> name, string prefix, IReadOnlyList<StackItem> slot, out (StackItem? item, ContractParameterType type) result)
+            {
+                if (name.Span.Slice(1, prefix.Length).SequenceEqual(prefix)
+                    && int.TryParse(name.Span.Slice(prefix.Length + 1), out int index) 
+                    && index < slot.Count)
+                {
+                    result = (slot[index], ContractParameterType.Any);
+                    return true;
                 }
 
                 result = default;
                 return false;
             }
 
-            StackItem? EvaluateSlot(IReadOnlyList<StackItem> slot, int count)
+            static bool TryEvaluateNamedSlot(IReadOnlyList<StackItem> slot, IReadOnlyList<(string name, string type)> variableInfo, ReadOnlyMemory<char> name, out (StackItem?, ContractParameterType) result)
             {
-                if (int.TryParse(name.Span.Slice(count), out int index)
-                    && index < slot.Count)
+                for (int i = 0; i < slot.Count; i++)
                 {
-                    return slot[index];
+                    if (i >= variableInfo.Count) break;
+
+                    if (name.Span.SequenceEqual(variableInfo[i].name))
+                    {
+                        result = (slot[i], 
+                            Enum.TryParse<ContractParameterType>(variableInfo[i].type, out var _type)
+                                ? _type
+                                : ContractParameterType.Any);
+                        return true;
+                    }
                 }
 
-                return null;
+                result = default;
+                return false;
             }
         }
 
@@ -376,7 +400,7 @@ namespace NeoDebug.Neo3
                 var context = engine.InvocationStack.ElementAt(args.FrameId.Value);
                 var (name, castOp, remaining) = ParseEvalExpression(args.Expression);
                 var (item, type) = Evaluate(context, name);
-                (item, type) = EvaluateRemaining(item, type, remaining);
+                // (item, type) = EvaluateRemaining(item, type, remaining);
 
                 if (item != null)
                 {
