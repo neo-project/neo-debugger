@@ -247,11 +247,9 @@ namespace NeoDebug.Neo3
                 return (EvaluateSlot(context.StaticFields, 7), string.Empty);
             }
 
-            var scriptId = context.ScriptIdentifier;
-
             if (name.StartsWith("#storage"))
             {
-                var container = engine.GetStorageContainer(scriptId);
+                var container = engine.GetStorageContainer(context.ScriptIdentifier);
                 return (container.Evaluate(name), string.Empty);
             }
 

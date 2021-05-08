@@ -98,7 +98,7 @@ namespace NeoDebug.Neo3
                 keyItem.EvaluateName = $"#storage[{hashCode}].key";
                 yield return keyItem;
 
-                var valueItem = ByteArrayContainer.Create(manager, item.Value, "item");
+                var valueItem = ByteArrayContainer.Create(manager, item.Value.AsMemory(), "item");
                 valueItem.EvaluateName = $"#storage[{hashCode}].item";
                 yield return valueItem;
             }
