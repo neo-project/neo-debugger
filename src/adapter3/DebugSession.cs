@@ -173,14 +173,15 @@ namespace NeoDebug.Neo3
 
             if (disassemblyView)
             {
-                yield return AddScope("Evaluation Stack", new EvaluationStackContainer(context.EvaluationStack));
+                yield return AddScope("Evaluation Stack", new SlotContainer("eval", context.EvaluationStack));
+                yield return AddScope("Arguments", new SlotContainer("arg", context.Arguments));
                 yield return AddScope("Locals", new SlotContainer("local", context.LocalVariables));
                 yield return AddScope("Statics", new SlotContainer("static", context.StaticFields));
-                yield return AddScope("Arguments", new SlotContainer("arg", context.Arguments));
+                yield return AddScope("Result Stack", new SlotContainer("result", engine.ResultStack));
             }
             else
             {
-                var debugInfo = debugInfoMap.TryGetValue(context.ScriptHash, out var di) ? di : null;
+                var debugInfo = debugInfoMap.TryGetValue(context.ScriptHash, out var _debugInfo) ? _debugInfo : null;
                 yield return AddScope("Variables", new ExecutionContextContainer(context, debugInfo));
             }
 
@@ -218,39 +219,18 @@ namespace NeoDebug.Neo3
 
         private (StackItem? item, string typeHint) Evaluate(IExecutionContext context, ReadOnlyMemory<char> name)
         {
-            if (name.StartsWith("#eval"))
+            if (name.Length > 0 && name.Span[0] == '#')
             {
-                if (int.TryParse(name.Span.Slice(5), out var value))
+                if (name.StartsWith("#arg")) return (EvaluateSlot(context.Arguments, 4), string.Empty);
+                if (name.StartsWith("#eval")) return (EvaluateSlot(context.EvaluationStack, 5), string.Empty);
+                if (name.StartsWith("#local")) return (EvaluateSlot(context.LocalVariables, 6), string.Empty);
+                if (name.StartsWith("#result")) return (EvaluateSlot(engine.ResultStack, 7), string.Empty);
+                if (name.StartsWith("#static")) return (EvaluateSlot(context.StaticFields, 7), string.Empty);
+                if (name.StartsWith("#storage"))
                 {
-                    var index = context.EvaluationStack.Count - 1 - value;
-                    if (index >= 0 && index < context.EvaluationStack.Count)
-                    {
-                        return (context.EvaluationStack[index], string.Empty);
-                    }
+                    var container = engine.GetStorageContainer(context.ScriptIdentifier);
+                    return (container.Evaluate(name), string.Empty);
                 }
-
-                return (null, string.Empty);
-            }
-
-            if (name.StartsWith("#arg"))
-            {
-                return (EvaluateSlot(context.Arguments, 4), string.Empty);
-            }
-
-            if (name.StartsWith("#local"))
-            {
-                return (EvaluateSlot(context.LocalVariables, 6), string.Empty);
-            }
-
-            if (name.StartsWith("#static"))
-            {
-                return (EvaluateSlot(context.StaticFields, 7), string.Empty);
-            }
-
-            if (name.StartsWith("#storage"))
-            {
-                var container = engine.GetStorageContainer(context.ScriptIdentifier);
-                return (container.Evaluate(name), string.Empty);
             }
 
             if (debugInfoMap.TryGetValue(context.ScriptHash, out var debugInfo)
@@ -327,6 +307,64 @@ namespace NeoDebug.Neo3
             throw new InvalidOperationException();
         }
 
+        public static readonly IReadOnlyDictionary<string, CastOperation> CastOperations = new Dictionary<string, CastOperation>()
+            {
+                { "int", CastOperation.Integer },
+                { "integer", CastOperation.Integer },
+                { "bool", CastOperation.Boolean },
+                { "boolean", CastOperation.Boolean },
+                { "string", CastOperation.String },
+                { "str", CastOperation.String },
+                { "hex", CastOperation.HexString },
+                { "byte[]", CastOperation.ByteArray },
+                { "addr", CastOperation.Address },
+            }.ToImmutableDictionary();
+
+         static (ReadOnlyMemory<char> name, CastOperation castOperation, ReadOnlyMemory<char> remaining) ParseEvalExpression(string expression)
+        {
+            var (castOperation, text) = ParsePrefix(expression);
+            if (text.StartsWith("#storage"))
+            {
+                return (text, castOperation, default);
+            }
+            var (name, remaining) = ParseName(text);
+            return (name, castOperation, remaining);
+
+            static (CastOperation castOperation, ReadOnlyMemory<char> text) ParsePrefix(string expression)
+            {
+                if (expression[0] == '(')
+                {
+                    foreach (var kvp in CastOperations)
+                    {
+                        if (expression.Length > kvp.Key.Length + 2
+                            && expression.AsSpan().Slice(1, kvp.Key.Length).SequenceEqual(kvp.Key)
+                            && expression[kvp.Key.Length + 1] == ')')
+                        {
+                            return (kvp.Value, expression.AsMemory().Slice(kvp.Key.Length + 2));
+                        }
+                    }
+
+                    throw new Exception("invalid cast operation");
+                }
+
+                return (CastOperation.None, expression.AsMemory());
+            }
+
+            static (ReadOnlyMemory<char> name, ReadOnlyMemory<char> remaining) ParseName(ReadOnlyMemory<char> expression)
+            {
+                for (int i = 0; i < expression.Length; i++)
+                {
+                    char c = expression.Span[i];
+                    if (c == '.' || c == '[')
+                    {
+                        return (expression.Slice(0, i), expression.Slice(i));
+                    }
+                }
+
+                return (expression, default);
+            }
+        }
+
         public EvaluateResponse Evaluate(EvaluateArguments args)
         {
             if (!args.FrameId.HasValue)
@@ -335,7 +373,7 @@ namespace NeoDebug.Neo3
             try
             {
                 var context = engine.InvocationStack.ElementAt(args.FrameId.Value);
-                var (name, castOp, remaining) = VariableManager.ParseEvalExpression(args.Expression);
+                var (name, castOp, remaining) = ParseEvalExpression(args.Expression);
                 var (item, type) = Evaluate(context, name);
                 (item, type) = EvaluateRemaining(item, type, remaining);
 
@@ -435,8 +473,9 @@ namespace NeoDebug.Neo3
                     for (int index = 0; index < engine.ResultStack.Count; index++)
                     {
                         var result = engine.ResultStack[index];
-                        var resultString = ((index < returnTypes.Count) ? result.TryConvert(returnTypes[index]) : null)
-                            ?? result.ToJson().ToString(Newtonsoft.Json.Formatting.Indented);
+                        // var resultString = ((index < returnTypes.Count) ? result.TryConvert(returnTypes[index]) : null)
+                        //     ?? result.ToJson().ToString(Newtonsoft.Json.Formatting.Indented);
+                        var resultString = result.ToJson().ToString(Newtonsoft.Json.Formatting.Indented);
 
                         sendEvent(new OutputEvent()
                         {

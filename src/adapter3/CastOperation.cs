@@ -8,6 +8,6 @@ namespace NeoDebug.Neo3
         String,
         HexString,
         ByteArray,
-        // Address,
+        Address,
     }
 }

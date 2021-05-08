@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.BlockchainToolkit.Models;
+using Neo.SmartContract;
 
 namespace NeoDebug.Neo3
 {
@@ -37,14 +38,16 @@ namespace NeoDebug.Neo3
                 var variableCount = System.Math.Max(variableInfo.Count, slot.Count);
                 for (int i = 0; i < variableCount; i++)
                 {
-                    var (name, type) = i < variableInfo.Count
+                    var (name, typeString) = i < variableInfo.Count
                         ? variableInfo[i]
-                        : ($"${prefix}{i}", "");
+                        : ($"${prefix}{i}", "Any");
+
+                    var type = System.Enum.TryParse<ContractParameterType>(typeString, out var _type)
+                        ? _type : ContractParameterType.Any;
 
                     var item = i < slot.Count ? slot[i] : StackItem.Null;
-                    var variable = item.ToVariable(manager, name);
+                    var variable = item.ToVariable(manager, name, type);
                     variable.EvaluateName = variable.Name;
-                    if (type.Length > 0) variable.Type = type;
                     yield return variable;
                 }
             }

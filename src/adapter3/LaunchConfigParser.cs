@@ -48,15 +48,16 @@ namespace NeoDebug.Neo3
             }
 
             var returnTypes = ImmutableList<CastOperation>.Empty;
-            if (launchArguments.ConfigurationProperties.TryGetValue("return-types", out var jsonReturnTypes))
-            {
-                var builder = ImmutableList.CreateBuilder<CastOperation>();
-                foreach (var returnType in jsonReturnTypes)
-                {
-                    builder.Add(VariableManager.CastOperations[returnType.Value<string>() ?? ""]);
-                }
-                returnTypes = builder.ToImmutable();
-            }
+            // TODO: fixup return types
+            // if (launchArguments.ConfigurationProperties.TryGetValue("return-types", out var jsonReturnTypes))
+            // {
+            //     var builder = ImmutableList.CreateBuilder<CastOperation>();
+            //     foreach (var returnType in jsonReturnTypes)
+            //     {
+            //         builder.Add(VariableManager.CastOperations[returnType.Value<string>() ?? ""]);
+            //     }
+            //     returnTypes = builder.ToImmutable();
+            // }
 
             var debugInfoList = await LoadDebugInfosAsync(launchArguments.ConfigurationProperties, sourceFileMap).ToListAsync().ConfigureAwait(false);
             var engine = await CreateEngineAsync(launchArguments.ConfigurationProperties).ConfigureAwait(false);

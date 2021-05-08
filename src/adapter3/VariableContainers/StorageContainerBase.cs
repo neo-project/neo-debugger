@@ -4,7 +4,6 @@ using System.Globalization;
 using System.Linq;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.SmartContract;
-using Neo.VM.Types;
 
 namespace NeoDebug.Neo3
 {
@@ -24,28 +23,13 @@ namespace NeoDebug.Neo3
                     Name = keyHashCode,
                     Value = string.Empty,
                     VariablesReference = manager.Add(kvp),
-                    NamedVariables = 3
+                    NamedVariables = 2
                 };
             }
         }
 
         public Neo.VM.Types.StackItem? Evaluate(ReadOnlyMemory<char> expression)
         {
-            bool TryGetKeyHash(out int value)
-            {
-                if (expression.Length >= 18
-                    && expression.StartsWith("#storage[")
-                    && expression.Span[17] == ']'
-                    && expression.Span[18] == '.'
-                    && int.TryParse(expression.Slice(9, 8).Span, NumberStyles.HexNumber, null, out value))
-                {
-                    return true;
-                }
-
-                value = default;
-                return false;
-            }
-
             if (TryGetKeyHash(out var keyHash)
                 && TryFind(keyHash, out var tuple))
             {
@@ -61,6 +45,21 @@ namespace NeoDebug.Neo3
             }
 
             return null;
+
+            bool TryGetKeyHash(out int value)
+            {
+                if (expression.Length >= 18
+                    && expression.StartsWith("#storage[")
+                    && expression.Span[17] == ']'
+                    && expression.Span[18] == '.'
+                    && int.TryParse(expression.Slice(9, 8).Span, NumberStyles.HexNumber, null, out value))
+                {
+                    return true;
+                }
+
+                value = default;
+                return false;
+            }
 
             bool TryFind(int hashCode, out (ReadOnlyMemory<byte> key, StorageItem item) tuple)
             {
