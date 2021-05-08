@@ -1,9 +1,5 @@
-using System;
 using System.Collections;
 using System.Collections.Generic;
-using Neo.SmartContract;
-using StackItem = Neo.VM.Types.StackItem;
-using System.Linq;
 
 namespace NeoDebug.Neo3
 {
