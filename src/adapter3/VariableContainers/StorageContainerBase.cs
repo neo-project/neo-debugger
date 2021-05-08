@@ -22,7 +22,7 @@ namespace NeoDebug.Neo3
                 {
                     Name = keyHashCode,
                     Value = string.Empty,
-                    VariablesReference = manager.Add(kvp),
+                    VariablesReference = manager.AddContainer(kvp),
                     NamedVariables = 2
                 };
             }
@@ -31,16 +31,16 @@ namespace NeoDebug.Neo3
         public Neo.VM.Types.StackItem? Evaluate(ReadOnlyMemory<char> expression)
         {
             if (TryGetKeyHash(out var keyHash)
-                && TryFind(keyHash, out var tuple))
+                && TryFindStorage(keyHash, out var storage))
             {
                 var remain = expression.Slice(19);
                 if (remain.Span.SequenceEqual("key"))
                 {
-                    return tuple.key;
+                    return storage.key;
                 }
                 else if (remain.Span.SequenceEqual("item"))
                 {
-                    return tuple.item.Value;
+                    return storage.item.Value;
                 }
             }
 
@@ -61,19 +61,19 @@ namespace NeoDebug.Neo3
                 return false;
             }
 
-            bool TryFind(int hashCode, out (ReadOnlyMemory<byte> key, StorageItem item) tuple)
+            bool TryFindStorage(int hashCode, out (ReadOnlyMemory<byte> key, StorageItem item) storage)
             {
                 foreach (var (key, item) in GetStorages())
                 {
                     var keyHashCode = key.Span.GetSequenceHashCode();
                     if (hashCode == keyHashCode)
                     {
-                        tuple = (key, item);
+                        storage = (key, item);
                         return true;
                     }
                 }
 
-                tuple = default;
+                storage = default;
                 return false;
             }
         }

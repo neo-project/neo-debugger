@@ -22,9 +22,8 @@ namespace NeoDebug.Neo3
             return new Variable()
             {
                 Name = name,
-                EvaluateName = name,
                 Value = $"{typeName}[{array.Count}]",
-                VariablesReference = manager.Add(container),
+                VariablesReference = manager.AddContainer(container),
                 IndexedVariables = array.Count,
             };
         }

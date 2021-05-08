@@ -182,14 +182,15 @@ namespace NeoDebug.Neo3
             else
             {
                 var debugInfo = debugInfoMap.TryGetValue(context.ScriptHash, out var _debugInfo) ? _debugInfo : null;
-                yield return AddScope("Variables", new ExecutionContextContainer(context, debugInfo));
+                var container = new ExecutionContextContainer(context, debugInfo);
+                yield return AddScope("Variables", container);
             }
 
             yield return AddScope("Storage", engine.GetStorageContainer(scriptId));
 
             Scope AddScope(string name, IVariableContainer container)
             {
-                var reference = variableManager.Add(container);
+                var reference = variableManager.AddContainer(container);
                 return new Scope(name, reference, false);
             }
         }
