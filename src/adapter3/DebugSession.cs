@@ -230,7 +230,7 @@ namespace NeoDebug.Neo3
 
         private (StackItem? item, ContractParameterType type, ReadOnlyMemory<char> remaining) Evaluate(IExecutionContext context, ReadOnlyMemory<char> text)
         {
-            var (name, remaining) = ParseName(text);
+            var (name, remaining) = ParseVariableName(text);
 
             if (name.Length > 0 && name.Span[0] == '#')
             {
@@ -308,11 +308,9 @@ namespace NeoDebug.Neo3
 
         private static (StackItem? item, ContractParameterType type, ReadOnlyMemory<char> remaining) Evaluate(StackItem? item, ContractParameterType type, ReadOnlyMemory<char> remaining)
         {
-            if (remaining.IsEmpty)
-            {
-                return (item, type, remaining);
-            }
-            else if (remaining.Span[0] == '[')
+            if (remaining.IsEmpty) throw new ArgumentException("", nameof(remaining));
+
+            if (remaining.Span[0] == '[')
             {
                 var bracketIndex = remaining.Span.IndexOf(']');
                 if (bracketIndex >= 0
@@ -326,12 +324,12 @@ namespace NeoDebug.Neo3
                         _ => throw new InvalidOperationException(),
                     };
 
-                    return Evaluate(newItem, type, remaining.Slice(bracketIndex + 1));
+                    return (newItem, ContractParameterType.Any, remaining.Slice(bracketIndex + 1));
                 }
             }
             else if (remaining.Span[0] == '.')
             {
-
+                throw new NotImplementedException();
             }
 
             throw new InvalidOperationException();
@@ -370,7 +368,7 @@ namespace NeoDebug.Neo3
             return (CastOperation.None, expression.AsMemory());
         }
 
-        static (ReadOnlyMemory<char> name, ReadOnlyMemory<char> remaining) ParseName(ReadOnlyMemory<char> expression)
+        static (ReadOnlyMemory<char> name, ReadOnlyMemory<char> remaining) ParseVariableName(ReadOnlyMemory<char> expression)
         {
             for (int i = 0; i < expression.Length; i++)
             {
@@ -384,7 +382,7 @@ namespace NeoDebug.Neo3
             return (expression, default);
         }
 
-        OneOf.OneOf<string, int> EvaluateItem(StackItem item, ContractParameterType parameterType, CastOperation castOperation)
+        (string, int) EvaluateVariable(StackItem item, ContractParameterType parameterType, CastOperation castOperation)
         {
             var value = castOperation switch
             {
@@ -393,7 +391,7 @@ namespace NeoDebug.Neo3
                 _ => null
             };
 
-            if (value != null) return value;
+            if (value != null) return (value, 0);
 
             var variable = castOperation switch
             {
@@ -405,7 +403,7 @@ namespace NeoDebug.Neo3
             };
 
             variable ??= item.ToVariable(variableManager, string.Empty, parameterType);
-            return variable.VariablesReference > 0 ? variable.VariablesReference : variable.Value;
+            return (variable.Value, variable.VariablesReference);
 
             static string? ToAddress(StackItem item, byte version)
             {
@@ -453,10 +451,8 @@ namespace NeoDebug.Neo3
 
                 if (item != null)
                 {
-                    var evaluatedItem = EvaluateItem(item, type, castOperation);
-                    return evaluatedItem.Match<EvaluateResponse>(
-                        result => new EvaluateResponse(result, 0),
-                        variablesRef => new EvaluateResponse(string.Empty, variablesRef));
+                    var (result, variablesRef) = EvaluateVariable(item, type, castOperation);
+                    return new EvaluateResponse(result, variablesRef);
                 }
 
                 return DebugAdapter.FailedEvaluation;
