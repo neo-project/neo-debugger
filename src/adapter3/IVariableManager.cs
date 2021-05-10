@@ -1,6 +1,4 @@
-﻿using Neo.SmartContract;
-
-namespace NeoDebug.Neo3
+﻿namespace NeoDebug.Neo3
 {
     public interface IVariableManager
     {

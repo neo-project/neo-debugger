@@ -21,6 +21,7 @@ namespace NeoDebug.Neo3
         bool TryGetContract(UInt160 scriptHash, [MaybeNullWhen(false)] out Script script);
         StorageContainerBase GetStorageContainer(UInt160 scriptHash);
 
+        byte AddressVersion { get; }
         IReadOnlyCollection<IExecutionContext> InvocationStack { get; }
         IExecutionContext? CurrentContext { get; }
         IReadOnlyList<StackItem> ResultStack { get; }

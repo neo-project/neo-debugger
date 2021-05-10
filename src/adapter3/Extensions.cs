@@ -1,7 +1,6 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Numerics;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
 using Neo.BlockchainToolkit.Models;

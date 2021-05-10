@@ -107,5 +107,7 @@ namespace NeoDebug.Neo3
             : new ExecutionContextAdapter(CurrentContext, scriptIdMap);
 
         public bool AtStart { get; private set; } = true;
+
+        public byte AddressVersion => ProtocolSettings.AddressVersion;
     }
 }
