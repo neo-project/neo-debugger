@@ -23,7 +23,7 @@ namespace NeoDebug.Neo3
             {
                 Name = name,
                 Value = $"{typeName}[{array.Count}]",
-                VariablesReference = manager.AddContainer(container),
+                VariablesReference = manager.Add(container),
                 IndexedVariables = array.Count,
             };
         }

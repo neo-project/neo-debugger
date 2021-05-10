@@ -40,7 +40,7 @@ namespace NeoDebug.Neo3
             {
                 Name = name,
                 Value = $"{type}[{container.memory.Length}]",
-                VariablesReference = manager.AddContainer(container),
+                VariablesReference = manager.Add(container),
                 IndexedVariables = container.memory.Length,
             };
         }

@@ -22,7 +22,7 @@ namespace NeoDebug.Neo3
                 {
                     Name = keyHashCode,
                     Value = string.Empty,
-                    VariablesReference = manager.AddContainer(kvp),
+                    VariablesReference = manager.Add(kvp),
                     NamedVariables = 2
                 };
             }

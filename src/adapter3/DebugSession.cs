@@ -198,7 +198,7 @@ namespace NeoDebug.Neo3
 
             Scope AddScope(string name, IVariableContainer container)
             {
-                var reference = variableManager.AddContainer(container);
+                var reference = variableManager.Add(container);
                 return new Scope(name, reference, false);
             }
         }

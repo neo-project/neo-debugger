@@ -10,12 +10,10 @@ namespace NeoDebug.Neo3
     public class VariableManager : IVariableManager
     {
         private readonly Dictionary<int, IVariableContainer> containers = new();
-        private readonly Dictionary<string, (StackItem item, ContractParameterType type)> namedVariables = new();
 
         public void Clear()
         {
             containers.Clear();
-            namedVariables.Clear();
         }
 
         public bool TryGet(int id, [MaybeNullWhen(false)] out IVariableContainer container)
@@ -23,7 +21,7 @@ namespace NeoDebug.Neo3
             return containers.TryGetValue(id, out container);
         }
 
-        public int AddContainer(IVariableContainer container)
+        public int Add(IVariableContainer container)
         {
             var id = container.GetHashCode();
             if (containers.TryAdd(id, container))
@@ -32,16 +30,6 @@ namespace NeoDebug.Neo3
             }
 
             throw new Exception();
-        }
-
-        public string AddVariable(string name, StackItem item, ContractParameterType type)
-        {
-            if (namedVariables.TryAdd(name, (item, type)))
-            {
-                return name;
-            }
-
-            return string.Empty;
         }
     }
 }
