@@ -230,6 +230,13 @@ namespace NeoDebug.Neo3
 
         private (StackItem? item, ContractParameterType type, ReadOnlyMemory<char> remaining) Evaluate(IExecutionContext context, ReadOnlyMemory<char> text)
         {
+            if (text.StartsWith(STORAGE_PREFIX))
+            {
+                var container = engine.GetStorageContainer(context.ScriptIdentifier);
+                var storage = container.Evaluate(text);
+                return (storage.item, ContractParameterType.Any, storage.remaining);
+            }
+
             var (name, remaining) = ParseVariableName(text);
 
             if (name.Length > 0 && name.Span[0] == '#')
@@ -240,12 +247,6 @@ namespace NeoDebug.Neo3
                 if (TryEvaluateIndexedSlot(name, LOCAL_SLOTS_PREFIX, context.LocalVariables, out item)) return (item, ContractParameterType.Any, remaining);
                 if (TryEvaluateIndexedSlot(name, RESULT_STACK_PREFIX, engine.ResultStack, out item)) return (item, ContractParameterType.Any, remaining);
                 if (TryEvaluateIndexedSlot(name, STATIC_SLOTS_PREFIX, context.StaticFields, out item)) return (item, ContractParameterType.Any, remaining);
-
-                if (name.StartsWith(STORAGE_PREFIX))
-                {
-                    var container = engine.GetStorageContainer(context.ScriptIdentifier);
-                    return (container.Evaluate(name), ContractParameterType.Any, remaining);
-                }
             }
 
             if (debugInfoMap.TryGetValue(context.ScriptHash, out var debugInfo))
@@ -273,12 +274,16 @@ namespace NeoDebug.Neo3
 
             static bool TryEvaluateIndexedSlot(ReadOnlyMemory<char> name, string prefix, IReadOnlyList<StackItem> slot, [MaybeNullWhen(false)] out StackItem result)
             {
-                if (name.Span.Slice(1, prefix.Length).SequenceEqual(prefix)
-                    && int.TryParse(name.Span.Slice(prefix.Length + 1), out int index)
-                    && index < slot.Count)
+                if (name.Span.Length > prefix.Length
+                    && name.Span.Slice(0, prefix.Length).SequenceEqual(prefix))
                 {
-                    result = slot[index];
-                    return true;
+                    var index = int.TryParse(name.Span.Slice(prefix.Length), out int _index) ? _index : int.MaxValue;
+                    
+                    if (index < slot.Count)
+                    {
+                        result = slot[index];
+                        return true;
+                    }
                 }
 
                 result = default;

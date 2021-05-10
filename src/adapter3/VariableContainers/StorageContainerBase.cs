@@ -7,6 +7,8 @@ using Neo.SmartContract;
 
 namespace NeoDebug.Neo3
 {
+    using StackItem = Neo.VM.Types.StackItem;
+
     internal abstract class StorageContainerBase : IVariableContainer
     {
         protected abstract IEnumerable<(ReadOnlyMemory<byte> key, StorageItem item)> GetStorages();
@@ -28,23 +30,25 @@ namespace NeoDebug.Neo3
             }
         }
 
-        public Neo.VM.Types.StackItem? Evaluate(ReadOnlyMemory<char> expression)
+        public (StackItem? item, ReadOnlyMemory<char> remaining) Evaluate(ReadOnlyMemory<char> expression)
         {
             if (TryGetKeyHash(expression, out var keyHash)
                 && TryFindStorage(GetStorages(), keyHash, out var storage))
             {
                 var remain = expression.Slice(19);
-                if (remain.Span.SequenceEqual("key"))
+                if (remain.Length >= 3
+                    && remain.Span.Slice(0, 3).SequenceEqual("key"))
                 {
-                    return storage.key;
+                    return (storage.key, remain.Slice(3));
                 }
-                else if (remain.Span.SequenceEqual("item"))
+                else if (remain.Length >= 4
+                    && remain.Span.Slice(0, 4).SequenceEqual("item"))
                 {
-                    return storage.item.Value;
+                    return (storage.item.Value, remain.Slice(4));
                 }
             }
 
-            return null;
+            throw new InvalidOperationException("Invalid storage evaluation");
 
             static bool TryGetKeyHash(ReadOnlyMemory<char> expression, out int value)
             {
