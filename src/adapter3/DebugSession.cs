@@ -382,7 +382,7 @@ namespace NeoDebug.Neo3
             return (expression, default);
         }
 
-        (string, int) EvaluateVariable(StackItem item, ContractParameterType parameterType, CastOperation castOperation)
+        (string value, int variablesReference) EvaluateVariable(StackItem item, ContractParameterType parameterType, CastOperation castOperation)
         {
             var value = castOperation switch
             {
@@ -505,6 +505,19 @@ namespace NeoDebug.Neo3
 
         private int lastThrowAddress = -1;
 
+        string ToResult(int index)
+        {
+            if (index >= engine.ResultStack.Count) throw new ArgumentException("", nameof(index));
+
+            var result = engine.ResultStack[index];
+            var returnType = index < returnTypes.Count ? returnTypes[index] : CastOperation.None;
+            var (value, variablesRef) = EvaluateVariable(result, ContractParameterType.Any, returnType);
+
+            return variablesRef == 0
+                ? value
+                : result.ToJson().ToString(Newtonsoft.Json.Formatting.Indented);
+        }
+
         private void Step(Func<int, bool> compareStepDepth, bool stepBack = false)
         {
             while (true)
@@ -544,15 +557,11 @@ namespace NeoDebug.Neo3
                 {
                     for (int index = 0; index < engine.ResultStack.Count; index++)
                     {
-                        var result = engine.ResultStack[index];
-                        // var resultString = ((index < returnTypes.Count) ? result.TryConvert(returnTypes[index]) : null)
-                        //     ?? result.ToJson().ToString(Newtonsoft.Json.Formatting.Indented);
-                        var resultString = result.ToJson().ToString(Newtonsoft.Json.Formatting.Indented);
-
+                        var result = ToResult(index);
                         sendEvent(new OutputEvent()
                         {
                             Category = OutputEvent.CategoryValue.Stdout,
-                            Output = $"Return: {resultString}\n",
+                            Output = $"Return: {result}\n",
                         });
                     }
                     sendEvent(new ExitedEvent());
