@@ -25,6 +25,9 @@ namespace NeoDebug.Neo3
             private readonly Stack<ITraceDebugRecord> nextRecords = new Stack<ITraceDebugRecord>();
             private readonly IDictionary<UInt160, Script> contracts;
 
+            public uint Network { get; private set; }
+            public byte AddressVersion { get; private set; }
+
             public TraceFile(string traceFilePath, IDictionary<UInt160, Script> contracts)
             {
                 this.traceFileStream = File.OpenRead(traceFilePath);
@@ -71,6 +74,11 @@ namespace NeoDebug.Neo3
                     if (record is ScriptRecord script)
                     {
                         contracts.TryAdd(script.ScriptHash, script.Script);
+                    }
+                    else if (record is ProtocolSettingsRecord protocolSettings)
+                    {
+                        Network = protocolSettings.Network;
+                        AddressVersion = protocolSettings.AddressVersion;
                     }
                     else
                     {

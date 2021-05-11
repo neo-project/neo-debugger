@@ -114,8 +114,7 @@ namespace NeoDebug.Neo3
         }
 
         public bool AtStart => traceFile.AtStart;
-        // TODO: Get Address version from trace
-        public byte AddressVersion => ProtocolSettings.Default.AddressVersion;
+        public byte AddressVersion => traceFile.AddressVersion;
         public VMState State { get; private set; }
         public IReadOnlyCollection<IExecutionContext> InvocationStack { get; private set; } = new List<IExecutionContext>();
         public IExecutionContext? CurrentContext => InvocationStack.FirstOrDefault();
