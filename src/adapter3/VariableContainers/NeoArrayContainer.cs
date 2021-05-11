@@ -17,12 +17,12 @@ namespace NeoDebug.Neo3
 
         public static Variable Create(IVariableManager manager, NeoArray array, string name)
         {
+            var typeName = array is NeoStruct ? "Struct" : "Array";
             var container = new NeoArrayContainer(array);
             return new Variable()
             {
                 Name = name,
-                EvaluateName = name,
-                Value = $"{(array is NeoStruct ? "Struct" : "Array")}[{array.Count}]",
+                Value = $"{typeName}[{array.Count}]",
                 VariablesReference = manager.Add(container),
                 IndexedVariables = array.Count,
             };

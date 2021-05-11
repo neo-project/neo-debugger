@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using Neo.Persistence;
-using Neo;
 using System.Linq;
-using Neo.Ledger;
+using Neo;
+using Neo.Persistence;
 using Neo.SmartContract;
 
 namespace NeoDebug.Neo3

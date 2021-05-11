@@ -196,11 +196,12 @@
                                 "items": {
                                     "type": "string",
                                     "enum": [
-                                        "int",
+                                        "addr", 
                                         "bool",
-                                        "string",
+                                        "byte[]",
                                         "hex",
-                                        "byte[]"
+                                        "int",
+                                        "string"
                                     ]
                                 }
                             },

@@ -9,7 +9,6 @@ using System.Diagnostics.CodeAnalysis;
 using Neo.BlockchainToolkit.TraceDebug;
 using System.Linq;
 using System.IO;
-using Neo.Ledger;
 
 namespace NeoDebug.Neo3
 {
@@ -115,6 +114,8 @@ namespace NeoDebug.Neo3
         }
 
         public bool AtStart => traceFile.AtStart;
+        // TODO: Get Address version from trace
+        public byte AddressVersion => ProtocolSettings.Default.AddressVersion;
         public VMState State { get; private set; }
         public IReadOnlyCollection<IExecutionContext> InvocationStack { get; private set; } = new List<IExecutionContext>();
         public IExecutionContext? CurrentContext => InvocationStack.FirstOrDefault();

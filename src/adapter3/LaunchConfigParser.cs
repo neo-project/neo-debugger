@@ -47,13 +47,13 @@ namespace NeoDebug.Neo3
                     kvp => kvp.Value?.Value<string>() ?? string.Empty);
             }
 
-            var returnTypes = ImmutableList<string>.Empty;
+            var returnTypes = ImmutableList<CastOperation>.Empty;
             if (launchArguments.ConfigurationProperties.TryGetValue("return-types", out var jsonReturnTypes))
             {
-                var builder = ImmutableList.CreateBuilder<string>();
+                var builder = ImmutableList.CreateBuilder<CastOperation>();
                 foreach (var returnType in jsonReturnTypes)
                 {
-                    builder.Add(VariableManager.CastOperations[returnType.Value<string>() ?? ""]);
+                    builder.Add(DebugSession.CastOperations[returnType.Value<string>() ?? ""]);
                 }
                 returnTypes = builder.ToImmutable();
             }
@@ -816,7 +816,7 @@ namespace NeoDebug.Neo3
                 {
                     // if argCount is one higher than the method parameter count, we have likely hit nccs issue #610.
                     // add an extra parameter (this,Any) parameter so that debugger can resolve variables correctly
-                    method.Parameters = method.Parameters.Prepend(("this", "Any")).ToImmutableList();
+                    method.Parameters = method.Parameters.Prepend(("$this", "Any")).ToImmutableList();
                 }
                 methodBuilder.Add(method);
             }

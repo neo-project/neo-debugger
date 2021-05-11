@@ -12,7 +12,6 @@ namespace NeoDebug.Neo3
         private class ExecutionContextAdapter : IExecutionContext
         {
             private readonly ExecutionContext context;
-            private readonly EvaluationStackAdapter evalStackAdapter;
 
             public ExecutionContextAdapter(ExecutionContext context, IDictionary<UInt160, UInt160> scriptIdMap)
             {
@@ -28,15 +27,13 @@ namespace NeoDebug.Neo3
                     this.ScriptHash = Neo.SmartContract.Helper.ToScriptHash(context.Script);
                     scriptIdMap[this.ScriptIdentifier] = this.ScriptHash;
                 }
-
-                evalStackAdapter = new EvaluationStackAdapter(context.EvaluationStack);
             }
 
             public Instruction CurrentInstruction => context.CurrentInstruction;
 
             public int InstructionPointer => context.InstructionPointer;
 
-            public IReadOnlyList<StackItem> EvaluationStack => evalStackAdapter;
+            public IReadOnlyList<StackItem> EvaluationStack => context.EvaluationStack;
 
             public IReadOnlyList<StackItem> LocalVariables => Coalese(context.LocalVariables);
 

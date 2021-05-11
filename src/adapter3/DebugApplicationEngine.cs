@@ -19,7 +19,6 @@ namespace NeoDebug.Neo3
     internal partial class DebugApplicationEngine : TestApplicationEngine, IApplicationEngine
     {
         private readonly IDisposableStorageProvider storageProvider;
-        private readonly EvaluationStackAdapter resultStackAdapter;
         private readonly InvocationStackAdapter invocationStackAdapter;
         private readonly IDictionary<UInt160, UInt160> scriptIdMap = new Dictionary<UInt160, UInt160>();
 
@@ -32,7 +31,6 @@ namespace NeoDebug.Neo3
             this.Log += OnLog;
             this.Notify += OnNotify;
             this.storageProvider = storageProvider;
-            resultStackAdapter = new EvaluationStackAdapter(this.ResultStack);
             invocationStackAdapter = new InvocationStackAdapter(this);
         }
 
@@ -102,12 +100,14 @@ namespace NeoDebug.Neo3
 
         IReadOnlyCollection<IExecutionContext> IApplicationEngine.InvocationStack => invocationStackAdapter;
 
-        IReadOnlyList<StackItem> IApplicationEngine.ResultStack => resultStackAdapter;
+        IReadOnlyList<StackItem> IApplicationEngine.ResultStack => this.ResultStack;
 
         IExecutionContext? IApplicationEngine.CurrentContext => CurrentContext == null
             ? null
             : new ExecutionContextAdapter(CurrentContext, scriptIdMap);
 
         public bool AtStart { get; private set; } = true;
+
+        public byte AddressVersion => ProtocolSettings.AddressVersion;
     }
 }
