@@ -1,12 +1,15 @@
+using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.BlockchainToolkit.Models;
-using Neo.VM;
-using Neo.VM.Types;
+using Neo.SmartContract;
 
 namespace NeoDebug.Neo3
 {
+    using StackItem = Neo.VM.Types.StackItem;
+
     class ExecutionContextContainer : IVariableContainer
     {
         private readonly IExecutionContext context;
@@ -22,25 +25,28 @@ namespace NeoDebug.Neo3
         {
             var method = debugInfo?.GetMethod(context.InstructionPointer);
 
-            var args = EnumerateSlot("arg", context.Arguments, method?.Parameters);
-            var locals = EnumerateSlot("local", context.LocalVariables, method?.Variables);
-            // TODO: statics
+            var args = EnumerateSlot(DebugSession.ARG_SLOTS_PREFIX, context.Arguments, method?.Parameters);
+            var locals = EnumerateSlot(DebugSession.LOCAL_SLOTS_PREFIX, context.LocalVariables, method?.Variables);
+            var statics = EnumerateSlot(DebugSession.STATIC_SLOTS_PREFIX, context.StaticFields, debugInfo?.StaticVariables);
 
-            return args.Concat(locals);
+            return args.Concat(locals).Concat(statics);
 
             IEnumerable<Variable> EnumerateSlot(string prefix, IReadOnlyList<StackItem>? slot, IReadOnlyList<(string name, string type)>? variableInfo = null)
             {
-                variableInfo ??= new List<(string name, string type)>();
-                slot ??= new List<StackItem>();
-                for (int i = 0; i < variableInfo.Count; i++)
-                {
-                    var (name, type) = variableInfo[i];
-                    if (name.Contains(':')) continue;
-                    var v = i < slot.Count
-                        ? slot[i].ToVariable(manager, name, type)
-                        : StackItem.Null.ToVariable(manager, name, type);
+                variableInfo ??= ImmutableList<(string name, string type)>.Empty;
+                slot ??= ImmutableList<StackItem>.Empty;
 
-                    yield return v.ForEvaluation();
+                var variableCount = System.Math.Max(variableInfo.Count, slot.Count);
+                for (int i = 0; i < variableCount; i++)
+                {
+                    var name = i < variableInfo.Count ? variableInfo[i].name : $"{prefix}{i}";
+                    var type = i < variableInfo.Count && Enum.TryParse<ContractParameterType>(variableInfo[i].type, out var _type) 
+                        ? _type 
+                        : ContractParameterType.Any;
+                    var item = i < slot.Count ? slot[i] : StackItem.Null;
+                    var variable = item.ToVariable(manager, name, type);
+                    variable.EvaluateName = variable.Name;
+                    yield return variable;
                 }
             }
         }

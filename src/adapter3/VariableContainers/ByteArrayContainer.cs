@@ -16,9 +16,9 @@ namespace NeoDebug.Neo3
             this.memory = memory;
         }
 
-        public static Variable Create(IVariableManager manager, byte[] array, string name)
+        public static Variable Create(IVariableManager manager, ReadOnlyMemory<byte> array, string name)
         {
-            var container = new ByteArrayContainer(array.AsMemory());
+            var container = new ByteArrayContainer(array);
             return ToVariable(manager, container, name, "ByteArray");
         }
 
@@ -39,7 +39,6 @@ namespace NeoDebug.Neo3
             return new Variable()
             {
                 Name = name,
-                EvaluateName = name,
                 Value = $"{type}[{container.memory.Length}]",
                 VariablesReference = manager.Add(container),
                 IndexedVariables = container.memory.Length,

@@ -7,6 +7,8 @@ using Neo.SmartContract;
 
 namespace NeoDebug.Neo3
 {
+    using StackItem = Neo.VM.Types.StackItem;
+
     internal abstract class StorageContainerBase : IVariableContainer
     {
         protected abstract IEnumerable<(ReadOnlyMemory<byte> key, StorageItem item)> GetStorages();
@@ -23,17 +25,36 @@ namespace NeoDebug.Neo3
                     Name = keyHashCode,
                     Value = string.Empty,
                     VariablesReference = manager.Add(kvp),
-                    NamedVariables = 3
+                    NamedVariables = 2
                 };
             }
         }
 
-        public Neo.VM.Types.StackItem? Evaluate(ReadOnlyMemory<char> expression)
+        public (StackItem? item, ReadOnlyMemory<char> remaining) Evaluate(ReadOnlyMemory<char> expression)
         {
-            bool TryGetKeyHash(out int value)
+            if (TryGetKeyHash(expression, out var keyHash)
+                && TryFindStorage(GetStorages(), keyHash, out var storage))
+            {
+                var remain = expression.Slice(19);
+                if (remain.Length >= 3
+                    && remain.Span.Slice(0, 3).SequenceEqual("key"))
+                {
+                    return (storage.key, remain.Slice(3));
+                }
+                else if (remain.Length >= 4
+                    && remain.Span.Slice(0, 4).SequenceEqual("item"))
+                {
+                    return (storage.item.Value, remain.Slice(4));
+                }
+            }
+
+            throw new InvalidOperationException("Invalid storage evaluation");
+
+            static bool TryGetKeyHash(ReadOnlyMemory<char> expression, out int value)
             {
                 if (expression.Length >= 18
-                    && expression.StartsWith("#storage[")
+                    && expression.StartsWith(DebugSession.STORAGE_PREFIX)
+                    && expression.Span[8] == '['
                     && expression.Span[17] == ']'
                     && expression.Span[18] == '.'
                     && int.TryParse(expression.Slice(9, 8).Span, NumberStyles.HexNumber, null, out value))
@@ -45,35 +66,19 @@ namespace NeoDebug.Neo3
                 return false;
             }
 
-            if (TryGetKeyHash(out var keyHash)
-                && TryFind(keyHash, out var tuple))
+            static bool TryFindStorage(IEnumerable<(ReadOnlyMemory<byte> key, StorageItem item)> storages, int hashCode, out (ReadOnlyMemory<byte> key, StorageItem item) storage)
             {
-                var remain = expression.Slice(19);
-                if (remain.Span.SequenceEqual("key"))
-                {
-                    return tuple.key;
-                }
-                else if (remain.Span.SequenceEqual("item"))
-                {
-                    return tuple.item.Value;
-                }
-            }
-
-            return null;
-
-            bool TryFind(int hashCode, out (ReadOnlyMemory<byte> key, StorageItem item) tuple)
-            {
-                foreach (var (key, item) in GetStorages())
+                foreach (var (key, item) in storages)
                 {
                     var keyHashCode = key.Span.GetSequenceHashCode();
                     if (hashCode == keyHashCode)
                     {
-                        tuple = (key, item);
+                        storage = (key, item);
                         return true;
                     }
                 }
 
-                tuple = default;
+                storage = default;
                 return false;
             }
         }
@@ -82,25 +87,24 @@ namespace NeoDebug.Neo3
         {
             private readonly ReadOnlyMemory<byte> key;
             private readonly StorageItem item;
-            private readonly string hashCode;
+            private readonly string prefix;
 
             public KvpContainer(ReadOnlyMemory<byte> key, StorageItem item, string hashCode)
             {
                 this.key = key;
                 this.item = item;
-                this.hashCode = hashCode;
+                this.prefix = $"{DebugSession.STORAGE_PREFIX}[{hashCode}].";
             }
 
             public IEnumerable<Variable> Enumerate(IVariableManager manager)
             {
-                yield return ForEvaluation(key.ToVariable(manager, "key"));
-                yield return ForEvaluation(item.Value.ToVariable(manager, "item"));
+                var keyItem = ByteArrayContainer.Create(manager, key, "key");
+                keyItem.EvaluateName = prefix + "key";
+                yield return keyItem;
 
-                Variable ForEvaluation(Variable variable)
-                {
-                    variable.EvaluateName = $"#storage[{hashCode}].{variable.Name}";
-                    return variable;
-                }
+                var valueItem = ByteArrayContainer.Create(manager, item.Value.AsMemory(), "item");
+                valueItem.EvaluateName = prefix + "item";
+                yield return valueItem;
             }
         }
     }
