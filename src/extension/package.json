@@ -196,7 +196,7 @@
                                 "items": {
                                     "type": "string",
                                     "enum": [
-                                        "addr", 
+                                        "addr",
                                         "bool",
                                         "byte[]",
                                         "hex",
