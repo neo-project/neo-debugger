@@ -290,7 +290,7 @@ namespace NeoDebug.Neo3
                 return false;
             }
 
-            static bool TryEvaluateNamedSlot(IReadOnlyList<StackItem> slot, IReadOnlyList<(string name, string type)> variableInfo, ReadOnlyMemory<char> name, out (StackItem? item, ContractParameterType type) result)
+            static bool TryEvaluateNamedSlot(IReadOnlyList<StackItem> slot, IReadOnlyList<(string name, string type, uint? slotIndex)> variableInfo, ReadOnlyMemory<char> name, out (StackItem? item, ContractParameterType type) result)
             {
                 for (int i = 0; i < slot.Count; i++)
                 {

@@ -816,7 +816,7 @@ namespace NeoDebug.Neo3
                 {
                     // if argCount is one higher than the method parameter count, we have likely hit nccs issue #610.
                     // add an extra parameter (this,Any) parameter so that debugger can resolve variables correctly
-                    method.Parameters = method.Parameters.Prepend(("$this", "Any")).ToImmutableList();
+                    method.Parameters = method.Parameters.Prepend(("$this", "Any", null)).ToImmutableList();
                 }
                 methodBuilder.Add(method);
             }

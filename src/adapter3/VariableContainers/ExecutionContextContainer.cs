@@ -31,9 +31,9 @@ namespace NeoDebug.Neo3
 
             return args.Concat(locals).Concat(statics);
 
-            IEnumerable<Variable> EnumerateSlot(string prefix, IReadOnlyList<StackItem>? slot, IReadOnlyList<(string name, string type)>? variableInfo = null)
+            IEnumerable<Variable> EnumerateSlot(string prefix, IReadOnlyList<StackItem>? slot, IReadOnlyList<(string name, string type, uint? slotIndex)>? variableInfo = null)
             {
-                variableInfo ??= ImmutableList<(string name, string type)>.Empty;
+                variableInfo ??= ImmutableList<(string name, string type, uint? slotIndex)>.Empty;
                 slot ??= ImmutableList<StackItem>.Empty;
 
                 var variableCount = System.Math.Max(variableInfo.Count, slot.Count);
