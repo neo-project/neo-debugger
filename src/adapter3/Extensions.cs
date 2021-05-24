@@ -37,7 +37,9 @@ namespace NeoDebug.Neo3
 
         public static string? GetDocumentPath(this DebugInfo.SequencePoint? @this, DebugInfo? debugInfo)
         {
-            if (@this != null && debugInfo != null && @this.Document < debugInfo.Documents.Count)
+            if (@this != null && debugInfo != null 
+                && @this.Document >= 0
+                && @this.Document < debugInfo.Documents.Count)
             {
                 return debugInfo.Documents[@this.Document];
             }
