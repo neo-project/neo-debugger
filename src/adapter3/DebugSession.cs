@@ -290,19 +290,17 @@ namespace NeoDebug.Neo3
                 return false;
             }
 
-            static bool TryEvaluateNamedSlot(IReadOnlyList<StackItem> slot, IReadOnlyList<(string name, string type, uint? slotIndex)> variableInfo, ReadOnlyMemory<char> name, out (StackItem? item, ContractParameterType type) result)
+            static bool TryEvaluateNamedSlot(IReadOnlyList<StackItem> slot, IReadOnlyList<DebugInfo.SlotVariable> variableList, ReadOnlyMemory<char> name, out (StackItem? item, ContractParameterType type) result)
             {
-                for (int i = 0; i < slot.Count; i++)
+                for (int i = 0; i < variableList.Count; i++)
                 {
-                    if (i >= variableInfo.Count) break;
-
-                    if (name.Span.SequenceEqual(variableInfo[i].name))
+                    if (name.Span.SequenceEqual(variableList[i].Name) 
+                        && variableList[i].Index < slot.Count)
                     {
-                        result = (slot[i],
-                            Enum.TryParse<ContractParameterType>(variableInfo[i].type, out var _type)
-                                ? _type
-                                : ContractParameterType.Any);
-                        return true;
+                        var type = Enum.TryParse<ContractParameterType>(variableList[i].Type, out var _type)
+                            ? _type
+                            : ContractParameterType.Any;
+                        result = (slot[variableList[i].Index], type);
                     }
                 }
 

@@ -31,20 +31,18 @@ namespace NeoDebug.Neo3
 
             return args.Concat(locals).Concat(statics);
 
-            IEnumerable<Variable> EnumerateSlot(string prefix, IReadOnlyList<StackItem>? slot, IReadOnlyList<(string name, string type, uint? slotIndex)>? variableInfo = null)
+            IEnumerable<Variable> EnumerateSlot(string prefix, IReadOnlyList<StackItem>? slot, IReadOnlyList<DebugInfo.SlotVariable>? variableList = null)
             {
-                variableInfo ??= ImmutableList<(string name, string type, uint? slotIndex)>.Empty;
+                variableList ??= ImmutableList<DebugInfo.SlotVariable>.Empty;
                 slot ??= ImmutableList<StackItem>.Empty;
 
-                var variableCount = System.Math.Max(variableInfo.Count, slot.Count);
-                for (int i = 0; i < variableCount; i++)
+                for (int i = 0; i < variableList.Count; i++)
                 {
-                    var name = i < variableInfo.Count ? variableInfo[i].name : $"{prefix}{i}";
-                    var type = i < variableInfo.Count && Enum.TryParse<ContractParameterType>(variableInfo[i].type, out var _type) 
+                    var type = Enum.TryParse<ContractParameterType>(variableList[i].Type, out var _type) 
                         ? _type 
                         : ContractParameterType.Any;
-                    var item = i < slot.Count ? slot[i] : StackItem.Null;
-                    var variable = item.ToVariable(manager, name, type);
+                    var item = variableList[i].Index < slot.Count ? slot[i] : StackItem.Null;
+                    var variable = item.ToVariable(manager, variableList[i].Name, type);
                     variable.EvaluateName = variable.Name;
                     yield return variable;
                 }
