@@ -268,14 +268,21 @@ namespace NeoDebug.Neo3
 
         static ContractParameterParser CreateContractParameterParser(byte addressVersion, IStore store, ExpressChain? chain)
         {
-            var deployedContracts = ImmutableDictionary<string, UInt160>.Empty;
-            using (var snapshot = new SnapshotCache(store))
-            {
-                deployedContracts = NativeContract.ContractManagement.ListContracts(snapshot)
-                    .ToImmutableDictionary(
-                        contract => contract.Manifest.Name,
-                        contract => contract.Hash);
-            }
+            ContractParameterParser.TryGetUInt160 tryGetContract = (string name, out UInt160 scriptHash) =>
+                {
+                    using var snapshot = new SnapshotCache(store);
+                    foreach (var contract in NativeContract.ContractManagement.ListContracts(snapshot))
+                    {
+                        if (contract.Manifest.Name.Equals(name))
+                        {
+                            scriptHash = contract.Hash;
+                            return true;
+                        }
+                    }
+
+                    scriptHash = null!;
+                    return false;
+                };
 
             ContractParameterParser.TryGetUInt160? tryGetAccount = chain == null
                 ? null
@@ -291,7 +298,7 @@ namespace NeoDebug.Neo3
                     return false;
                 };
 
-            return new ContractParameterParser(addressVersion, tryGetAccount, deployedContracts.TryGetValue);
+            return new ContractParameterParser(addressVersion, tryGetAccount, tryGetContract);
         }
 
         static (int id, UInt160 scriptHash) EnsureContractDeployed(IStore store, NefFile nefFile, ContractManifest manifest, Signer deploySigner, ProtocolSettings settings)
