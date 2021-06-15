@@ -23,7 +23,7 @@ steps:
   displayName: 'use .NET Core SDK from global.json'
   inputs:
     packageType: 'sdk'
-    useGlobalJson: true
+    version: '5.0.x'
 
 - script: dotnet --list-sdks
   displayName: list sdks
