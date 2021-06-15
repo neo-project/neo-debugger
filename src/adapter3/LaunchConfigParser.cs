@@ -14,6 +14,7 @@ using Neo;
 using Neo.BlockchainToolkit;
 using Neo.BlockchainToolkit.Models;
 using Neo.BlockchainToolkit.Persistence;
+using Neo.BlockchainToolkit.SmartContract;
 using Neo.Cryptography.ECC;
 using Neo.IO;
 using Neo.Network.P2P.Payloads;
@@ -385,14 +386,7 @@ namespace NeoDebug.Neo3
                 var deployMethod = contract.Manifest.Abi.GetMethod("_deploy", 2);
                 if (deployMethod is not null)
                 {
-                    var tx = new Transaction
-                    {
-                        Attributes = Array.Empty<TransactionAttribute>(),
-                        Script = Array.Empty<byte>(),
-                        Signers = new[] { deploySigner },
-                        Witnesses = Array.Empty<Witness>()
-                    };
-
+                    var tx = TestApplicationEngine.CreateTestTransaction(deploySigner);
                     using (var engine = ApplicationEngine.Create(TriggerType.Application, tx, snapshot, null, settings))
                     {
                         var context = engine.LoadContract(contract, deployMethod, CallFlags.All);
