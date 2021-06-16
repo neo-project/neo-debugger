@@ -301,6 +301,7 @@ namespace NeoDebug.Neo3
                             ? _type
                             : ContractParameterType.Any;
                         result = (slot[variableList[i].Index], type);
+                        return true;
                     }
                 }
 

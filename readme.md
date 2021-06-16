@@ -16,10 +16,10 @@ The debug information format is [fully documented](https://github.com/ngdseattle
 This format is supported by a variety of Neo smart contract compilers including 
 
 * [NEON (C#)](https://github.com/neo-project/neo-devpack-dotnet)
-* [neo3wj (Java/Kotlin/Android)](https://neow3j.io/)
+* [neow3j (Java/Kotlin/Android)](https://neow3j.io)
 * [neo-boa (Python)](https://github.com/CityOfZion/neo-boa)
 * [NeoGo (GoLang)](https://github.com/nspcc-dev/neo-go)
-* [NEO•ONE (TypeScript)](https://neo-one.io/)
+* [NEO•ONE (TypeScript)](https://neo-one.io)
 
 As of version 2.0, the Neo Smart Contract Debugger supports both 
 [Neo N3 and Neo Legacy](https://medium.com/neo-smart-economy/introducing-neo-n3-the-next-evolution-of-the-neo-blockchain-b2960c4def6e).
