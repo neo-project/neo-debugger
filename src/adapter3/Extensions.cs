@@ -109,9 +109,21 @@ namespace NeoDebug.Neo3
                 var json = new JObject();
                 foreach (var (key, value) in map)
                 {
-                    json.Add(key.GetString() ?? throw new Exception(), value.ToJson());
+                    json.Add(PrimitiveTypeToString(key), value.ToJson());
                 }
                 return json;
+            }
+
+            static string PrimitiveTypeToString(Neo.VM.Types.PrimitiveType item)
+            {
+                try
+                {
+                    return item.GetString() ?? throw new Exception();
+                }
+                catch
+                {
+                    return Convert.ToHexString(item.GetSpan());
+                }
             }
         }
 
