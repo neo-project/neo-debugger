@@ -78,7 +78,7 @@ namespace NeoDebug.Neo3
 
             foreach (var context in engine.InvocationStack)
             {
-                if (scriptHash == context.ScriptHash)
+                if (scriptHash == context.ScriptIdentifier)
                 {
                     script = context.Script;
                     return true;
@@ -114,9 +114,9 @@ namespace NeoDebug.Neo3
 
             foreach (var (context, index) in engine.InvocationStack.Select((c, i) => (c, i)))
             {
-                var scriptId = context.ScriptIdentifier;
+                var scriptId = context.ScriptHash;
                 DebugInfo.Method? method = null;
-                if (debugInfoMap.TryGetValue(context.ScriptHash, out var debugInfo))
+                if (debugInfoMap.TryGetValue(context.ScriptIdentifier, out var debugInfo))
                 {
                     method = debugInfo.GetMethod(context.InstructionPointer);
                 }
@@ -179,7 +179,7 @@ namespace NeoDebug.Neo3
         public IEnumerable<Scope> GetScopes(ScopesArguments args)
         {
             var context = engine.InvocationStack.ElementAt(args.FrameId);
-            var scriptId = context.ScriptIdentifier;
+            var scriptId = context.ScriptHash;
 
             if (disassemblyView)
             {
@@ -191,7 +191,7 @@ namespace NeoDebug.Neo3
             }
             else
             {
-                var debugInfo = debugInfoMap.TryGetValue(context.ScriptHash, out var _debugInfo) ? _debugInfo : null;
+                var debugInfo = debugInfoMap.TryGetValue(context.ScriptIdentifier, out var _debugInfo) ? _debugInfo : null;
                 var container = new ExecutionContextContainer(context, debugInfo);
                 yield return AddScope("Variables", container);
             }
@@ -233,7 +233,7 @@ namespace NeoDebug.Neo3
         {
             if (text.StartsWith(STORAGE_PREFIX))
             {
-                var container = engine.GetStorageContainer(context.ScriptIdentifier);
+                var container = engine.GetStorageContainer(context.ScriptHash);
                 var storage = container.Evaluate(text);
                 return (storage.item, ContractParameterType.Any, storage.remaining);
             }
@@ -250,7 +250,7 @@ namespace NeoDebug.Neo3
                 if (TryEvaluateIndexedSlot(name, STATIC_SLOTS_PREFIX, context.StaticFields, out item)) return (item, ContractParameterType.Any, remaining);
             }
 
-            if (debugInfoMap.TryGetValue(context.ScriptHash, out var debugInfo))
+            if (debugInfoMap.TryGetValue(context.ScriptIdentifier, out var debugInfo))
             {
                 if (TryEvaluateNamedSlot(context.StaticFields, debugInfo.StaticVariables, name, out var result))
                 {
@@ -610,7 +610,7 @@ namespace NeoDebug.Neo3
                     }
                 }
 
-                if (breakpointManager.CheckBreakpoint(engine.CurrentContext?.ScriptIdentifier ?? UInt160.Zero, engine.CurrentContext?.InstructionPointer))
+                if (breakpointManager.CheckBreakpoint(engine.CurrentContext?.ScriptHash ?? UInt160.Zero, engine.CurrentContext?.InstructionPointer))
                 {
                     FireStoppedEvent(StoppedEvent.ReasonValue.Breakpoint);
                     break;
@@ -629,7 +629,7 @@ namespace NeoDebug.Neo3
                 if (engine.CurrentContext != null)
                 {
                     var ip = engine.CurrentContext.InstructionPointer;
-                    if (debugInfoMap.TryGetValue(engine.CurrentContext.ScriptHash, out var info))
+                    if (debugInfoMap.TryGetValue(engine.CurrentContext.ScriptIdentifier, out var info))
                     {
                         var methods = info.Methods;
                         for (int i = 0; i < methods.Count; i++)

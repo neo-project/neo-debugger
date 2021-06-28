@@ -57,7 +57,7 @@ namespace NeoDebug.Neo3
         }
 
         public Disassembly GetDisassembly(IExecutionContext context, DebugInfo? debugInfo)
-            => GetDisassembly(context.ScriptHash, context.Script, debugInfo);
+            => GetDisassembly(context.ScriptIdentifier, context.Script, debugInfo);
 
         public Disassembly GetDisassembly(UInt160 scriptHash, Script script, DebugInfo? debugInfo)
             => disassemblies.GetOrAdd(scriptHash.GetHashCode(), sourceRef => ToDisassembly(sourceRef, scriptHash, script, debugInfo));

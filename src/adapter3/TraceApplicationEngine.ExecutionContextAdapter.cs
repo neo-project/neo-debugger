@@ -17,17 +17,17 @@ namespace NeoDebug.Neo3
             public ExecutionContextAdapter(TraceRecord.StackFrame frame, IReadOnlyDictionary<UInt160, Script> contracts)
             {
                 this.frame = frame;
-                if (contracts.TryGetValue(frame.ScriptHash, out var script))
+                if (contracts.TryGetValue(frame.ScriptIdentifier, out var script))
                 {
                     Script = script;
                 }
-                else if (TryGetNativeContract(frame.ScriptIdentifier, out script))
+                else if (TryGetNativeContract(frame.ScriptHash, out script))
                 {
                     Script = script;
                 }
                 else
                 {
-                    throw new Exception($"Cannot load script {frame.ScriptHash}");
+                    throw new Exception($"Cannot load script {frame.ScriptIdentifier}");
                 }
 
                 static bool TryGetNativeContract(UInt160 scriptHash, out Script script)
@@ -50,8 +50,8 @@ namespace NeoDebug.Neo3
 
             public int InstructionPointer => frame.InstructionPointer;
 
-            public UInt160 ScriptIdentifier => frame.ScriptIdentifier;
             public UInt160 ScriptHash => frame.ScriptHash;
+            public UInt160 ScriptIdentifier => frame.ScriptIdentifier;
 
             public Script Script { get; }
 
