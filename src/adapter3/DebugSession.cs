@@ -197,6 +197,7 @@ namespace NeoDebug.Neo3
             }
 
             yield return AddScope("Storage", engine.GetStorageContainer(scriptId));
+            yield return AddScope("Engine", new EngineContainer(engine));
 
             Scope AddScope(string name, IVariableContainer container)
             {
@@ -547,6 +548,7 @@ namespace NeoDebug.Neo3
                             output += $"  Contract Exception: {engine.FaultException.InnerException.Message} [{engine.FaultException.InnerException.GetType().Name}]\n";
                         }
                     }
+                    output += $"Gas Consumed: {engine.GasConsumedAsBigDecimal}\n";
 
                     sendEvent(new OutputEvent()
                     {
@@ -565,7 +567,7 @@ namespace NeoDebug.Neo3
                         sendEvent(new OutputEvent()
                         {
                             Category = OutputEvent.CategoryValue.Stdout,
-                            Output = $"Return: {result}\n",
+                            Output = $"Gas Consumed: {engine.GasConsumedAsBigDecimal}\nReturn: {result}\n",
                         });
                     }
                     sendEvent(new ExitedEvent());

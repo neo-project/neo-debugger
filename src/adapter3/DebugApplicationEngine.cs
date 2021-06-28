@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Numerics;
 using Neo;
 using Neo.BlockchainToolkit.Persistence;
 using Neo.BlockchainToolkit.SmartContract;
