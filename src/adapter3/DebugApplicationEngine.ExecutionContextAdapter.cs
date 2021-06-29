@@ -16,16 +16,16 @@ namespace NeoDebug.Neo3
             public ExecutionContextAdapter(ExecutionContext context, IDictionary<UInt160, UInt160> scriptIdMap)
             {
                 this.context = context;
-                this.ScriptIdentifier = context.GetScriptHash();
+                this.ScriptHash = context.GetScriptHash();
 
-                if (scriptIdMap.TryGetValue(this.ScriptIdentifier, out var scriptHash))
+                if (scriptIdMap.TryGetValue(this.ScriptHash, out var scriptHash))
                 {
-                    this.ScriptHash = scriptHash;
+                    this.ScriptIdentifier = scriptHash;
                 }
                 else
                 {
-                    this.ScriptHash = Neo.SmartContract.Helper.ToScriptHash(context.Script);
-                    scriptIdMap[this.ScriptIdentifier] = this.ScriptHash;
+                    this.ScriptIdentifier = Neo.SmartContract.Helper.ToScriptHash(context.Script);
+                    scriptIdMap[this.ScriptHash] = this.ScriptIdentifier;
                 }
             }
 
@@ -43,8 +43,8 @@ namespace NeoDebug.Neo3
 
             public Script Script => context.Script;
 
-            public UInt160 ScriptIdentifier { get; }
             public UInt160 ScriptHash { get; }
+            public UInt160 ScriptIdentifier { get; }
 
             static IReadOnlyList<StackItem> Coalese(Neo.VM.Slot? slot) => (slot == null) ? Array.Empty<StackItem>() : slot;
         }

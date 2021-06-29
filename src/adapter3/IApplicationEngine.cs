@@ -25,6 +25,8 @@ namespace NeoDebug.Neo3
         IReadOnlyCollection<IExecutionContext> InvocationStack { get; }
         IExecutionContext? CurrentContext { get; }
         IReadOnlyList<StackItem> ResultStack { get; }
+        long GasConsumed { get; }
+        BigDecimal GasConsumedAsBigDecimal => new BigDecimal((System.Numerics.BigInteger)GasConsumed, Neo.SmartContract.Native.NativeContract.GAS.Decimals);
         Exception? FaultException { get; }
         VMState State { get; }
         bool AtStart { get; }
