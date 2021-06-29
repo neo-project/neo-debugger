@@ -799,6 +799,31 @@ namespace NeoDebug.Neo3
             var debugInfo = (await DebugInfo.LoadAsync(program, sourceFileMap).ConfigureAwait(false))
                 .Match(di => di, _ => throw new FileNotFoundException(program));
             yield return debugInfo;
+
+            if (config.TryGetValue("stored-contracts", out var storedContracts))
+            {
+                foreach (var storedContract in storedContracts)
+                {
+                    if (storedContract.Type == JTokenType.String)
+                    {
+                        program = storedContract.Value<string>() ?? throw new JsonException("invalid stored-contracts item");
+                        debugInfo = (await DebugInfo.LoadAsync(program, sourceFileMap).ConfigureAwait(false))
+                            .Match(di => di, _ => throw new FileNotFoundException(program));
+                        yield return debugInfo;
+                    }
+                    else if (storedContract.Type == JTokenType.Object)
+                    {
+                        program = storedContract.Value<string>("program") ?? throw new JsonException("missing program property");
+                        debugInfo = (await DebugInfo.LoadAsync(program, sourceFileMap).ConfigureAwait(false))
+                            .Match(di => di, _ => throw new FileNotFoundException(program));
+                        yield return debugInfo;
+                    }
+                    else
+                    {
+                        throw new Exception("invalid stored-contract value");
+                    }
+                }
+            }
         }
     }
 }
