@@ -54,7 +54,7 @@
                 "neo-debugger.debug": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Pass the --debug flag when launching the Neo Debugger server"
+                    "description": "Pass the --debug flag when launching the Neo Debugger server. Note, this setting is for developers contributing to the Neo Debugger extension. If you're *using* the Neo Debugger extension, setting this flag will cause the debugger to hang."
                 },
                 "neo-debugger.default-debug-view": {
                     "type": "string",
