@@ -61,6 +61,13 @@ namespace NeoDebug.Neo3
 
             var debugInfoList = await LoadDebugInfosAsync(launchArguments.ConfigurationProperties, sourceFileMap).ToListAsync().ConfigureAwait(false);
             var engine = await CreateEngineAsync(launchArguments.ConfigurationProperties).ConfigureAwait(false);
+            if (engine is TraceApplicationEngine)
+            {
+                sendEvent(new CapabilitiesEvent 
+                { 
+                    Capabilities = new Capabilities { SupportsStepBack = true }
+                });
+            }
             return new DebugSession(engine, debugInfoList, returnTypes, sendEvent, defaultDebugView);
         }
 
