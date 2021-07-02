@@ -21,9 +21,6 @@ namespace NeoDebug.Neo3
         [Option("-v|--debug-view")]
         private string DefaultDebugView { get; } = string.Empty;
 
-        [Option]
-        private bool Trace { get; }
-
         public Program()
         {
             var neoDebugLogPath = Path.Combine(
@@ -61,7 +58,6 @@ namespace NeoDebug.Neo3
                 Console.OpenStandardInput(),
                 Console.OpenStandardOutput(),
                 LogMessage,
-                Trace,
                 defaultDebugView);
 
             adapter.Run();

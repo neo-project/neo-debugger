@@ -28,7 +28,6 @@ namespace NeoDebug.Neo3
 
         private readonly DebugSessionFactory sessionFactory;
         private readonly Action<LogCategory, string> logger;
-        private readonly bool trace;
         private readonly DebugView defaultDebugView;
         private IDebugSession? session;
 
@@ -36,12 +35,10 @@ namespace NeoDebug.Neo3
                             System.IO.Stream @in,
                             System.IO.Stream @out,
                             Action<LogCategory, string>? logger,
-                            bool trace,
                             DebugView defaultDebugView)
         {
             this.sessionFactory = sessionFactory;
             this.logger = logger ?? ((_, __) => { });
-            this.trace = trace;
             this.defaultDebugView = defaultDebugView;
 
             InitializeProtocolClient(@in, @out);
@@ -68,7 +65,6 @@ namespace NeoDebug.Neo3
             {
                 SupportsEvaluateForHovers = true,
                 SupportsExceptionInfoRequest = true,
-                SupportsStepBack = trace,
                 ExceptionBreakpointFilters = new List<ExceptionBreakpointsFilter>
                 {
                     new ExceptionBreakpointsFilter(
