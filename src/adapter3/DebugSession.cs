@@ -44,6 +44,14 @@ namespace NeoDebug.Neo3
 
             this.engine.DebugNotify += OnNotify;
             this.engine.DebugLog += OnLog;
+
+            if (engine.SupportsStepBack)
+            {
+                sendEvent(new CapabilitiesEvent 
+                { 
+                    Capabilities = new Capabilities { SupportsStepBack = true }
+                });
+            }
         }
 
         private void OnNotify(object? sender, (UInt160 scriptHash, string scriptName, string eventName, NeoArray state) args)
