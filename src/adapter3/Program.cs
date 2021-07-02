@@ -54,7 +54,6 @@ namespace NeoDebug.Neo3
                 throw new ArgumentException(nameof(DefaultDebugView));
 
             var adapter = new DebugAdapter(
-                LaunchConfigParser.CreateDebugSessionAsync,
                 Console.OpenStandardInput(),
                 Console.OpenStandardOutput(),
                 LogMessage,
