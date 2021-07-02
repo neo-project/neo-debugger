@@ -26,22 +26,16 @@ namespace NeoDebug.Neo3
             public string DebugView { get; set; } = string.Empty;
         }
 
-        private readonly DebugSessionFactory sessionFactory;
         private readonly Action<LogCategory, string> logger;
-        private readonly bool trace;
         private readonly DebugView defaultDebugView;
         private IDebugSession? session;
 
-        public DebugAdapter(DebugSessionFactory sessionFactory,
-                            System.IO.Stream @in,
+        public DebugAdapter(System.IO.Stream @in,
                             System.IO.Stream @out,
                             Action<LogCategory, string>? logger,
-                            bool trace,
                             DebugView defaultDebugView)
         {
-            this.sessionFactory = sessionFactory;
             this.logger = logger ?? ((_, __) => { });
-            this.trace = trace;
             this.defaultDebugView = defaultDebugView;
 
             InitializeProtocolClient(@in, @out);
@@ -62,13 +56,10 @@ namespace NeoDebug.Neo3
 
         protected override InitializeResponse HandleInitializeRequest(InitializeArguments arguments)
         {
-            Protocol.SendEvent(new InitializedEvent());
-
             return new InitializeResponse()
             {
                 SupportsEvaluateForHovers = true,
                 SupportsExceptionInfoRequest = true,
-                SupportsStepBack = trace,
                 ExceptionBreakpointFilters = new List<ExceptionBreakpointsFilter>
                 {
                     new ExceptionBreakpointsFilter(
@@ -87,27 +78,38 @@ namespace NeoDebug.Neo3
             };
         }
 
-        protected override LaunchResponse HandleLaunchRequest(LaunchArguments arguments)
+        protected override void HandleLaunchRequestAsync(IRequestResponder<LaunchArguments> responder)
         {
-            // since CreateDebugSession is an async method, we should be using HandleLaunchRequestAsync.
-            // However, using HandleLaunchRequestAsync causes VSCode to send setBreakpoints and
-            // threads request before receiving the launch response. 
-
-            try
+            if (session != null)
             {
-                if (session != null) throw new InvalidOperationException();
-
-                session = sessionFactory(arguments, Protocol.SendEvent, defaultDebugView)
-                    .GetAwaiter().GetResult();
-                session.Start();
-
-                return new LaunchResponse();
-            }
-            catch (Exception ex)
-            {
+                var ex = new InvalidOperationException();
                 Log(ex.Message, LogCategory.DebugAdapterOutput);
-                throw new ProtocolException(ex.Message, ex);
+                responder.SetError(new ProtocolException(ex.Message, ex));
+                return;
             }
+
+            LaunchConfigParser.CreateDebugSessionAsync(responder.Arguments, Protocol.SendEvent, defaultDebugView)
+                .ContinueWith(t => 
+                {
+                    if (t.IsCompletedSuccessfully)
+                    {
+                        session = t.Result;
+                        session.Start();
+                        Protocol.SendEvent(new InitializedEvent());
+                        responder.SetResponse(new LaunchResponse());
+                    }
+                    else
+                    {
+                        if (t.Exception != null)
+                        {
+                            responder.SetError(new ProtocolException(t.Exception.Message, t.Exception));
+                        }
+                        else
+                        {
+                            responder.SetError(new ProtocolException($"Unknown error in {nameof(LaunchConfigParser.CreateDebugSessionAsync)}"));
+                        }
+                    }
+                });
         }
 
         private void HandleDebugViewRequest(DebugViewArguments arguments)
