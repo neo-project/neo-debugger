@@ -46,6 +46,8 @@ namespace NeoDebug.Neo3
             }
         }
 
+        bool IApplicationEngine.SupportsStepBack => true;
+
         public bool ExecuteNextInstruction()
         {
             while (traceFile.TryGetNext(out var record))

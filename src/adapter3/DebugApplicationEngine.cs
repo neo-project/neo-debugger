@@ -43,6 +43,8 @@ namespace NeoDebug.Neo3
             base.Dispose();
         }
 
+        bool IApplicationEngine.SupportsStepBack => false;
+
         private void OnNotify(object? sender, NotifyEventArgs args)
         {
             var name = GetContractName(args.ScriptHash);
