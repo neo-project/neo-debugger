@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Text;
@@ -86,7 +87,7 @@ namespace NeoDebug.Neo3
             var lineMapBuilder = ImmutableDictionary.CreateBuilder<int, int>();
 
             var documents = debugInfo?.Documents
-                .Select(path => (fileName: System.IO.Path.GetFileName(path), lines: System.IO.File.ReadAllLines(path)))
+                .Select(path => (fileName: Path.GetFileName(path), lines: File.Exists(path) ? File.ReadAllLines(path) : Array.Empty<string>()))
                 .ToImmutableList() ?? ImmutableList<(string, string[])>.Empty;
             var methodStarts = debugInfo?.Methods.ToImmutableDictionary(m => m.Range.Start) 
                 ?? ImmutableDictionary<int, DebugInfo.Method>.Empty;
@@ -112,14 +113,19 @@ namespace NeoDebug.Neo3
                     && sp.Document < documents.Count)
                 {
                     var doc = documents[sp.Document];
-                    var srcLine = doc.lines[sp.Start.line - 1].Substring(sp.Start.column - 1);
-                    if (sp.Start.line == sp.End.line)
+                    if (doc.lines.Length > sp.Start.line - 1)
                     {
-                        srcLine = srcLine.Substring(0, sp.End.column - sp.Start.column);
-                    }
+                        var srcLine = doc.lines[sp.Start.line - 1];
 
-                    sourceBuilder.AppendLine($"# Code {doc.fileName} line {sp.Start.line}: \"{srcLine}\"");
-                    line++;
+                        if (sp.Start.column > 1) srcLine = srcLine.Substring(sp.Start.column - 1);
+                        if (sp.Start.line == sp.End.line && sp.End.column > sp.Start.column)
+                        {
+                            srcLine = srcLine.Substring(0, sp.End.column - sp.Start.column);
+                        }
+
+                        sourceBuilder.AppendLine($"# Code {doc.fileName} line {sp.Start.line}: \"{srcLine.Trim()}\"");
+                        line++;
+                    }
                 }
 
                 AddSource(sourceBuilder, instructions[i].address, instructions[i].instruction, padString);

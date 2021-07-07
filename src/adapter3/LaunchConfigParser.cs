@@ -555,13 +555,10 @@ namespace NeoDebug.Neo3
                     const int MaxUrlLength = 256;
                     const int MaxUserDataLength = 512;
 
-                    if (Neo.Utility.StrictUTF8.GetByteCount(invocation.Url) > MaxUrlLength
-                        || Neo.Utility.StrictUTF8.GetByteCount(invocation.Filter) > MaxFilterLength
-                        || Neo.Utility.StrictUTF8.GetByteCount(invocation.Callback) > MaxCallbackLength
-                        || invocation.Callback.StartsWith('_'))
-                    {
-                        throw new ArgumentException();
-                    }
+                    if (Neo.Utility.StrictUTF8.GetByteCount(invocation.Url) > MaxUrlLength) throw new ArgumentException("Invalid URL Length");
+                    if (Neo.Utility.StrictUTF8.GetByteCount(invocation.Filter) > MaxFilterLength) throw new ArgumentException("Invalid Filter Length");
+                    if (Neo.Utility.StrictUTF8.GetByteCount(invocation.Callback) > MaxCallbackLength) throw new ArgumentException("Invalid Callback Length");
+                    if (invocation.Callback.StartsWith('_')) throw new ArgumentException($"Invalid Callback {invocation.Callback}");
 
                     var idKey = new KeyBuilder(NativeContract.Oracle.Id, Prefix_RequestId);
                     var item_id = snapshot.GetAndChange(idKey);
@@ -665,7 +662,7 @@ namespace NeoDebug.Neo3
                 {
                     20 => new UInt160(hashOrPubkey),
                     33 => Contract.CreateSignatureRedeemScript(ECPoint.DecodePoint(hashOrPubkey, ECCurve.Secp256r1)).ToScriptHash(),
-                    _ => throw new ArgumentException()
+                    _ => throw new ArgumentException($"Invalid Witness length {hashOrPubkey.Length}")
                 };
                 return witnesses.Contains(hash);
             }
@@ -721,15 +718,16 @@ namespace NeoDebug.Neo3
 
         static UInt160 ParseAddress(string text, ExpressChain? chain, byte version)
         {
-            text = text[0] == '@' ? text[1..] : text;
-
-            if (chain != null)
+            if (text[0] == '@')
             {
+                if (chain == null) throw new FormatException($"You must specify a neo-express file in your launch config in order to use {text} as an address");
+                var account = text[1..];
+
                 if (chain.Wallets != null && chain.Wallets.Count > 0)
                 {
                     for (int i = 0; i < chain.Wallets.Count; i++)
                     {
-                        if (string.Equals(text, chain.Wallets[i].Name, StringComparison.OrdinalIgnoreCase)
+                        if (string.Equals(account, chain.Wallets[i].Name, StringComparison.OrdinalIgnoreCase)
                             && TryToScriptHash(chain.Wallets[i].DefaultAccount?.ScriptHash ?? string.Empty, version, out var scriptHash))
                         {
                             return scriptHash;
@@ -742,14 +740,14 @@ namespace NeoDebug.Neo3
                 for (int i = 0; i < chain.ConsensusNodes.Count; i++)
                 {
                     var nodeWallet = chain.ConsensusNodes[i].Wallet;
-                    if (string.Equals(text, nodeWallet.Name, StringComparison.OrdinalIgnoreCase)
+                    if (string.Equals(account, nodeWallet.Name, StringComparison.OrdinalIgnoreCase)
                         && TryToScriptHash(nodeWallet.DefaultAccount?.ScriptHash ?? string.Empty, version, out var scriptHash))
                     {
                         return scriptHash;
                     }
                 }
 
-                if (string.Equals(text, "genesis", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(account, "genesis", StringComparison.OrdinalIgnoreCase))
                 {
                     return GetGenesisScriptHash(chain, version);
                 }
@@ -760,16 +758,16 @@ namespace NeoDebug.Neo3
                 return hash;
             }
 
-            throw new FormatException();
+            throw new FormatException($"Invalid Account {text}");
 
             static bool TryToScriptHash(string address, byte version, [NotNullWhen(true)] out UInt160? scriptHash)
             {
-                byte[] data = Neo.Cryptography.Base58.Base58CheckDecode(address);
-                if (data.Length == 21 && data[0] == version)
+                try
                 {
-                    scriptHash = new UInt160(data.AsSpan(1));
+                    scriptHash = address.ToScriptHash(version);
                     return true;
                 }
+                catch {}
 
                 scriptHash = default;
                 return false;
@@ -789,7 +787,7 @@ namespace NeoDebug.Neo3
                     }
                 }
 
-                throw new FormatException();
+                throw new FormatException("Could not locate consensus node multi-sig contract");
             }
         }
 
