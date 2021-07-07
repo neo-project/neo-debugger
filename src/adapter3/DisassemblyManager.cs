@@ -115,13 +115,15 @@ namespace NeoDebug.Neo3
                     var doc = documents[sp.Document];
                     if (doc.lines.Length > sp.Start.line - 1)
                     {
-                        var srcLine = doc.lines[sp.Start.line - 1].Substring(sp.Start.column - 1);
-                        if (sp.Start.line == sp.End.line)
+                        var srcLine = doc.lines[sp.Start.line - 1];
+
+                        if (sp.Start.column > 1) srcLine = srcLine.Substring(sp.Start.column - 1);
+                        if (sp.Start.line == sp.End.line && sp.End.column > sp.Start.column)
                         {
                             srcLine = srcLine.Substring(0, sp.End.column - sp.Start.column);
                         }
 
-                        sourceBuilder.AppendLine($"# Code {doc.fileName} line {sp.Start.line}: \"{srcLine}\"");
+                        sourceBuilder.AppendLine($"# Code {doc.fileName} line {sp.Start.line}: \"{srcLine.Trim()}\"");
                         line++;
                     }
                 }
