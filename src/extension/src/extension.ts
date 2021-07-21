@@ -297,10 +297,6 @@ class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDes
             args.push(defaultDebugView);
         }
 
-        if (session.configuration["invocation"]?.["trace-file"]) {
-            args.push("--trace");
-        }
-
         const options = session.workspaceFolder ? { cwd: session.workspaceFolder.uri.fsPath } : {};
         this.channel.appendLine(`launching ${cmd} ${args.join(' ')}`);
         this.channel.appendLine(`current directory ${options.cwd ?? 'missing'}`);

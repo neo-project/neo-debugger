@@ -21,10 +21,13 @@ namespace NeoDebug.Neo3
         bool TryGetContract(UInt160 scriptHash, [MaybeNullWhen(false)] out Script script);
         StorageContainerBase GetStorageContainer(UInt160 scriptHash);
 
+        bool SupportsStepBack { get; }
         byte AddressVersion { get; }
         IReadOnlyCollection<IExecutionContext> InvocationStack { get; }
         IExecutionContext? CurrentContext { get; }
         IReadOnlyList<StackItem> ResultStack { get; }
+        long GasConsumed { get; }
+        BigDecimal GasConsumedAsBigDecimal => new BigDecimal((System.Numerics.BigInteger)GasConsumed, Neo.SmartContract.Native.NativeContract.GAS.Decimals);
         Exception? FaultException { get; }
         VMState State { get; }
         bool AtStart { get; }

@@ -9,6 +9,7 @@ using System.Diagnostics.CodeAnalysis;
 using Neo.BlockchainToolkit.TraceDebug;
 using System.Linq;
 using System.IO;
+using Neo.SmartContract.Native;
 
 namespace NeoDebug.Neo3
 {
@@ -44,6 +45,8 @@ namespace NeoDebug.Neo3
                 disposedValue = true;
             }
         }
+
+        bool IApplicationEngine.SupportsStepBack => true;
 
         public bool ExecuteNextInstruction()
         {
@@ -83,6 +86,7 @@ namespace NeoDebug.Neo3
             {
                 case TraceRecord trace:
                     State = trace.State;
+                    GasConsumed = trace.GasConsumed;
                     stackFrames = trace.StackFrames;
                     InvocationStack = trace.StackFrames
                         .Select(sf => new ExecutionContextAdapter(sf, contracts))
@@ -120,6 +124,7 @@ namespace NeoDebug.Neo3
         public IExecutionContext? CurrentContext => InvocationStack.FirstOrDefault();
         public IReadOnlyList<StackItem> ResultStack { get; private set; } = new List<StackItem>();
         public Exception? FaultException { get; private set; }
+        public long GasConsumed { get; private set; }
 
         public event EventHandler<(UInt160 scriptHash, string scriptName, string eventName, NeoArray state)>? DebugNotify;
         public event EventHandler<(UInt160 scriptHash, string scriptName, string message)>? DebugLog;
