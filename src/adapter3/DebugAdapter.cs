@@ -47,6 +47,7 @@ namespace NeoDebug.Neo3
         public void Run()
         {
             Protocol.Run();
+            Protocol.WaitForReader();
         }
 
         private void Log(string message, LogCategory category = LogCategory.DebugAdapterOutput)
