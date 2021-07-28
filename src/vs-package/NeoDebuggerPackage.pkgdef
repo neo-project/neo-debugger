@@ -29,4 +29,12 @@
 "LanguageId"="{00000000-0000-0000-0000-000000000000}" 
 
 ; Launch Info 
-;"Adapter"="C:\Users\harry\Source\neo\seattle\debugger\src\adapter3\bin\Debug\net5.0\neodebug-3-adapter.exe" 
+"Adapter"="C:\Users\harry\Source\neo\seattle\debugger\src\adapter3\bin\Debug\net5.0\neodebug-3-adapter.exe" 
+
+; Locals Scope Name (optional)
+;  If a debug adapter returns a single scope in response to the "scopes" request, its contents are shown as
+;    top-level items in the "Locals" window in VS.  If more than one scope is returned in response to the
+;    "scopes" request, each scope's name is displayed as a top-level item in the "Locals" window, and the
+;    contents of the scope are shown as children of the top-level item.  In this scenario, the contents of
+;    a scope can be promoted to top-level items by specifying the name of the scope here.
+"LocalsScopeName"="Variables"
