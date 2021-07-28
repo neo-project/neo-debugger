@@ -1,8 +1,12 @@
-﻿using Microsoft.VisualStudio.Shell;
+﻿using EnvDTE;
+using EnvDTE80;
+using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.Design;
 using System.Globalization;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Task = System.Threading.Tasks.Task;
@@ -28,6 +32,11 @@ namespace NeoDebug.VS
         /// VS Package that provides this command, not null.
         /// </summary>
         private readonly AsyncPackage package;
+
+        const string DebugAdapterHostPackageCmdSet = "0ddba113-7ac1-4c6e-a2ef-dcac3f9e731e";
+        const int LaunchCommandId = 0x0101;
+        static readonly Guid NeoDebugAdapterId = new Guid("BA0544E5-B299-4A4D-B6BB-C62E1C6CFA71");
+
 
         /// <summary>
         /// Initializes a new instance of the <see cref="LaunchNeoDebugger"/> class.
@@ -89,17 +98,91 @@ namespace NeoDebug.VS
         private void Execute(object sender, EventArgs e)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            string message = string.Format(CultureInfo.CurrentCulture, "Inside {0}.MenuItemCallback()", this.GetType().FullName);
-            string title = "LaunchNeoDebugger";
 
-            // Show a message box to prove we were here
-            VsShellUtilities.ShowMessageBox(
-                this.package,
-                message,
-                title,
-                OLEMSGICON.OLEMSGICON_INFO,
-                OLEMSGBUTTON.OLEMSGBUTTON_OK,
-                OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+            var configs = new List<(string path, bool isUserPath)>();
+            DTE2 dte = (DTE2)((IServiceProvider)this.package).GetService(typeof(SDTE));
+            if (dte != null)
+            {
+                foreach (Project project in dte.Solution.Projects)
+                {
+                    GetProjectLaunchConfigurations(project.ProjectItems, configs);
+                }
+            }
+
+            if (configs.Count == 0)
+            {
+                VsShellUtilities.ShowMessageBox(
+                    package,
+                    "No Launch Configurations Found",
+                    nameof(LaunchNeoDebugger),
+                    OLEMSGICON.OLEMSGICON_INFO,
+                    OLEMSGBUTTON.OLEMSGBUTTON_OK,
+                    OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+            }
+            else
+            {
+                try
+                {
+                    string parameters = FormattableString.Invariant($@"/LaunchJson:""{configs[0].path}"" /EngineGuid:""{NeoDebugAdapterId}""");
+                    dte.Commands.Raise(DebugAdapterHostPackageCmdSet, LaunchCommandId, parameters, IntPtr.Zero);
+                }
+                catch (Exception ex)
+                {
+                    VsShellUtilities.ShowMessageBox(
+                        package,
+                        string.Format(CultureInfo.CurrentCulture, "Launch failed.  Error: {0}", ex.Message),
+                        nameof(LaunchNeoDebugger),
+                        OLEMSGICON.OLEMSGICON_WARNING,
+                        OLEMSGBUTTON.OLEMSGBUTTON_OK,
+                        OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+                }
+            }
+
+        }
+    
+        private void GetProjectLaunchConfigurations(ProjectItems items, List<(string path, bool isUserPath)> configs)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            short fileNameIndex = 0;
+            foreach (ProjectItem projectItem in items)
+            {
+                if (projectItem.ProjectItems != null && projectItem.ProjectItems.Count != 0)
+                {
+                    GetProjectLaunchConfigurations(projectItem.ProjectItems, configs);
+                }
+
+                if (projectItem.SubProject != null && projectItem.SubProject.ProjectItems != null)
+                {
+                    GetProjectLaunchConfigurations(projectItem.SubProject.ProjectItems, configs);
+                }
+
+                string fileName = null;
+                try
+                {
+                    fileName = projectItem.FileNames[fileNameIndex];
+                }
+                catch
+                {
+                    // Some project systems use 0-based indexes, others are 1-based - try the other option
+                    fileNameIndex = (short)((fileNameIndex == 0) ? 1 : 0);
+
+                    try
+                    {
+                        fileName = projectItem.FileNames[fileNameIndex];
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(fileName) &&
+                    Path.GetFileName(fileName).StartsWith("launch", StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(Path.GetExtension(fileName), ".json", StringComparison.OrdinalIgnoreCase))
+                {
+                    configs.Add((fileName, false));
+                }
+            }
         }
     }
 }
