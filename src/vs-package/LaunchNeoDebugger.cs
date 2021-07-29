@@ -34,6 +34,8 @@ namespace NeoDebug.VS
         /// </summary>
         private readonly AsyncPackage package;
 
+        private readonly string tempLaunchPath = Path.GetTempFileName();
+
         /// <summary>
         /// Initializes a new instance of the <see cref="LaunchNeoDebugger"/> class.
         /// Adds our command handlers for menu (commands must exist in the command table file)
@@ -90,77 +92,39 @@ namespace NeoDebug.VS
         {
             ThreadHelper.ThrowIfNotOnUIThread();
 
-            var configFiles = new List<string>();
-            DTE2 dte = (DTE2)((IServiceProvider)this.package).GetService(typeof(SDTE));
-            if (dte != null)
-            {
-                foreach (Project project in dte.Solution.Projects)
-                {
-                    GetProjectLaunchConfigurations(project.ProjectItems, configFiles);
-                }
-            }
-
-            var launchConfigs = configFiles
-                .SelectMany(ParseLaunchConfigJson)
-                .Where(t => t.config.TryGetValue("type", out var type) && type.Value<string>() == "neo-contract")
+            var dte = ServiceProvider.GetService<SDTE, DTE2>();
+            var launchConfigs = GetLaunchJsonFiles(dte.Solution)
+                .SelectMany(ParseLaunchJsonFile)
+                .Where(t => t.config.TryGetValue("type", out JToken type) && type.Value<string>() == "neo-contract")
                 .ToArray();
 
-            if (configFiles.Count == 0)
+            if (launchConfigs.Length == 0)
             {
-                VsShellUtilities.ShowMessageBox(
+                _ = VsShellUtilities.ShowMessageBox(
                     package,
-                    "No Launch Configurations Found",
+                    "No neo-contract Launch Configurations Found",
                     nameof(LaunchNeoDebugger),
                     OLEMSGICON.OLEMSGICON_INFO,
                     OLEMSGBUTTON.OLEMSGBUTTON_OK,
                     OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
-            }
-            else
-            {
-                try
-                {
-                    var (_, config) = launchConfigs.Last();
-                    LaunchDebugger(config);
-                }
-                catch (Exception ex)
-                {
-                    VsShellUtilities.ShowMessageBox(
-                        package,
-                        string.Format(CultureInfo.CurrentCulture, "Launch failed.  Error: {0}", ex.Message),
-                        nameof(LaunchNeoDebugger),
-                        OLEMSGICON.OLEMSGICON_WARNING,
-                        OLEMSGBUTTON.OLEMSGBUTTON_OK,
-                        OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
-                }
+                return;
             }
 
-        }
+            var (_, config) = launchConfigs.Last();
 
-        private IEnumerable<(string file, JObject config)> ParseLaunchConfigJson(string launchFilePath)
-        {
-            ThreadHelper.ThrowIfNotOnUIThread();
-
-            var solution = (IVsSolution)ServiceProvider.GetService(typeof(SVsSolution)) ?? throw new Exception();
-            solution.GetSolutionInfo(out string solutionDirectory, out _, out _);
-            var relativeLaunchFilePath = launchFilePath.TrimPrefix(solutionDirectory);
-            var json = JObject.Parse(File.ReadAllText(launchFilePath));
-
-            if (json.TryGetValue("version", out var version)
-                && json.TryGetValue("configurations", out var configurations)
-                && version.Value<string>() == "0.2.0"
-                && configurations is JArray configArray)
+            try
             {
-                foreach (var item in configArray)
-                {
-                    if (item is JObject config)
-                    {
-                        yield return (relativeLaunchFilePath, config);
-                    }
-                }
+                LaunchDebugger(config);
             }
-            else
+            catch (Exception ex)
             {
-                yield return (relativeLaunchFilePath, json);
+                _ = VsShellUtilities.ShowMessageBox(
+                    package,
+                    string.Format(CultureInfo.CurrentCulture, "Debugger Launch failed.  Error: {0}", ex.Message),
+                    nameof(LaunchNeoDebugger),
+                    OLEMSGICON.OLEMSGICON_WARNING,
+                    OLEMSGBUTTON.OLEMSGBUTTON_OK,
+                    OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
             }
         }
 
@@ -175,24 +139,23 @@ namespace NeoDebug.VS
 
             try
             {
-                var solution = (IVsSolution)ServiceProvider.GetService(typeof(SVsSolution)) ?? throw new Exception();
-                var dte = (DTE2)ServiceProvider.GetService(typeof(SDTE)) ?? throw new Exception();
+                var solution = ServiceProvider.GetService<SVsSolution, IVsSolution>();
+                var dte = ServiceProvider.GetService<SDTE, DTE2>();
 
-                solution.GetSolutionInfo(out string solutionDirectory, out _, out _);
-                solutionDirectory = solutionDirectory.Trim('\\');
+                var (solutionDirectory, _, _) = solution.GetSolutionInfo();
+                solutionDirectory = solutionDirectory.TrimEnd('\\').Replace('\\', '/');
 
-                config = JObject.Parse(config.ToString().Replace("${workspaceFolder}", solutionDirectory.Replace(@"\", @"\\")));
+                config = JObject.Parse(config.ToString().Replace("${workspaceFolder}", solutionDirectory));
                 config["$adapter"] = adapterPath;
- 
-                var launchPath = Path.GetTempFileName();
-                File.WriteAllText(launchPath, config.ToString(Formatting.Indented));
-                
-                string parameters = FormattableString.Invariant($@"/LaunchJson:""{launchPath}"" /EngineGuid:""{NeoDebugAdapterId}""");
+
+                File.WriteAllText(tempLaunchPath, config.ToString(Formatting.Indented));
+
+                string parameters = FormattableString.Invariant($@"/LaunchJson:""{tempLaunchPath}"" /EngineGuid:""{NeoDebugAdapterId}""");
                 dte.Commands.Raise(DebugAdapterHostPackageCmdSet, DebugAdapterHostLaunchCommandId, parameters, IntPtr.Zero);
             }
             catch (Exception ex)
             {
-                VsShellUtilities.ShowMessageBox(
+                _ = VsShellUtilities.ShowMessageBox(
                     package,
                     string.Format(CultureInfo.CurrentCulture, "Launch failed.  Error: {0}", ex.Message),
                     nameof(LaunchNeoDebugger),
@@ -200,10 +163,22 @@ namespace NeoDebug.VS
                     OLEMSGBUTTON.OLEMSGBUTTON_OK,
                     OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
             }
-
         }
 
-        private void GetProjectLaunchConfigurations(ProjectItems items, List<string> configFiles)
+        IEnumerable<string> GetLaunchJsonFiles(Solution sln)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            foreach (Project project in sln.Projects)
+            {
+                foreach (var config in GetLaunchJsonFiles(project.ProjectItems))
+                {
+                    yield return config;
+                }
+            }
+        }
+
+        IEnumerable<string> GetLaunchJsonFiles(ProjectItems items)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
 
@@ -212,12 +187,18 @@ namespace NeoDebug.VS
             {
                 if (projectItem.ProjectItems != null && projectItem.ProjectItems.Count != 0)
                 {
-                    GetProjectLaunchConfigurations(projectItem.ProjectItems, configFiles);
+                    foreach (var config in GetLaunchJsonFiles(projectItem.ProjectItems))
+                    {
+                        yield return config;
+                    }
                 }
 
                 if (projectItem.SubProject != null && projectItem.SubProject.ProjectItems != null)
                 {
-                    GetProjectLaunchConfigurations(projectItem.SubProject.ProjectItems, configFiles);
+                    foreach (var config in GetLaunchJsonFiles(projectItem.SubProject.ProjectItems))
+                    {
+                        yield return config;
+                    }
                 }
 
                 string fileName = null;
@@ -243,8 +224,50 @@ namespace NeoDebug.VS
                     Path.GetFileName(fileName).StartsWith("launch", StringComparison.OrdinalIgnoreCase) &&
                     string.Equals(Path.GetExtension(fileName), ".json", StringComparison.OrdinalIgnoreCase))
                 {
-                    configFiles.Add(fileName);
+                    yield return fileName;
                 }
+            }
+        }
+
+        private IEnumerable<(string file, JObject config)> ParseLaunchJsonFile(string launchFilePath)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            var solution = ServiceProvider.GetService<SVsSolution, IVsSolution>();
+            var (solutionDirectory, _, _) = solution.GetSolutionInfo();
+            var relativeLaunchFilePath = launchFilePath.TrimPrefix(solutionDirectory);
+
+            if (TryLoadJObject(launchFilePath, out JObject json)
+                && json.TryGetValue("version", out JToken version)
+                && version.Value<string>() == "0.2.0"
+                && json.TryGetValue("configurations", out JToken configurations)
+                && configurations is JArray configArray)
+            {
+                for (int i = 0; i < configArray.Count; i++)
+                {
+                    if (configArray[i] is JObject config)
+                    {
+                        yield return (relativeLaunchFilePath, config);
+                    }
+                }
+            }
+            else
+            {
+                yield return (relativeLaunchFilePath, json);
+            }
+        }
+
+        private static bool TryLoadJObject(string path, out JObject json)
+        {
+            try
+            {
+                json = JObject.Parse(File.ReadAllText(path));
+                return true;
+            }
+            catch
+            {
+                json = null;
+                return false;
             }
         }
     }

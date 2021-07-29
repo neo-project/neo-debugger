@@ -48,6 +48,7 @@
     <Content Include="NeoDebuggerPackage.pkgdef">
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
+    <Compile Include="Extensions.cs" />
     <Compile Include="LaunchNeoDebugger.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="NeoDebuggerPackage.cs" />
@@ -59,12 +60,18 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Microsoft.CSharp" />
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
     <Reference Include="System" />
     <Reference Include="System.Data" />
+    <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="System.Design" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xaml" />
     <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.VisualStudio.SDK" Version="16.0.206" ExcludeAssets="runtime" />
