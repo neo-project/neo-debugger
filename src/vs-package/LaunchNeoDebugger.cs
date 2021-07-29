@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.ComponentModel.Design;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using Task = System.Threading.Tasks.Task;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -99,6 +100,11 @@ namespace NeoDebug.VS
                 }
             }
 
+            var launchConfigs = configFiles
+                .SelectMany(ParseLaunchConfigJson)
+                .Where(t => t.config.TryGetValue("type", out var type) && type.Value<string>() == "neo-contract")
+                .ToArray();
+
             if (configFiles.Count == 0)
             {
                 VsShellUtilities.ShowMessageBox(
@@ -113,7 +119,7 @@ namespace NeoDebug.VS
             {
                 try
                 {
-                    var config = JObject.Parse(File.ReadAllText(configFiles[0]));
+                    var (_, config) = launchConfigs.Last();
                     LaunchDebugger(config);
                 }
                 catch (Exception ex)
@@ -128,6 +134,34 @@ namespace NeoDebug.VS
                 }
             }
 
+        }
+
+        private IEnumerable<(string file, JObject config)> ParseLaunchConfigJson(string launchFilePath)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            var solution = (IVsSolution)ServiceProvider.GetService(typeof(SVsSolution)) ?? throw new Exception();
+            solution.GetSolutionInfo(out string solutionDirectory, out _, out _);
+            var relativeLaunchFilePath = launchFilePath.TrimPrefix(solutionDirectory);
+            var json = JObject.Parse(File.ReadAllText(launchFilePath));
+
+            if (json.TryGetValue("version", out var version)
+                && json.TryGetValue("configurations", out var configurations)
+                && version.Value<string>() == "0.2.0"
+                && configurations is JArray configArray)
+            {
+                foreach (var item in configArray)
+                {
+                    if (item is JObject config)
+                    {
+                        yield return (relativeLaunchFilePath, config);
+                    }
+                }
+            }
+            else
+            {
+                yield return (relativeLaunchFilePath, json);
+            }
         }
 
         private void LaunchDebugger(JObject config)
