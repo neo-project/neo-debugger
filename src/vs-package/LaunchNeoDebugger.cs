@@ -7,9 +7,9 @@ using System.Collections.Generic;
 using System.ComponentModel.Design;
 using System.Globalization;
 using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
 using Task = System.Threading.Tasks.Task;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace NeoDebug.VS
 {
@@ -32,11 +32,6 @@ namespace NeoDebug.VS
         /// VS Package that provides this command, not null.
         /// </summary>
         private readonly AsyncPackage package;
-
-        const string DebugAdapterHostPackageCmdSet = "0ddba113-7ac1-4c6e-a2ef-dcac3f9e731e";
-        const int LaunchCommandId = 0x0101;
-        static readonly Guid NeoDebugAdapterId = new Guid("BA0544E5-B299-4A4D-B6BB-C62E1C6CFA71");
-
 
         /// <summary>
         /// Initializes a new instance of the <see cref="LaunchNeoDebugger"/> class.
@@ -66,13 +61,8 @@ namespace NeoDebug.VS
         /// <summary>
         /// Gets the service provider from the owner package.
         /// </summary>
-        private Microsoft.VisualStudio.Shell.IAsyncServiceProvider ServiceProvider
-        {
-            get
-            {
-                return this.package;
-            }
-        }
+        private Microsoft.VisualStudio.Shell.IAsyncServiceProvider AsyncServiceProvider => package;
+        private IServiceProvider ServiceProvider => package;
 
         /// <summary>
         /// Initializes the singleton instance of the command.
@@ -99,17 +89,17 @@ namespace NeoDebug.VS
         {
             ThreadHelper.ThrowIfNotOnUIThread();
 
-            var configs = new List<(string path, bool isUserPath)>();
+            var configFiles = new List<string>();
             DTE2 dte = (DTE2)((IServiceProvider)this.package).GetService(typeof(SDTE));
             if (dte != null)
             {
                 foreach (Project project in dte.Solution.Projects)
                 {
-                    GetProjectLaunchConfigurations(project.ProjectItems, configs);
+                    GetProjectLaunchConfigurations(project.ProjectItems, configFiles);
                 }
             }
 
-            if (configs.Count == 0)
+            if (configFiles.Count == 0)
             {
                 VsShellUtilities.ShowMessageBox(
                     package,
@@ -123,8 +113,8 @@ namespace NeoDebug.VS
             {
                 try
                 {
-                    string parameters = FormattableString.Invariant($@"/LaunchJson:""{configs[0].path}"" /EngineGuid:""{NeoDebugAdapterId}""");
-                    dte.Commands.Raise(DebugAdapterHostPackageCmdSet, LaunchCommandId, parameters, IntPtr.Zero);
+                    var config = JObject.Parse(File.ReadAllText(configFiles[0]));
+                    LaunchDebugger(config);
                 }
                 catch (Exception ex)
                 {
@@ -139,8 +129,47 @@ namespace NeoDebug.VS
             }
 
         }
-    
-        private void GetProjectLaunchConfigurations(ProjectItems items, List<(string path, bool isUserPath)> configs)
+
+        private void LaunchDebugger(JObject config)
+        {
+            const string adapterPath = @"C:\Users\harry\Source\neo\seattle\debugger\src\adapter3\bin\Debug\net5.0\neodebug-3-adapter.exe";
+            const string NeoDebugAdapterId = "ba0544e5-b299-4a4d-b6bb-c62e1c6cfa71";
+            const string DebugAdapterHostPackageCmdSet = "0ddba113-7ac1-4c6e-a2ef-dcac3f9e731e";
+            const int DebugAdapterHostLaunchCommandId = 0x0101;
+
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            try
+            {
+                var solution = (IVsSolution)ServiceProvider.GetService(typeof(SVsSolution)) ?? throw new Exception();
+                var dte = (DTE2)ServiceProvider.GetService(typeof(SDTE)) ?? throw new Exception();
+
+                solution.GetSolutionInfo(out string solutionDirectory, out _, out _);
+                solutionDirectory = solutionDirectory.Trim('\\');
+
+                config = JObject.Parse(config.ToString().Replace("${workspaceFolder}", solutionDirectory.Replace(@"\", @"\\")));
+                config["$adapter"] = adapterPath;
+ 
+                var launchPath = Path.GetTempFileName();
+                File.WriteAllText(launchPath, config.ToString(Formatting.Indented));
+                
+                string parameters = FormattableString.Invariant($@"/LaunchJson:""{launchPath}"" /EngineGuid:""{NeoDebugAdapterId}""");
+                dte.Commands.Raise(DebugAdapterHostPackageCmdSet, DebugAdapterHostLaunchCommandId, parameters, IntPtr.Zero);
+            }
+            catch (Exception ex)
+            {
+                VsShellUtilities.ShowMessageBox(
+                    package,
+                    string.Format(CultureInfo.CurrentCulture, "Launch failed.  Error: {0}", ex.Message),
+                    nameof(LaunchNeoDebugger),
+                    OLEMSGICON.OLEMSGICON_WARNING,
+                    OLEMSGBUTTON.OLEMSGBUTTON_OK,
+                    OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+            }
+
+        }
+
+        private void GetProjectLaunchConfigurations(ProjectItems items, List<string> configFiles)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
 
@@ -149,12 +178,12 @@ namespace NeoDebug.VS
             {
                 if (projectItem.ProjectItems != null && projectItem.ProjectItems.Count != 0)
                 {
-                    GetProjectLaunchConfigurations(projectItem.ProjectItems, configs);
+                    GetProjectLaunchConfigurations(projectItem.ProjectItems, configFiles);
                 }
 
                 if (projectItem.SubProject != null && projectItem.SubProject.ProjectItems != null)
                 {
-                    GetProjectLaunchConfigurations(projectItem.SubProject.ProjectItems, configs);
+                    GetProjectLaunchConfigurations(projectItem.SubProject.ProjectItems, configFiles);
                 }
 
                 string fileName = null;
@@ -180,7 +209,7 @@ namespace NeoDebug.VS
                     Path.GetFileName(fileName).StartsWith("launch", StringComparison.OrdinalIgnoreCase) &&
                     string.Equals(Path.GetExtension(fileName), ".json", StringComparison.OrdinalIgnoreCase))
                 {
-                    configs.Add((fileName, false));
+                    configFiles.Add(fileName);
                 }
             }
         }

@@ -29,7 +29,7 @@
 "LanguageId"="{00000000-0000-0000-0000-000000000000}" 
 
 ; Launch Info 
-"Adapter"="C:\Users\harry\Source\neo\seattle\debugger\src\adapter3\bin\Debug\net5.0\neodebug-3-adapter.exe" 
+;"Adapter"="C:\Users\harry\Source\neo\seattle\debugger\src\adapter3\bin\Debug\net5.0\neodebug-3-adapter.exe" 
 
 ; Locals Scope Name (optional)
 ;  If a debug adapter returns a single scope in response to the "scopes" request, its contents are shown as
