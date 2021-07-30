@@ -111,13 +111,18 @@ namespace NeoDebug.VS
                 return;
             }
 
-            var viewModel = new LaunchConfigSelectionViewModel(launchConfigs);
-            var dialog = new LaunchConfigSelectionDialog() { DataContext = viewModel };
-            if (dialog.ShowModal() != true) return;
+            JObject launchConfig = launchConfigs[0].config;
+            if (launchConfig.Count > 1)
+            {
+                var viewModel = new LaunchConfigSelectionViewModel(launchConfigs);
+                var dialog = new LaunchConfigSelectionDialog() { DataContext = viewModel };
+                if (dialog.ShowModal() != true) return;
+                launchConfig = viewModel.SelectedLaunchConfig.Config;
+            }
 
             try
             {
-                LaunchDebugger(viewModel.SelectedLaunchConfig.Config);
+                LaunchDebugger(launchConfig);
             }
             catch (Exception ex)
             {
