@@ -97,9 +97,9 @@ namespace NeoDebug.VS
             var launchConfigs = GetLaunchJsonFiles(dte.Solution)
                 .SelectMany(ParseLaunchJsonFile)
                 .Where(t => t.config.TryGetValue("type", out JToken type) && type.Value<string>() == "neo-contract")
-                .ToArray();
+                .ToList();
 
-            if (launchConfigs.Length == 0)
+            if (launchConfigs.Count == 0)
             {
                 _ = VsShellUtilities.ShowMessageBox(
                     package,
@@ -111,14 +111,13 @@ namespace NeoDebug.VS
                 return;
             }
 
-            var dlg = new LaunchConfigSelectionDialog();
-            if (dlg.ShowModal() != true) return;
-
-            var (_, config) = launchConfigs.Last();
+            var viewModel = new LaunchConfigSelectionViewModel(launchConfigs);
+            var dialog = new LaunchConfigSelectionDialog() { DataContext = viewModel };
+            if (dialog.ShowModal() != true) return;
 
             try
             {
-                LaunchDebugger(config);
+                LaunchDebugger(viewModel.SelectedLaunchConfig.Config);
             }
             catch (Exception ex)
             {
