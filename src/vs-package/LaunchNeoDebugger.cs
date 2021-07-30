@@ -111,6 +111,9 @@ namespace NeoDebug.VS
                 return;
             }
 
+            var dlg = new LaunchConfigSelectionDialog();
+            var q = dlg.ShowModal();
+
             var (_, config) = launchConfigs.Last();
 
             try
