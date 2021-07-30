@@ -20,6 +20,9 @@
   <!--This header contains the command ids for the menus provided by the shell. -->
   <Extern href="vsshlids.h"/>
 
+  <Extern href="VSDbgCmd.h"/>
+  <Extern href="VsDebugGuids.h"/>
+
   <!--The Commands section is where commands, menus, and menu groups are defined.
       This section uses a Guid to identify the package that provides the command defined inside it. -->
   <Commands package="guidNeoDebuggerPackage">
@@ -37,7 +40,7 @@
          must be a menu. -->
     <Groups>
       <Group guid="guidNeoDebuggerPackageCmdSet" id="MyMenuGroup" priority="0x0600">
-        <Parent guid="guidSHLMainMenu" id="IDM_VS_MENU_TOOLS"/>
+        <Parent guid="guidVSDebugGroup" id="IDM_DEBUG_MENU"/>
       </Group>
     </Groups>
 
