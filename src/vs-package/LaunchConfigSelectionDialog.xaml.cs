@@ -1,7 +1,4 @@
-﻿using System.Globalization;
-using System.Windows;
-using System.Windows.Controls;
-using Microsoft.VisualStudio.PlatformUI;
+﻿using Microsoft.VisualStudio.PlatformUI;
 
 namespace NeoDebug.VS
 {
@@ -12,9 +9,16 @@ namespace NeoDebug.VS
             InitializeComponent();
         }
 
-        private void Button1_Click(object sender, RoutedEventArgs e)
+        private void okButton_Click(object sender, System.Windows.RoutedEventArgs e)
         {
-            MessageBox.Show(string.Format(CultureInfo.CurrentUICulture, "We are inside {0}.Button1_Click()", this.ToString()));
+            this.DialogResult = true;
+            this.Close();
+        }
+
+        private void cancelButton_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            this.DialogResult = false;
+            this.Close();
         }
     }
 }
