@@ -35,6 +35,7 @@ namespace NeoDebug.VS
         private readonly AsyncPackage package;
 
         private readonly string tempLaunchPath = Path.GetTempFileName();
+        private readonly string adapterPath = GetAdapterPath();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="LaunchNeoDebugger"/> class.
@@ -130,7 +131,6 @@ namespace NeoDebug.VS
 
         private void LaunchDebugger(JObject config)
         {
-            const string adapterPath = @"C:\Users\harry\Source\neo\seattle\debugger\src\adapter3\bin\Debug\net5.0\neodebug-3-adapter.exe";
             const string NeoDebugAdapterId = "ba0544e5-b299-4a4d-b6bb-c62e1c6cfa71";
             const string DebugAdapterHostPackageCmdSet = "0ddba113-7ac1-4c6e-a2ef-dcac3f9e731e";
             const int DebugAdapterHostLaunchCommandId = 0x0101;
@@ -148,7 +148,8 @@ namespace NeoDebug.VS
                 config = JObject.Parse(config.ToString().Replace("${workspaceFolder}", solutionDirectory));
                 config["$adapter"] = adapterPath;
 
-                File.WriteAllText(tempLaunchPath, config.ToString(Formatting.Indented));
+                var configText = config.ToString(Formatting.Indented);
+                File.WriteAllText(tempLaunchPath, configText);
 
                 string parameters = FormattableString.Invariant($@"/LaunchJson:""{tempLaunchPath}"" /EngineGuid:""{NeoDebugAdapterId}""");
                 dte.Commands.Raise(DebugAdapterHostPackageCmdSet, DebugAdapterHostLaunchCommandId, parameters, IntPtr.Zero);
@@ -269,6 +270,13 @@ namespace NeoDebug.VS
                 json = null;
                 return false;
             }
+        }
+
+        private static string GetAdapterPath()
+        {
+            string codebase = typeof(NeoDebuggerPackage).Assembly.CodeBase;
+            var uri = new Uri(codebase, UriKind.Absolute);
+            return Path.Combine(Path.GetDirectoryName(uri.LocalPath), "adapter\\neodebug-3-adapter.exe");
         }
     }
 }
