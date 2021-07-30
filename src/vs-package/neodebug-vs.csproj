@@ -45,6 +45,117 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Content Include="adapter\Akka.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\BouncyCastle.Crypto.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\K4os.Compression.LZ4.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\McMaster.Extensions.CommandLineUtils.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\MessagePack.Annotations.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\MessagePack.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Microsoft.Data.Sqlite.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Microsoft.DotNet.PlatformAbstractions.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Microsoft.EntityFrameworkCore.Abstractions.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Microsoft.EntityFrameworkCore.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Microsoft.EntityFrameworkCore.Relational.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Microsoft.EntityFrameworkCore.Sqlite.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Microsoft.Extensions.DependencyInjection.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Microsoft.Extensions.DependencyModel.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\neo-bctklib-3.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Neo.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Neo.VM.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\neodebug-3-adapter.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\neodebug-3-adapter.exe">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\neodebug-3-adapter.pdb">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Newtonsoft.Json.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Nito.Disposables.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\OneOf.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\RocksDbSharp.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\runtimes\win-x64\native\e_sqlite3.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\runtimes\win-x64\native\rocksdb.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\runtimes\win\lib\netstandard2.0\System.Security.Cryptography.ProtectedData.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\SQLitePCLRaw.batteries_v2.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\SQLitePCLRaw.core.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\SQLitePCLRaw.nativelibrary.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\SQLitePCLRaw.provider.dynamic_cdecl.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\System.Configuration.ConfigurationManager.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\System.Diagnostics.DiagnosticSource.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\System.IO.Abstractions.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\System.Linq.Async.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\System.Security.Cryptography.ProtectedData.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
     <Content Include="NeoDebuggerPackage.pkgdef">
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
@@ -54,6 +165,36 @@
     <Compile Include="NeoDebuggerPackage.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="adapter\neodebug-3-adapter.deps.json">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\neodebug-3-adapter.runtimeconfig.json">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\runtimes\linux-x64\native\libe_sqlite3.so">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\runtimes\linux-x64\native\librocksdb.so">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\runtimes\osx-x64\native\libe_sqlite3.dylib">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\runtimes\osx-x64\native\liblz4.dylib">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\runtimes\osx-x64\native\librocksdb.dylib">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\runtimes\osx-x64\native\libsnappy.dylib">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\runtimes\osx-x64\native\libz.dylib">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\runtimes\osx-x64\native\libzstd.dylib">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
     <None Include="source.extension.vsixmanifest">
       <SubType>Designer</SubType>
     </None>
@@ -88,10 +229,15 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(VSToolsPath)\VSSDK\Microsoft.VsSDK.targets" Condition="'$(VSToolsPath)' != ''" />
+
+  <Target Name="BeforeBuild">
+    <Message Importance="high" Text="dotnet publish $(MSBuildProjectDirectory)\..\adapter3\neodebug-3-adapter.csproj -o $(MSBuildProjectDirectory)\adapter -c $(Configuration)" />
+    <RemoveDir Directories="$(MSBuildProjectDirectory)\adapter" />
+    <Exec Command="dotnet publish $(MSBuildProjectDirectory)\..\adapter3\neodebug-3-adapter.csproj -o $(MSBuildProjectDirectory)\adapter -c $(Configuration)" />
+  </Target>
+
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
-  <Target Name="BeforeBuild">
-  </Target>
   <Target Name="AfterBuild">
   </Target>
   -->
