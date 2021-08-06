@@ -13,11 +13,131 @@ will not have contiguous patch numbers. Initial major and minor releases will be
 in this file without a patch number. Patch version will be included for bug fix releases, but
 may not exactly match a publicly released version.
 
-## [2.0-preview] - 2021-03-24
+## [3.0.3] - 2021-08-06
+
+### Changed
+
+* Update dependencies for Neo 3.0.2 release
+
+## [3.0] - 2021-08-02
+
+### Changed
+
+* Neo N3 release support
+* Bumped major version to 3 for consistency with Neo N3 release
+* Update dependencies
+
+## [2.0.18] - 2021-07-21
+
+> Note, this is a preview release even though it does not carry a "-preview" version. VSCode Marketplace does not support [semantic versioning](https://semver.org/) pre-release identifiers.
+
+### Changed
+
+* Neo N3 RC4 support
+* Update Debug Adapter Protocol initialization code  (#140)
+* update dependencies (#144)
+* Convert map key to hex string if GetString fails in MapToJson (#134, fixes #132)
+* improve error messages during launch config parsing (#143)
+* better sequence point handling in disassembly manager (#143)
 
 ### Added
 
-- Neo N3 support
+* Show Gas Consumed during debugging (#136, fixes #135)
+* Load debug info for stored-contracts array members (#138, fixes #131)
+
+## [2.0.18] - 2021-05-04
+
+> Note, this is a preview release even though it does not carry a "-preview" version. VSCode Marketplace does not support [semantic versioning](https://semver.org/) pre-release identifiers.
+
+### Added
+
+* Neo N3 RC3 support
+
+## [2.0.15] - 2021-05-17
+
+> Note, this is a preview release even though it does not carry a "-preview" version. VSCode Marketplace does not support [semantic versioning](https://semver.org/) pre-release identifiers.
+
+### Changed
+
+* rework disassembly generation (#112)
+* workaround devpack #610 (#113)
+* Rework variables/evaulation (#115)
+* read address version from trace file (#118)
+
+## [2.0.7] - 2021-05-04
+
+> Note, this is a preview release even though it does not carry a "-preview" version. VSCode Marketplace does not support [semantic versioning](https://semver.org/) pre-release identifiers.
+
+### Added
+
+* Neo N3 RC2 support
+
+### Changed
+
+* Update Disassembly view
+
+## [2.0.5] - 2021-05-03
+
+> Note, this is a preview release even though it does not carry a "-preview" version. VSCode Marketplace does not support [semantic versioning](https://semver.org/) pre-release identifiers.
+
+### Changed
+
+* re-enable ParseStorage on adapter 3
+* ensure storage key hash code is 8 characters long
+
+## [2.0.3] - 2021-03-23
+
+> Note, this is a preview release even though it does not carry a "-preview" version. VSCode Marketplace does not support [semantic versioning](https://semver.org/) pre-release identifiers.
+
+### Added
+
+* Neo N3 RC1 support
+
+## [1.2.58-preview] - 2021-02-08
+
+### Added
+
+* Neo 3 Preview 5 support
+
+## [1.2.58-preview] - 2020-12-28
+
+### Added
+
+* Neo 3 Preview 4 support
+
+## Changes
+
+* Improve Nep17 debug experience (#84)
+* Adapt to Script Hash Identification Change (#82)
+* Oracle Response Debugging (#80)
+* Use extensionMode to detect Development Mode (#79)
+* update contract parameter parser
+* include event name in notify output
+* allow string signers
+* forward slash createConfig
+* update debugger CheckWitness support
+* update config snippets
+* Add invoke-file and signers support to neo 3 launch configuration (#76)
+* TryGetNativeContract during trace debugging (#75)
+
+## [1.2.28-preview] - 2020-08-18
+
+### Added
+
+* Trace Debug Support
+
+
+## [1.2.25-preview] - 2020-08-03
+
+### Added
+
+* Neo 3 Preview 3 support
+
+## [1.2.10-preview] - 2020-06-22
+
+### Added
+
+- Neo 3 Preview 2 support
 
 ## [1.1] - 2020-05-28
 
