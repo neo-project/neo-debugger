@@ -94,7 +94,7 @@
     <Content Include="adapter\Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.dll">
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
-    <Content Include="adapter\neo-bctklib-3.dll">
+    <Content Include="adapter\neo-bctklib.dll">
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
     <Content Include="adapter\Neo.dll">
