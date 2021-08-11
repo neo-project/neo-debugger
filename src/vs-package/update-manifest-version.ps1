@@ -1,7 +1,5 @@
-$path = "$PSScriptRoot\source.extension.vsixmanifest"
+param ($manifestPath, $version)
 
-$manifest = [xml](Get-Content $path);
-$version = nbgv get-version -v version
-
+$manifest = [xml](Get-Content $manifestPath);
 $manifest.PackageManifest.Metadata.Identity.Version = $version
-$manifest.Save($path)
+$manifest.Save($manifestPath)
