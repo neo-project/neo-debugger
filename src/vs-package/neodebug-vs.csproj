@@ -232,7 +232,7 @@
 
   <Target Name="UpdateTargetVsixContainer" DependsOnTargets="GetBuildVersion" BeforeTargets="CreateVsixContainer">
     <PropertyGroup>
-      <TargetVsixContainer>$(OutDir)$(AssemblyName)-$(NuGetPackageVersion).vsix</TargetVsixContainer>
+      <TargetVsixContainer>$(OutDir)$(AssemblyName)-$(AssemblyFileVersion).vsix</TargetVsixContainer>
     </PropertyGroup>
   </Target>
 
