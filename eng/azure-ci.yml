@@ -90,4 +90,51 @@ jobs:
     displayName: 'publish vsix build artifacts'
     inputs:
       pathToPublish: '$(Build.ArtifactStagingDirectory)/extension'
-      artifactName: 'VSIX-package'
+      artifactName: 'VSCode-package'
+- job: vswin_debugger
+  displayName: Build VS Windows Debugger
+  pool:
+    vmImage: 'windows-2019'
+  steps:
+  - script: |
+      @echo off
+      
+      set vswherepath="%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+      for /f "usebackq delims=" %%i in (`%vswherepath% -latest -property installationPath`) do (
+        set vslatest="%%i"
+        if exist "%%i\Common7\Tools\vsdevcmd.bat" (
+          set vsdevcmd="%%i\Common7\Tools\vsdevcmd.bat"
+        )
+      )
+      
+      @echo vslatest %vslatest%
+      @echo vsdevcmd %vsdevcmd%
+      
+      @echo ##vso[task.setvariable variable=vslatest]%vslatest%
+      @echo ##vso[task.setvariable variable=vsdevcmd]%vsdevcmd%
+    displayName: 'locate vsdevcmd via vswhere'
+  - task: BatchScript@1
+    displayName: 'Configure environment with VSDevCmd'
+    inputs:
+      filename: $(vsdevcmd)
+      modifyEnvironment: true
+  - task: NuGetCommand@2
+    inputs:
+      command: 'restore'
+      restoreSolution: 'src\vs-package\neodebug-vs.csproj'
+      feedsToUse: 'select'
+  - task: MSBuild@1
+    inputs:
+      solution: 'src\vs-package\neodebug-vs.csproj'
+      configuration: 'Release'
+  - task: CopyFiles@2
+    displayName: 'copy VSIX package to Artifact Staging Directory'
+    inputs:
+      SourceFolder: './src/vs-package/bin/Release'
+      Contents: '*.vsix'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)/vs-package'
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish vsix build artifacts'
+    inputs:
+      pathToPublish: '$(Build.ArtifactStagingDirectory)/vs-package'
+      artifactName: 'VS-package'
