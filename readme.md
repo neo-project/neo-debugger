@@ -1,11 +1,10 @@
-# Neo Smart Contract Debugger for Visual Studio Code
+# Neo Smart Contract Debugger
 
 [![Build Status](https://dev.azure.com/ngdenterprise/Build/_apis/build/status/neo-project.neo-debugger?branchName=master)](https://dev.azure.com/ngdenterprise/Build/_build/latest?definitionId=4&branchName=master)
 [![](https://vsmarketplacebadge.apphb.com/version-short/ngd-seattle.neo-contract-debug.svg)](https://marketplace.visualstudio.com/items?itemName=ngd-seattle.neo-contract-debug)
 
-
 The Neo Smart Contract Debugger enables Neo developers to debug their smart contracts
-in Visual Studio Code. It is built on the same [virtual machine](https://github.com/neo-project/neo-vm)
+in Visual Studio and Visual Studio Code. It is built on the same [virtual machine](https://github.com/neo-project/neo-vm)
 as the [core Neo project](https://github.com/neo-project/neo) to ensure maximum compatibility
 between the debugger and how contracts will execute in production.
 
@@ -15,18 +14,46 @@ debugger uses to map Neo Virtual Machine instructions back to source code.
 The debug information format is [fully documented](https://github.com/ngdseattle/design-notes/blob/master/NDX-DN11%20-%20NEO%20Debug%20Info%20Specification.md#v10-format).
 This format is supported by a variety of Neo smart contract compilers including 
 
-* [NEON (C#)](https://github.com/neo-project/neo-devpack-dotnet)
+* [NCCS (C#)](https://github.com/neo-project/neo-devpack-dotnet)
 * [neow3j (Java/Kotlin/Android)](https://neow3j.io)
 * [neo-boa (Python)](https://github.com/CityOfZion/neo-boa)
 * [NeoGo (GoLang)](https://github.com/nspcc-dev/neo-go)
 * [NEO•ONE (TypeScript)](https://neo-one.io)
 
-As of version 2.0, the Neo Smart Contract Debugger supports both 
-[Neo N3 and Neo Legacy](https://medium.com/neo-smart-economy/introducing-neo-n3-the-next-evolution-of-the-neo-blockchain-b2960c4def6e).
-
 ## Installation
 
-The Neo Smart Contract Debugger can be installed via the
+The Neo Smart Contract Debugger requires a [.NET runtime](https://dotnet.microsoft.com/download/dotnet)
+to be installed. The version of .NET Core needed depends on the version of the Neo
+Smart Contract Debugger.
+
+|Neo Smart Contract Debugger Version|.NET Core Version|
+|-----------------------------------|-----------------|
+| v3.0 | [v5.0](https://dotnet.microsoft.com/download/dotnet/5.0) (for Neo N3 contracts) <br /> [v3.1](https://dotnet.microsoft.com/download/dotnet-core/3.1) (for Neo Legacy Contracts) |
+| v2.0 (unsupported) | [v5.0](https://dotnet.microsoft.com/download/dotnet/5.0) (for Neo N3 contracts) <br /> [v3.1](https://dotnet.microsoft.com/download/dotnet-core/3.1) (for Neo Legacy Contracts) |
+| v1.0 | [v3.1](https://dotnet.microsoft.com/download/dotnet/3.1) |
+| v0.9 (unsupported) | [v3.0](https://dotnet.microsoft.com/download/dotnet/3.0) |
+| v0.5 (unsupported) | [v2.2](https://dotnet.microsoft.com/download/dotnet/2.2) |
+
+### Visual Studio
+
+The Neo Smart Contract Debugger for Visual Studio is currently in preview.
+To install it, download a recent release of neodebug-vs-{version}.vsix from
+the [GitHub release](https://github.com/neo-project/neo-debugger/releases) page
+to your local machine then double click on the file. 
+
+The Neo Smart Contract Debugger for Visual Studio requires Visual Studio 2019
+Community, Professional or Enterprise. It has not been tested with Visual
+Studio 2022 preview releases. Additionally, The Neo Smart Contract Debugger 
+for Visual Studio requires [.NET v5.0](https://dotnet.microsoft.com/download/dotnet/5.0)
+in order to debug Neo N3 contracts as described above. Debugging Neo Legacy contracts
+is not supported in the Neo Smart Contract Debugger for Visual Studio.
+
+[Additional documentation](docs\visual-studio.md) on using The Neo Smart Contract Debugger 
+for Visual Studio is available.
+
+### Visual Studio Code 
+
+The Neo Smart Contract Debugger for Visual Studio Code can be installed via the
 [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/vscode). It can be
 installed [by itself](https://marketplace.visualstudio.com/items?itemName=ngd-seattle.neo-contract-debug)
 or as part of the [Neo Blockchain Toolkit](https://marketplace.visualstudio.com/items?itemName=ngd-seattle.neo-blockchain-toolkit).
@@ -35,12 +62,8 @@ The Neo Smart Contract Debugger requires a [.NET runtime](https://dotnet.microso
 to be installed. The version of .NET Core needed depends on the version of the Neo
 Smart Contract Debugger.
 
-|Neo Smart Contract Debugger Version|.NET Core Version|
-|-----------------------------------|-----------------|
-| v2.0 | [v5.0](https://dotnet.microsoft.com/download/dotnet/5.0) (for Neo N3 contracts) <br /> [v3.1](https://dotnet.microsoft.com/download/dotnet-core/3.1) (for Neo Legacy Contracts) |
-| v1.0 | [v3.1](https://dotnet.microsoft.com/download/dotnet-core/3.1) |
-| v0.9 | [v3.0](https://dotnet.microsoft.com/download/dotnet-core/3.0) |
-| v0.5 | [v2.2](https://dotnet.microsoft.com/download/dotnet-core/2.2) |
+As of version 2.0, the Neo Smart Contract Debugger for Visal Studio Code supports both 
+[Neo N3 and Neo Legacy](https://medium.com/neo-smart-economy/introducing-neo-n3-the-next-evolution-of-the-neo-blockchain-b2960c4def6e).
 
 ### Ubuntu Installation
 
@@ -69,7 +92,7 @@ manually. For more information on installing VSIX extensions in VSCode, please s
 
 ## A Message from the Engineer
 
-Thanks for checking out the Neo Smart Contract Debugger for VSCode!
+Thanks for checking out the Neo Smart Contract Debugger!
 I am eager to hear your opinion of the product.
 
 If you like the debugger, please let me know on [Twitter](https://twitter.com/devhawk),
