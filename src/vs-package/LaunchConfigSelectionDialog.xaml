@@ -4,7 +4,14 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:vsui="clr-namespace:Microsoft.VisualStudio.PlatformUI;assembly=Microsoft.VisualStudio.Shell.15.0" 
-             mc:Ignorable="d" >
+             mc:Ignorable="d" 
+             Title="Launch Neo Smart Contract Debugger"
+             ResizeMode="NoResize"
+             ShowInTaskbar="False"
+             WindowStartupLocation="CenterOwner"
+             Height="Auto"
+             Width="488"
+             SizeToContent="Height">
 
     <Grid>
         <Grid.ColumnDefinitions>
@@ -17,8 +24,8 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.ColumnSpan="2">
-            <Label Content="Launch Configuration" />
+        <StackPanel Grid.ColumnSpan="2" Margin="5">
+            <Label Content="Choose Launch Configuration to debug:" />
 
             <ComboBox 
                   ItemsSource="{Binding LaunchConfigs}"
@@ -27,8 +34,8 @@
         </StackPanel>
 
         <StackPanel Orientation="Horizontal" Grid.Column="1" Grid.Row="1">
-            <Button IsDefault="True" Content="Ok" Command="{Binding OkCommand}" CommandParameter="{Binding ElementName=dialogWindow, Mode=OneWay}" />
-            <Button IsCancel="True" Content="Cancel" Command="{Binding CancelCommand}" CommandParameter="{Binding ElementName=dialogWindow, Mode=OneWay}" />
+            <Button Margin="5" Height="23" MinWidth="75" IsDefault="True" Content="Ok" Command="{Binding OkCommand}" CommandParameter="{Binding ElementName=dialogWindow, Mode=OneWay}" />
+            <Button Margin="5" Height="23" MinWidth="75" IsCancel="True" Content="Cancel" Command="{Binding CancelCommand}" CommandParameter="{Binding ElementName=dialogWindow, Mode=OneWay}" />
         </StackPanel>
     </Grid>
 </vsui:DialogWindow>
