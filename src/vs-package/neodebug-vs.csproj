@@ -221,18 +221,35 @@
     <Exec Command="dotnet publish $(_AdapterProjectPath) -o $(_PackageAdapterPath) -r win-x64 -c $(Configuration) --self-contained false" />
   </Target>
 
+  <UsingTask TaskName="UpdateManifestTask" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll" >
+    <ParameterGroup>
+      <ManifestPath Required="true" />
+      <Version Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.Xml.Linq" />
+      <Code Type="Fragment" Language="cs">
+            XNamespace ns = "http://schemas.microsoft.com/developer/vsx-schema/2011";
+            var xml = XDocument.Load(ManifestPath);
+            var identity = xml.Element(ns + "PackageManifest")
+                .Element(ns + "Metadata")
+                .Element(ns + "Identity");
+            identity.SetAttributeValue("Version", Version);
+            xml.Save(ManifestPath);
+      </Code>
+    </Task>
+  </UsingTask>
+
   <Target Name="UpdateManifestVersion" DependsOnTargets="GetBuildVersion;FindSourceVsixManifest" BeforeTargets="CoreCompile">
     <PropertyGroup>
-      <_PowerShellExe Condition=" '$(_PowerShellExe)'=='' ">%WINDIR%\System32\WindowsPowerShell\v1.0\powershell.exe</_PowerShellExe>
-      <_ScriptLocation Condition=" '$(_ScriptLocation)'=='' ">$(MSBuildProjectDirectory)\update-manifest-version.ps1</_ScriptLocation>
       <_ManifestLocation Condition=" '$(_ManifestLocation)'=='' ">$(MSBuildProjectDirectory)\@(SourceVsixManifest)</_ManifestLocation>
     </PropertyGroup>
-    <Exec Command="$(_PowerShellExe) -NonInteractive -noprofile -executionpolicy Unrestricted -command &quot;&amp; { &amp;&apos;$(_ScriptLocation)&apos; &apos;$(_ManifestLocation)&apos; &apos;$(AssemblyFileVersion)&apos; } &quot;" />
+    <UpdateManifestTask ManifestPath="$(_ManifestLocation)" Version="$(AssemblyFileVersion)" />
   </Target>
 
   <Target Name="UpdateTargetVsixContainer" DependsOnTargets="GetBuildVersion" BeforeTargets="CreateVsixContainer">
     <PropertyGroup>
-      <TargetVsixContainer>$(OutDir)$(AssemblyName)-$(NuGetPackageVersion).vsix</TargetVsixContainer>
+      <TargetVsixContainer>$(OutDir)$(AssemblyName)-$(AssemblyFileVersion).vsix</TargetVsixContainer>
     </PropertyGroup>
   </Target>
 
