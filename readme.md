@@ -48,7 +48,7 @@ for Visual Studio requires [.NET v5.0](https://dotnet.microsoft.com/download/dot
 in order to debug Neo N3 contracts as described above. Debugging Neo Legacy contracts
 is not supported in the Neo Smart Contract Debugger for Visual Studio.
 
-[Additional documentation](docs\visual-studio.md) on using The Neo Smart Contract Debugger 
+[Additional documentation](docs/visual-studio.md) on using The Neo Smart Contract Debugger 
 for Visual Studio is available.
 
 ### Visual Studio Code 
