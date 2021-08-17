@@ -1,0 +1,40 @@
+﻿;
+; Registration for the NeoDebugger engine
+;
+; -------------------------------------------------------------------
+
+; The GUID below should be replaced with a unique GUID for each adapter.
+[$RootKey$\AD7Metrics\Engine\{BA0544E5-B299-4A4D-B6BB-C62E1C6CFA71}]
+
+; Name of the debug adapter
+;   This appears in VS in several places.  For example:
+;     - The "Select Code Type" dialog for choosing which debugger to attach to a process (if Attach is supported)
+;     - The "Debugging" column of the "Processes" tool window 
+"Name"="Neo Smart Contract Debug Adapter"
+
+; Boilerplate 
+"CLSID"="{DAB324E9-7B35-454C-ACA8-F6BB0D5C8673}" 
+"AlwaysLoadLocal"=dword:00000001 
+"AddressBP"=dword:00000000 
+"AutoSelectPriority"=dword:00000004 
+"CallstackBP"=dword:00000000 
+
+; Capabilities 
+"Attach"=dword:00000000 
+"Exceptions"=dword:00000000 
+"ExceptionConditions"=dword:00000000 
+
+; Language Info 
+"Language"="Neo Smart Contract Debugger" 
+"LanguageId"="{00000000-0000-0000-0000-000000000000}" 
+
+; Launch Info 
+;"Adapter"="C:\Users\harry\Source\neo\seattle\debugger\src\adapter3\bin\Debug\net5.0\neodebug-3-adapter.exe" 
+
+; Locals Scope Name (optional)
+;  If a debug adapter returns a single scope in response to the "scopes" request, its contents are shown as
+;    top-level items in the "Locals" window in VS.  If more than one scope is returned in response to the
+;    "scopes" request, each scope's name is displayed as a top-level item in the "Locals" window, and the
+;    contents of the scope are shown as children of the top-level item.  In this scenario, the contents of
+;    a scope can be promoted to top-level items by specifying the name of the scope here.
+"LocalsScopeName"="Variables"
