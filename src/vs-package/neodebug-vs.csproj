@@ -221,36 +221,19 @@
     <Exec Command="dotnet publish $(_AdapterProjectPath) -o $(_PackageAdapterPath) -r win-x64 -c $(Configuration) --self-contained false" />
   </Target>
 
-  <UsingTask TaskName="UpdateManifestTask" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll" >
-    <ParameterGroup>
-      <ManifestPath Required="true" />
-      <Version Required="true" />
-    </ParameterGroup>
-    <Task>
-      <Using Namespace="System.Xml.Linq" />
-      <Code Type="Fragment" Language="cs">
-            XNamespace ns = "http://schemas.microsoft.com/developer/vsx-schema/2011";
-            var xml = XDocument.Load(ManifestPath);
-            var identity = xml.Element(ns + "PackageManifest")
-                .Element(ns + "Metadata")
-                .Element(ns + "Identity");
-            identity.SetAttributeValue("Version", Version);
-            xml.Save(ManifestPath);
-      </Code>
-    </Task>
-  </UsingTask>
-
-  <Target Name="UpdateManifestVersion" DependsOnTargets="GetBuildVersion;FindSourceVsixManifest" BeforeTargets="CoreCompile">
+  <Target Name="UpdateManifestVersion" AfterTargets="DetokenizeVsixManifestFile" DependsOnTargets="GetBuildVersion" Outputs="$(IntermediateVsixManifest)">
     <PropertyGroup>
       <_ManifestLocation Condition=" '$(_ManifestLocation)'=='' ">$(MSBuildProjectDirectory)\@(SourceVsixManifest)</_ManifestLocation>
     </PropertyGroup>
-    <UpdateManifestTask ManifestPath="$(_ManifestLocation)" Version="$(AssemblyFileVersion)" />
+    <Message Text="Stamping package with version '$(AssemblyFileVersion)'" />
+    <XmlPoke XmlInputPath="$(IntermediateVsixManifest)" Query="/x:PackageManifest/x:Metadata/x:Identity/@Version" Value="$(AssemblyFileVersion)" Namespaces="&lt;Namespace Prefix='x' Uri='http://schemas.microsoft.com/developer/vsx-schema/2011' /&gt;" />
   </Target>
 
   <Target Name="UpdateTargetVsixContainer" DependsOnTargets="GetBuildVersion" BeforeTargets="CreateVsixContainer">
     <PropertyGroup>
       <TargetVsixContainer>$(OutDir)$(AssemblyName)-$(NuGetPackageVersion).vsix</TargetVsixContainer>
     </PropertyGroup>
+    <Message Text="Updating package filename to '$(AssemblyName)-$(NuGetPackageVersion).vsix'" />
   </Target>
 
 </Project>
