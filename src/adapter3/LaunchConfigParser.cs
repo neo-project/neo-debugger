@@ -92,7 +92,7 @@ namespace NeoDebug.Neo3
         {
             var program = ParseProgram(config);
             var launchNefFile = LoadNefFile(program);
-            var launchManifest = await LoadContractManifest(program).ConfigureAwait(false);
+            var launchManifest = await LoadContractManifestAsync(program).ConfigureAwait(false);
 
             ExpressChain? chain = null;
             if (config.TryGetValue("neo-express", out var neoExpressPath))
@@ -199,7 +199,7 @@ namespace NeoDebug.Neo3
             return reader.ReadSerializable<NefFile>();
         }
 
-        static async Task<ContractManifest> LoadContractManifest(string contractPath)
+        static async Task<ContractManifest> LoadContractManifestAsync(string contractPath)
         {
             var bytesManifest = await File.ReadAllBytesAsync(
                 Path.ChangeExtension(contractPath, ".manifest.json")).ConfigureAwait(false);
@@ -225,7 +225,7 @@ namespace NeoDebug.Neo3
                     }
                 });
 
-                var metadata = RocksDbStorageProvider.RestoreCheckpoint(checkpoint.Value<string>() ?? "", checkpointTempPath);
+                var metadata = RocksDbUtility.RestoreCheckpoint(checkpoint.Value<string>() ?? "", checkpointTempPath);
                 if (magic.HasValue && magic.Value != metadata.magic)
                     throw new Exception($"checkpoint magic ({metadata.magic}) doesn't match ({magic.Value})");
                 if (addressVersion.HasValue && addressVersion.Value != metadata.addressVersion)
