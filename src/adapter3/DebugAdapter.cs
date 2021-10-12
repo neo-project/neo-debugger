@@ -89,7 +89,7 @@ namespace NeoDebug.Neo3
                 return;
             }
 
-            LaunchConfigParser.CreateDebugSessionAsync(responder.Arguments, Protocol.SendEvent, defaultDebugView)
+            _ = LaunchConfigParser.CreateDebugSessionAsync(responder.Arguments, Protocol.SendEvent, defaultDebugView)
                 .ContinueWith(t => 
                 {
                     if (t.IsCompletedSuccessfully)
@@ -110,7 +110,7 @@ namespace NeoDebug.Neo3
                             responder.SetError(new ProtocolException($"Unknown error in {nameof(LaunchConfigParser.CreateDebugSessionAsync)}"));
                         }
                     }
-                });
+                }, TaskScheduler.Current);
         }
 
         private void HandleDebugViewRequest(DebugViewArguments arguments)
