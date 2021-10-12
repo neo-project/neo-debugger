@@ -13,11 +13,16 @@ will not have contiguous patch numbers. Initial major and minor releases will be
 in this file without a patch number. Patch version will be included for bug fix releases, but
 may not exactly match a publicly released version.
 
-## [3.0.5] - 2021-10-12
+## [3.0.6] - 2021-10-12
 
 ### Changed
 
-* Update dependencies for Neo 3.0.3 release
+* Update dependencies 
+  * Microsoft.VisualStudio.Shared.VsCodeDebugProtocol 17.0.50801.1
+  * Neo 3.0.3 
+  * Neo.BlockchainToolkit.Library 3.0.13
+  * Nerdbank.GitVersioning 3.4.240
+  * Nito.Disposables 2.2.1
 
 ## [3.0.3] - 2021-08-06
 

@@ -16,9 +16,9 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="3.1.0" />
-    <PackageReference Include="Microsoft.VisualStudio.Shared.VsCodeDebugProtocol" Version="16.9.50204.1" />
-    <PackageReference Include="Neo.BlockchainToolkit.Library" Version="3.0.12" />
-    <PackageReference Include="Nito.Disposables" Version="2.2.0" />
+    <PackageReference Include="Microsoft.VisualStudio.Shared.VsCodeDebugProtocol" Version="17.0.50801.1" />
+    <PackageReference Include="Neo.BlockchainToolkit.Library" Version="3.0.13" />
+    <PackageReference Include="Nito.Disposables" Version="2.2.1" />
     <PackageReference Include="System.Collections.Immutable" Version="5.0.0" />
     <PackageReference Include="System.Linq.Async" Version="5.0.0" />
   </ItemGroup>
