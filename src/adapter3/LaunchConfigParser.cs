@@ -146,8 +146,8 @@ namespace NeoDebug.Neo3
                         ? _deploySigner
                         : new Signer { Account = UInt160.Zero };
 
-                    var (lauchContractId, launchContractHash) = EnsureContractDeployed(store, launchNefFile, launchManifest, deploySigner, settings);
-                    UpdateContractStorage(store, lauchContractId, ParseStorage(config, paramParser));
+                    var (launchContractId, launchContractHash) = EnsureContractDeployed(store, launchNefFile, launchManifest, deploySigner, settings);
+                    UpdateContractStorage(store, launchContractId, ParseStorage(config, paramParser));
                     invokeScript = await CreateInvokeScriptAsync(invocation, program, launchContractHash, paramParser);
 
                     if (invocation.IsT1) // T1 == OracleResponseInvocation
@@ -157,7 +157,7 @@ namespace NeoDebug.Neo3
                 }
 
                 // TODO: load other contracts
-                //          Not sure supporting other contracts is a good idea anymore. Since there's no way to calcualte the 
+                //          Not sure supporting other contracts is a good idea anymore. Since there's no way to calculate the 
                 //          contract id hash prior to deployment in Neo 3, I'm thinking the better approach would be to simply
                 //          deploy whatever contracts you want and take a snapshot rather than deploying multiple contracts 
                 //          during launch configuration.
@@ -429,7 +429,7 @@ namespace NeoDebug.Neo3
             snapshot.Commit();
         }
 
-        // stripped down Blockchain.Persist logic to initize empty blockchain
+        // stripped down Blockchain.Persist logic to initialize empty blockchain
         static void EnsureLedgerInitialized(IStore store, ProtocolSettings settings)
         {
             using var snapshot = new SnapshotCache(store.GetSnapshot());
