@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
@@ -26,10 +25,10 @@ using Neo.VM;
 using Neo.Wallets;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using Nito.Disposables;
 using OneOf;
 using Script = Neo.VM.Script;
 using StackItem = Neo.VM.Types.StackItem;
+
 namespace NeoDebug.Neo3
 {
     using ConfigProps = IReadOnlyDictionary<string, JToken>;
@@ -93,92 +92,74 @@ namespace NeoDebug.Neo3
             var program = ParseProgram(config);
             var launchNefFile = LoadNefFile(program);
             var launchManifest = await LoadContractManifestAsync(program).ConfigureAwait(false);
+            var chain = LoadNeoExpress(config);
+            var invocation = ParseInvocation(jsonInvocation);
 
-            ExpressChain? chain = null;
-            if (config.TryGetValue("neo-express", out var neoExpressPath))
+            var checkpoint = LoadBlockchainCheckpoint(config, chain?.Network, chain?.AddressVersion);
+
+            var (trigger, witnessChecker) = ParseRuntime(config, chain, checkpoint.Settings.AddressVersion);
+            if (trigger != TriggerType.Application)
             {
-                var fs = new System.IO.Abstractions.FileSystem();
-                chain = fs.LoadChain(neoExpressPath.Value<string>() ?? "");
+                throw new Exception($"Trigger Type {trigger} not supported");
             }
 
-            Invocation invocation = InvokeFileInvocation.TryFromJson(jsonInvocation, out var invokeFileInvocation)
-                ? invokeFileInvocation
-                : OracleResponseInvocation.TryFromJson(jsonInvocation, out var oracleInvocation)
-                    ? oracleInvocation
-                    : LaunchInvocation.TryFromJson(jsonInvocation, out var launchInvocation)
-                        ? launchInvocation
-                        : ContractDeployInvocation.TryFromJson(jsonInvocation, out var deployInvocation)
-                            ? deployInvocation
-                            : throw new JsonException("invalid invocation property");
+            var signers = ParseSigners(config, chain, checkpoint.Settings.AddressVersion).ToArray();
 
+            var store = new MemoryTrackingStore(checkpoint);
+            store.EnsureLedgerInitialized(checkpoint.Settings);
 
-            var (storageProvider, settings) = LoadBlockchainStorage(config, chain?.Network, chain?.AddressVersion);
-            using (var store = storageProvider.GetStore(null))
+            Script invokeScript;
+            var attributes = Array.Empty<TransactionAttribute>();
+            if (invocation.IsT3) // T3 == ContractDeploymentInvocation
             {
-                EnsureLedgerInitialized(store, settings);
-
-                var (trigger, witnessChecker) = ParseRuntime(config, chain, settings.AddressVersion);
-                if (trigger != TriggerType.Application)
+                if ((signers.Length == 0 || (signers.Length == 1 && signers[0].Account == UInt160.Zero))
+                    && TryGetDeploymentSigner(config, chain, checkpoint.Settings.AddressVersion, out var deploySigner))
                 {
-                    throw new Exception($"Trigger Type {trigger} not supported");
+                    signers = new[] { deploySigner };
                 }
 
-                var signers = ParseSigners(config, chain, settings.AddressVersion).ToArray();
-
-                Script invokeScript;
-                var attributes = Array.Empty<TransactionAttribute>();
-                if (invocation.IsT3) // T3 == ContractDeploymentInvocation
-                {
-                    if ((signers.Length == 0 || (signers.Length == 1 && signers[0].Account == UInt160.Zero))
-                        && TryGetDeploymentSigner(config, chain, settings.AddressVersion, out var deploySigner))
-                    {
-                        signers = new[] { deploySigner };
-                    }
-
-                    using var builder = new ScriptBuilder();
-                    builder.EmitDynamicCall(NativeContract.ContractManagement.Hash, "deploy", launchNefFile.ToArray(), launchManifest.ToJson().ToString());
-                    invokeScript = builder.ToArray();
-                }
-                else
-                {
-                    var paramParser = CreateContractParameterParser(settings.AddressVersion, store, chain);
-                    var deploySigner = TryGetDeploymentSigner(config, chain, settings.AddressVersion, out var _deploySigner)
-                        ? _deploySigner
-                        : new Signer { Account = UInt160.Zero };
-
-                    var (launchContractId, launchContractHash) = EnsureContractDeployed(store, launchNefFile, launchManifest, deploySigner, settings);
-                    UpdateContractStorage(store, launchContractId, ParseStorage(config, paramParser));
-                    invokeScript = await CreateInvokeScriptAsync(invocation, program, launchContractHash, paramParser);
-
-                    if (invocation.IsT1) // T1 == OracleResponseInvocation
-                    {
-                        attributes = GetTransactionAttributes(invocation.AsT1, store, launchContractHash, paramParser);
-                    }
-                }
-
-                // TODO: load other contracts
-                //          Not sure supporting other contracts is a good idea anymore. Since there's no way to calculate the 
-                //          contract id hash prior to deployment in Neo 3, I'm thinking the better approach would be to simply
-                //          deploy whatever contracts you want and take a snapshot rather than deploying multiple contracts 
-                //          during launch configuration.
-
-                var tx = new Transaction
-                {
-                    Version = 0,
-                    Nonce = (uint)new Random().Next(),
-                    Script = invokeScript,
-                    Signers = signers,
-                    ValidUntilBlock = settings.MaxValidUntilBlockIncrement,
-                    Attributes = attributes,
-                    Witnesses = Array.Empty<Witness>()
-                };
-
-                var block = CreateDummyBlock(store, tx);
-
-                var engine = new DebugApplicationEngine(tx, storageProvider, block, settings, witnessChecker);
-                engine.LoadScript(invokeScript);
-                return engine;
+                using var builder = new ScriptBuilder();
+                builder.EmitDynamicCall(NativeContract.ContractManagement.Hash, "deploy", launchNefFile.ToArray(), launchManifest.ToJson().ToString());
+                invokeScript = builder.ToArray();
             }
+            else
+            {
+                var paramParser = CreateContractParameterParser(checkpoint.Settings.AddressVersion, store, chain);
+                var deploySigner = TryGetDeploymentSigner(config, chain, checkpoint.Settings.AddressVersion, out var _deploySigner)
+                    ? _deploySigner
+                    : new Signer { Account = UInt160.Zero };
+
+                var (launchContractId, launchContractHash) = EnsureContractDeployed(store, launchNefFile, launchManifest, deploySigner, checkpoint.Settings);
+                UpdateContractStorage(store, launchContractId, ParseStorage(config, paramParser));
+                invokeScript = await CreateInvokeScriptAsync(invocation, program, launchContractHash, paramParser);
+
+                if (invocation.IsT1) // T1 == OracleResponseInvocation
+                {
+                    attributes = GetTransactionAttributes(invocation.AsT1, store, launchContractHash, paramParser);
+                }
+            }
+
+            // TODO: load other contracts
+            //          Not sure supporting other contracts is a good idea anymore. Since there's no way to calculate the 
+            //          contract id hash prior to deployment in Neo 3, I'm thinking the better approach would be to simply
+            //          deploy whatever contracts you want and take a snapshot rather than deploying multiple contracts 
+            //          during launch configuration.
+
+            var tx = new Transaction
+            {
+                Version = 0,
+                Nonce = (uint)new Random().Next(),
+                Script = invokeScript,
+                Signers = signers,
+                ValidUntilBlock = checkpoint.Settings.MaxValidUntilBlockIncrement,
+                Attributes = attributes,
+                Witnesses = Array.Empty<Witness>()
+            };
+
+            var block = CreateDummyBlock(store, tx);
+            var engine = new DebugApplicationEngine(tx, checkpoint, block, witnessChecker);
+            engine.LoadScript(invokeScript);
+            return engine;
 
             static bool TryGetDeploymentSigner(ConfigProps config, ExpressChain? chain, byte version, [MaybeNullWhen(false)] out Signer signer)
             {
@@ -206,65 +187,44 @@ namespace NeoDebug.Neo3
             return ContractManifest.Parse(bytesManifest);
         }
 
-        static (IDisposableStorageProvider storageProvider, ProtocolSettings settings) LoadBlockchainStorage(ConfigProps config, uint? magic = null, byte? addressVersion = null)
+        static ExpressChain? LoadNeoExpress(ConfigProps config)
         {
-            if (config.TryGetValue("checkpoint", out var checkpoint))
+            if (config.TryGetValue("neo-express", out var neoExpressPath))
             {
-                string checkpointTempPath;
-                do
-                {
-                    checkpointTempPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-                }
-                while (Directory.Exists(checkpointTempPath));
-
-                var cleanup = AnonymousDisposable.Create(() =>
-                {
-                    if (Directory.Exists(checkpointTempPath))
-                    {
-                        Directory.Delete(checkpointTempPath);
-                    }
-                });
-
-                var metadata = RocksDbUtility.RestoreCheckpoint(checkpoint.Value<string>() ?? "", checkpointTempPath);
-                if (magic.HasValue && magic.Value != metadata.magic)
-                    throw new Exception($"checkpoint magic ({metadata.magic}) doesn't match ({magic.Value})");
-                if (addressVersion.HasValue && addressVersion.Value != metadata.addressVersion)
-                    throw new Exception($"checkpoint address version ({metadata.addressVersion}) doesn't match ({addressVersion.Value})");
-
-                var storageProvider = new CheckpointStorageProvider(RocksDbStorageProvider.OpenReadOnly(checkpointTempPath), checkpointCleanup: cleanup);
-                var settings = ProtocolSettings.Default with
-                {
-                    Network = metadata.magic,
-                    AddressVersion = metadata.addressVersion
-                };
-
-                return (storageProvider, settings);
+                var fs = new System.IO.Abstractions.FileSystem();
+                return fs.LoadChain(neoExpressPath.Value<string>() 
+                    ?? throw new JsonException("invalid string"));
             }
             else
             {
-                var settings = ProtocolSettings.Default with
-                {
-                    Network = magic.HasValue ? magic.Value : ProtocolSettings.Default.Network,
-                    AddressVersion = addressVersion.HasValue ? addressVersion.Value : ProtocolSettings.Default.AddressVersion
-                };
-                return (new MemoryStorageProvider(), settings);
+                return null;
             }
         }
 
-        class MemoryStorageProvider : IDisposableStorageProvider
+        static Invocation ParseInvocation(JToken jsonInvocation)
         {
-            MemoryStore defaultStore = new MemoryStore();
-            ConcurrentDictionary<string, MemoryStore> storages = new ConcurrentDictionary<string, MemoryStore>();
+            return InvokeFileInvocation.TryFromJson(jsonInvocation, out var invokeFileInvocation)
+                ? invokeFileInvocation
+                : OracleResponseInvocation.TryFromJson(jsonInvocation, out var oracleInvocation)
+                    ? oracleInvocation
+                    : LaunchInvocation.TryFromJson(jsonInvocation, out var launchInvocation)
+                        ? launchInvocation
+                        : ContractDeployInvocation.TryFromJson(jsonInvocation, out var deployInvocation)
+                            ? deployInvocation
+                            : throw new JsonException("invalid invocation property");
+        }
 
-            public void Dispose()
+        static ICheckpointStore LoadBlockchainCheckpoint(ConfigProps config, uint? network = null, byte? addressVersion = null)
+        {
+            if (config.TryGetValue("checkpoint", out var checkpoint))
             {
-                foreach (var (key, value) in storages)
-                {
-                    value.Dispose();
-                }
+                var checkpointPath = checkpoint.Value<string>() ?? throw new JsonException();
+                return new CheckpointStore(checkpointPath, network, addressVersion);
             }
-
-            public IStore GetStore(string? path) => path == null ? defaultStore : storages.GetOrAdd(path, _ => new MemoryStore());
+            else
+            {
+                return new NullCheckpointStore(network, addressVersion);
+            }
         }
 
         static ContractParameterParser CreateContractParameterParser(byte addressVersion, IStore store, ExpressChain? chain)
@@ -429,58 +389,12 @@ namespace NeoDebug.Neo3
             snapshot.Commit();
         }
 
-        // stripped down Blockchain.Persist logic to initialize empty blockchain
-        static void EnsureLedgerInitialized(IStore store, ProtocolSettings settings)
-        {
-            using var snapshot = new SnapshotCache(store.GetSnapshot());
-            if (NativeContract.Ledger.Initialized(snapshot)) return;
-
-            var block = NeoSystem.CreateGenesisBlock(settings);
-            if (block.Transactions.Length != 0) throw new Exception("Unexpected Transactions in genesis block");
-
-            using (var engine = ApplicationEngine.Create(TriggerType.OnPersist, null, snapshot, block, settings, 0))
-            {
-                using var sb = new ScriptBuilder();
-                sb.EmitSysCall(ApplicationEngine.System_Contract_NativeOnPersist);
-                engine.LoadScript(sb.ToArray());
-                if (engine.Execute() != VMState.HALT) throw new InvalidOperationException("NativeOnPersist operation failed", engine.FaultException);
-            }
-
-            using (var engine = ApplicationEngine.Create(TriggerType.PostPersist, null, snapshot, block, settings, 0))
-            {
-                using var sb = new ScriptBuilder();
-                sb.EmitSysCall(ApplicationEngine.System_Contract_NativePostPersist);
-                engine.LoadScript(sb.ToArray());
-                if (engine.Execute() != VMState.HALT) throw new InvalidOperationException("NativePostPersist operation failed", engine.FaultException);
-            }
-
-            snapshot.Commit();
-        }
-
-        // following logic lifted from ApplicationEngine.CreateDummyBlock
         static Block CreateDummyBlock(IStore store, Transaction? tx = null)
         {
             using var snapshot = new SnapshotCache(store);
-            UInt256 hash = NativeContract.Ledger.CurrentHash(snapshot);
-            var currentBlock = NativeContract.Ledger.GetBlock(snapshot, hash);
-            return new Block
-            {
-                Header = new Header
-                {
-                    Version = 0,
-                    PrevHash = hash,
-                    MerkleRoot = new UInt256(),
-                    Timestamp = currentBlock.Timestamp + ProtocolSettings.Default.MillisecondsPerBlock,
-                    Index = currentBlock.Index + 1,
-                    NextConsensus = currentBlock.NextConsensus,
-                    Witness = new Witness
-                    {
-                        InvocationScript = Array.Empty<byte>(),
-                        VerificationScript = Array.Empty<byte>()
-                    },
-                },
-                Transactions = tx == null ? Array.Empty<Transaction>() : new[] { tx }
-            };
+            var block = TestApplicationEngine.CreateDummyBlock(snapshot, ProtocolSettings.Default);
+            if (tx != null) block.Transactions = new[] { tx };
+            return block;
         }
 
         static Task<Script> CreateInvokeScriptAsync(Invocation invocation, string program, UInt160 scriptHash, ContractParameterParser paramParser)
@@ -767,7 +681,7 @@ namespace NeoDebug.Neo3
                     scriptHash = address.ToScriptHash(version);
                     return true;
                 }
-                catch {}
+                catch { }
 
                 scriptHash = default;
                 return false;
