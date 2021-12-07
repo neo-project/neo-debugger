@@ -28,6 +28,7 @@ Smart Contract Debugger.
 
 |Neo Smart Contract Debugger Version|.NET Core Version|
 |-----------------------------------|-----------------|
+| v3.1 | [v6.0](https://dotnet.microsoft.com/download/dotnet/6.0) (for Neo N3 contracts) <br /> [v3.1](https://dotnet.microsoft.com/download/dotnet-core/3.1) (for Neo Legacy Contracts) |
 | v3.0 | [v5.0](https://dotnet.microsoft.com/download/dotnet/5.0) (for Neo N3 contracts) <br /> [v3.1](https://dotnet.microsoft.com/download/dotnet-core/3.1) (for Neo Legacy Contracts) |
 | v2.0 (unsupported) | [v5.0](https://dotnet.microsoft.com/download/dotnet/5.0) (for Neo N3 contracts) <br /> [v3.1](https://dotnet.microsoft.com/download/dotnet-core/3.1) (for Neo Legacy Contracts) |
 | v1.0 | [v3.1](https://dotnet.microsoft.com/download/dotnet/3.1) |
