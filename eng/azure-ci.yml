@@ -93,6 +93,7 @@ jobs:
       artifactName: 'VSCode-package'
 - job: vswin_debugger
   displayName: Build VS Windows Debugger
+  condition: false
   pool:
     vmImage: 'windows-2019'
   steps:
