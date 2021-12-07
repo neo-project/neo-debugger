@@ -14,9 +14,9 @@ namespace NeoDebug.Neo3
 
         public IEnumerable<Variable> Enumerate(IVariableManager manager)
         {
-            yield return new Variable 
-            { 
-                Name = nameof(IApplicationEngine.GasConsumed), 
+            yield return new Variable
+            {
+                Name = nameof(IApplicationEngine.GasConsumed),
                 Value = engine.GasConsumedAsBigDecimal.ToString(),
             };
         }

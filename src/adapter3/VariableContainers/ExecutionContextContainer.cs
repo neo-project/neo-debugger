@@ -38,8 +38,8 @@ namespace NeoDebug.Neo3
 
                 for (int i = 0; i < variableList.Count; i++)
                 {
-                    var type = Enum.TryParse<ContractParameterType>(variableList[i].Type, out var _type) 
-                        ? _type 
+                    var type = Enum.TryParse<ContractParameterType>(variableList[i].Type, out var _type)
+                        ? _type
                         : ContractParameterType.Any;
                     var item = variableList[i].Index < slot.Count ? slot[i] : StackItem.Null;
                     var variable = item.ToVariable(manager, variableList[i].Name, type);

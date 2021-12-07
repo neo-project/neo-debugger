@@ -89,7 +89,7 @@ namespace NeoDebug.Neo3
             var documents = debugInfo?.Documents
                 .Select(path => (fileName: Path.GetFileName(path), lines: File.Exists(path) ? File.ReadAllLines(path) : Array.Empty<string>()))
                 .ToImmutableList() ?? ImmutableList<(string, string[])>.Empty;
-            var methodStarts = debugInfo?.Methods.ToImmutableDictionary(m => m.Range.Start) 
+            var methodStarts = debugInfo?.Methods.ToImmutableDictionary(m => m.Range.Start)
                 ?? ImmutableDictionary<int, DebugInfo.Method>.Empty;
             var methodEnds = debugInfo?.Methods.ToImmutableDictionary(m => m.Range.End)
                 ?? ImmutableDictionary<int, DebugInfo.Method>.Empty;

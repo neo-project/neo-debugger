@@ -192,7 +192,7 @@ namespace NeoDebug.Neo3
             if (config.TryGetValue("neo-express", out var neoExpressPath))
             {
                 var fs = new System.IO.Abstractions.FileSystem();
-                return fs.LoadChain(neoExpressPath.Value<string>() 
+                return fs.LoadChain(neoExpressPath.Value<string>()
                     ?? throw new JsonException("invalid string"));
             }
             else
