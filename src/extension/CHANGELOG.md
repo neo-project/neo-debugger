@@ -16,7 +16,7 @@ may not exactly match a publicly released version.
 ## Unreleased
 
 ### Changed
-* Update dependencies for Neo 3.1.0 release
+* Update dependencies for Neo 3.1.0 release (#149)
 
 ## [3.0.6] - 2021-10-12
 
