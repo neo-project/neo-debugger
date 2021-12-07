@@ -90,7 +90,7 @@ namespace NeoDebug.Neo3
             }
 
             _ = LaunchConfigParser.CreateDebugSessionAsync(responder.Arguments, Protocol.SendEvent, defaultDebugView)
-                .ContinueWith(t => 
+                .ContinueWith(t =>
                 {
                     if (t.IsCompletedSuccessfully)
                     {

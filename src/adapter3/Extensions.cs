@@ -37,7 +37,7 @@ namespace NeoDebug.Neo3
 
         public static string? GetDocumentPath(this DebugInfo.SequencePoint? @this, DebugInfo? debugInfo)
         {
-            if (@this != null && debugInfo != null 
+            if (@this != null && debugInfo != null
                 && @this.Document >= 0
                 && @this.Document < debugInfo.Documents.Count)
             {
@@ -196,7 +196,7 @@ namespace NeoDebug.Neo3
 
                 if (variable != null) return variable;
             }
-            catch {}
+            catch { }
 
             return item.ToVariable(manager, name);
 
@@ -211,7 +211,7 @@ namespace NeoDebug.Neo3
                 {
                     byteString = (ByteString)item.ConvertTo(StackItemType.ByteString);
                     return ByteArrayContainer.Create(manager, (ReadOnlyMemory<byte>)byteString, name);
-                } 
+                }
                 return null;
             }
         }

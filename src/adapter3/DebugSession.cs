@@ -47,8 +47,8 @@ namespace NeoDebug.Neo3
 
             if (engine.SupportsStepBack)
             {
-                sendEvent(new CapabilitiesEvent 
-                { 
+                sendEvent(new CapabilitiesEvent
+                {
                     Capabilities = new Capabilities { SupportsStepBack = true }
                 });
             }
@@ -287,7 +287,7 @@ namespace NeoDebug.Neo3
                     && name.Span.Slice(0, prefix.Length).SequenceEqual(prefix))
                 {
                     var index = int.TryParse(name.Span.Slice(prefix.Length), out int _index) ? _index : int.MaxValue;
-                    
+
                     if (index < slot.Count)
                     {
                         result = slot[index];
@@ -303,7 +303,7 @@ namespace NeoDebug.Neo3
             {
                 for (int i = 0; i < variableList.Count; i++)
                 {
-                    if (name.Span.SequenceEqual(variableList[i].Name) 
+                    if (name.Span.SequenceEqual(variableList[i].Name)
                         && variableList[i].Index < slot.Count)
                     {
                         var type = Enum.TryParse<ContractParameterType>(variableList[i].Type, out var _type)
@@ -429,7 +429,7 @@ namespace NeoDebug.Neo3
                         return Neo.Wallets.Helper.ToAddress(uint160, version);
                     }
                 }
-                catch {}
+                catch { }
 
                 return null;
             }
@@ -442,7 +442,7 @@ namespace NeoDebug.Neo3
                         ? "<null>"
                         : ((ByteString)item.ConvertTo(StackItemType.ByteString)).GetSpan().ToHexString();
                 }
-                catch {}
+                catch { }
 
                 return null;
             }
