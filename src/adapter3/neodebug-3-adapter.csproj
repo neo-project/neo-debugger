@@ -18,14 +18,13 @@
   <ItemGroup>
     <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="3.1.0" />
     <PackageReference Include="Microsoft.VisualStudio.Shared.VsCodeDebugProtocol" Version="17.0.50801.1" />
-    <PackageReference Include="Nito.Disposables" Version="2.2.1" />
     <PackageReference Include="System.Linq.Async" Version="5.1.0" />
   </ItemGroup>
 
   <PropertyGroup>
-    <BlockchainToolkitLibraryVersion>3.0.13</BlockchainToolkitLibraryVersion>
+    <BlockchainToolkitLibraryVersion>3.1.21</BlockchainToolkitLibraryVersion>
     <BlockchainToolkitLibraryLocalPath>..\..\..\lib-bctk</BlockchainToolkitLibraryLocalPath>
-    <BlockchainToolkitLibraryVersion>local</BlockchainToolkitLibraryVersion>
+    <!-- <BlockchainToolkitLibraryVersion>local</BlockchainToolkitLibraryVersion> -->
   </PropertyGroup>
 
 
@@ -41,4 +40,5 @@
       </ItemGroup>
     </Otherwise>
   </Choose>
+
 </Project>
