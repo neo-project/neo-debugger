@@ -94,8 +94,22 @@ jobs:
 - job: vswin_debugger
   displayName: Build VS Windows Debugger
   pool:
-    vmImage: 'windows-2022'
+    vmImage: 'windows-2019'
   steps:
+  - task: UseDotNet@2
+    displayName: 'use v6.0.x .NET SDK'
+    inputs:
+      packageType: 'sdk'
+      version: '6.0.x'
+  - task: DotNetCoreCLI@2
+    displayName: 'dotnet publish neodebug 3 adapter'
+    inputs:
+      command: 'publish'
+      projects: |
+        ./src/adapter3/*.csproj
+      arguments: --output ./src/vs-package/adapter/ --runtime win-x64 --no-self-contained
+      versioningScheme: 'off'
+
   - script: |
       @echo off
       

@@ -44,20 +44,213 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+
   <ItemGroup>
-    <Compile Include="UiCommand.cs" />
+    <Content Include="adapter\cs\Microsoft.VisualStudio.Threading.resources.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\cs\Microsoft.VisualStudio.Validation.resources.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\de\Microsoft.VisualStudio.Threading.resources.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\de\Microsoft.VisualStudio.Validation.resources.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\es\Microsoft.VisualStudio.Threading.resources.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\es\Microsoft.VisualStudio.Validation.resources.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\fr\Microsoft.VisualStudio.Threading.resources.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\fr\Microsoft.VisualStudio.Validation.resources.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\it\Microsoft.VisualStudio.Threading.resources.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\it\Microsoft.VisualStudio.Validation.resources.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\ja\Microsoft.VisualStudio.Threading.resources.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\ja\Microsoft.VisualStudio.Validation.resources.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\ko\Microsoft.VisualStudio.Threading.resources.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\ko\Microsoft.VisualStudio.Validation.resources.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\pl\Microsoft.VisualStudio.Threading.resources.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\pl\Microsoft.VisualStudio.Validation.resources.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\pt-BR\Microsoft.VisualStudio.Threading.resources.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\pt-BR\Microsoft.VisualStudio.Validation.resources.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\ru\Microsoft.VisualStudio.Threading.resources.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\ru\Microsoft.VisualStudio.Validation.resources.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\tr\Microsoft.VisualStudio.Threading.resources.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\tr\Microsoft.VisualStudio.Validation.resources.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\zh-Hans\Microsoft.VisualStudio.Threading.resources.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\zh-Hans\Microsoft.VisualStudio.Validation.resources.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\zh-Hant\Microsoft.VisualStudio.Threading.resources.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\zh-Hant\Microsoft.VisualStudio.Validation.resources.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Akka.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\BouncyCastle.Crypto.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
     <Content Include="adapter\e_sqlite3.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\K4os.Compression.LZ4.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\McMaster.Extensions.CommandLineUtils.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\MessagePack.Annotations.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\MessagePack.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Microsoft.Bcl.AsyncInterfaces.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Microsoft.Data.Sqlite.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Microsoft.EntityFrameworkCore.Abstractions.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Microsoft.EntityFrameworkCore.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Microsoft.EntityFrameworkCore.Relational.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Microsoft.EntityFrameworkCore.Sqlite.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Microsoft.Extensions.DependencyModel.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Microsoft.VisualStudio.Threading.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Microsoft.VisualStudio.Validation.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Microsoft.Win32.SystemEvents.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\neo-bctklib.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Neo.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Neo.VM.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\neodebug-3-adapter.deps.json">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+      <Content Include="adapter\neodebug-3-adapter.dll">
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
     <Content Include="adapter\neodebug-3-adapter.exe">
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
+    <Content Include="adapter\neodebug-3-adapter.runtimeconfig.json">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Nerdbank.Streams.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Newtonsoft.Json.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\OneOf.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
     <Content Include="adapter\rocksdb.dll">
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
-    <Content Include="NeoDebuggerPackage.pkgdef">
+    <Content Include="adapter\RocksDbSharp.dll">
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
+    <Content Include="adapter\RpcClient.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\SQLitePCLRaw.batteries_v2.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\SQLitePCLRaw.core.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\SQLitePCLRaw.provider.e_sqlite3.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\System.Configuration.ConfigurationManager.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\System.Drawing.Common.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\System.IO.Abstractions.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\System.Linq.Async.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\System.Security.Cryptography.ProtectedData.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\System.Security.Permissions.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\System.Windows.Extensions.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="UiCommand.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="LaunchConfigSelectionDialog.xaml.cs">
       <DependentUpon>LaunchConfigSelectionDialog.xaml</DependentUpon>
@@ -66,6 +259,9 @@
     <Compile Include="LaunchNeoDebugger.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="NeoDebuggerPackage.cs" />
+    <Content Include="NeoDebuggerPackage.pkgdef">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
     <None Include="source.extension.vsixmanifest">
       <SubType>Designer</SubType>
     </None>
@@ -106,15 +302,6 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(VSToolsPath)\VSSDK\Microsoft.VsSDK.targets" Condition="'$(VSToolsPath)' != ''" />
-
-  <Target Name="BuildDebugAdapter" BeforeTargets="CoreCompile">
-    <PropertyGroup>
-      <_AdapterProjectPath>$(MSBuildProjectDirectory)\..\adapter3\neodebug-3-adapter.csproj</_AdapterProjectPath>
-      <_PackageAdapterPath>$(MSBuildProjectDirectory)\adapter</_PackageAdapterPath>
-    </PropertyGroup>
-    <RemoveDir Directories="$(_PackageAdapterPath)" />
-    <Exec Command="dotnet publish $(_AdapterProjectPath) -o $(_PackageAdapterPath) -r win-x64 -c $(Configuration)  -p:PublishSingleFile=true --no-self-contained" />
-  </Target>
 
   <Target Name="UpdateManifestVersion" AfterTargets="DetokenizeVsixManifestFile" DependsOnTargets="GetBuildVersion" Outputs="$(IntermediateVsixManifest)">
     <PropertyGroup>

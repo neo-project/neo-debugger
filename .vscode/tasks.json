@@ -1,8 +1,26 @@
 {
     // See https://go.microsoft.com/fwlink/?LinkId=733558
     // for the documentation about the tasks.json format
+    // dotnet publish .\src\adapter3\ -o .\src\vs-package\adapter\ -r win-x64 --no-self-contained
     "version": "2.0.0",
     "tasks": [
+        {
+            "label": "build VS Win adapter",
+            "type": "shell",
+            "command": "dotnet",
+            "args": [
+                "publish",
+                 "${workspaceFolder}/src/adapter3/neodebug-3-adapter.csproj",
+                 "--output",
+                 "${workspaceFolder}/src/vs-package/adapter",
+                 "--runtime",
+                 "win-x64",
+                 "--no-self-contained"
+            ],
+            "group": "build",
+            "problemMatcher": "$msCompile",
+
+        },
         {
             "label": "build adapter",
             "type": "shell",
