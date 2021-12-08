@@ -94,7 +94,7 @@ jobs:
 - job: vswin_debugger
   displayName: Build VS Windows Debugger
   pool:
-    vmImage: 'windows-2019'
+    vmImage: 'windows-2022'
   steps:
   - script: |
       @echo off
