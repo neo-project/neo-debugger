@@ -157,7 +157,7 @@ namespace NeoDebug.Neo3
             };
 
             var block = CreateDummyBlock(store, tx);
-            var engine = new DebugApplicationEngine(tx, checkpoint, block, witnessChecker);
+            var engine = new DebugApplicationEngine(tx, store, checkpoint.Settings, block, witnessChecker);
             engine.LoadScript(invokeScript);
             return engine;
 

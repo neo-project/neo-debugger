@@ -19,15 +19,15 @@ namespace NeoDebug.Neo3
 {
     internal partial class DebugApplicationEngine : TestApplicationEngine, IApplicationEngine
     {
-        private readonly ICheckpointStore checkpointStore;
+        private readonly IReadOnlyStore checkpointStore;
         private readonly InvocationStackAdapter invocationStackAdapter;
         private readonly IDictionary<UInt160, UInt160> scriptIdMap = new Dictionary<UInt160, UInt160>();
 
         public event EventHandler<(UInt160 scriptHash, string scriptName, string eventName, NeoArray state)>? DebugNotify;
         public event EventHandler<(UInt160 scriptHash, string scriptName, string message)>? DebugLog;
 
-        public DebugApplicationEngine(IVerifiable container, ICheckpointStore checkpointStore, Block persistingBlock, Func<byte[], bool>? witnessChecker)
-            : base(TriggerType.Application, container, new SnapshotCache(checkpointStore), persistingBlock, checkpointStore.Settings, TestModeGas, witnessChecker)
+        public DebugApplicationEngine(IVerifiable container, IReadOnlyStore checkpointStore, ProtocolSettings settings, Block persistingBlock, Func<byte[], bool>? witnessChecker)
+            : base(TriggerType.Application, container, new SnapshotCache(checkpointStore), persistingBlock, settings, TestModeGas, witnessChecker)
         {
             this.Log += OnLog;
             this.Notify += OnNotify;
