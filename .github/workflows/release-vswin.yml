@@ -26,7 +26,7 @@ jobs:
     - name: Install dependencies
       run: nuget restore ./src/vs-package/neodebug-vs.csproj
     - name: build vsix
-      run: msbuild ./src/vs-package/neodebug-vs.csproj /p:Configuration=Release
+      run: msbuild ./src/vs-package/neodebug-vs.csproj
     - name: Upload artifact
       uses: actions/upload-artifact@v2
       with:
