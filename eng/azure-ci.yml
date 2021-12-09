@@ -93,10 +93,22 @@ jobs:
       artifactName: 'VSCode-package'
 - job: vswin_debugger
   displayName: Build VS Windows Debugger
-  condition: false
   pool:
     vmImage: 'windows-2019'
   steps:
+  - task: UseDotNet@2
+    displayName: 'use v6.0.x .NET SDK'
+    inputs:
+      packageType: 'sdk'
+      version: '6.0.x'
+  - task: DotNetCoreCLI@2
+    displayName: 'dotnet publish neodebug 3 adapter'
+    inputs:
+      command: 'publish'
+      publishWebProjects: false
+      arguments: './src/adapter3/neodebug-3-adapter.csproj --output ./src/vs-package/adapter/ --runtime win-x64 --no-self-contained'
+      zipAfterPublish: false
+      modifyOutputPath: false
   - script: |
       @echo off
       
