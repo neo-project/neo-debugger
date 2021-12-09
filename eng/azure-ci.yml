@@ -105,9 +105,10 @@ jobs:
     displayName: 'dotnet publish neodebug 3 adapter'
     inputs:
       command: 'publish'
-      arguments: ./src/adapter3/neodebug-3-adapter.csproj --output ./src/vs-package/adapter/ --runtime win-x64 --no-self-contained
-      versioningScheme: 'off'
       publishWebProjects: false
+      arguments: './src/adapter3/neodebug-3-adapter.csproj --output ./src/vs-package/adapter/ --runtime win-x64 --no-self-contained'
+      zipAfterPublish: false
+      modifyOutputPath: false
   - script: |
       @echo off
       
