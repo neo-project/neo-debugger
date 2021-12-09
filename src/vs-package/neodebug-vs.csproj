@@ -311,11 +311,26 @@
     <XmlPoke XmlInputPath="$(IntermediateVsixManifest)" Query="/x:PackageManifest/x:Metadata/x:Identity/@Version" Value="$(AssemblyFileVersion)" Namespaces="&lt;Namespace Prefix='x' Uri='http://schemas.microsoft.com/developer/vsx-schema/2011' /&gt;" />
   </Target>
 
+  <Choose>
+    <When Condition=" '$(PrereleaseVersion)' == ''">
+      <PropertyGroup>
+        <TargetVsixName>-preview</TargetVsixName>
+      </PropertyGroup>
+    </When>
+    <Otherwise>
+      <PropertyGroup>
+        <TargetVsixName>$(PrereleaseVersion)</TargetVsixName>
+      </PropertyGroup>
+    </Otherwise>
+  </Choose>
+  
   <Target Name="UpdateTargetVsixContainer" DependsOnTargets="GetBuildVersion" BeforeTargets="CreateVsixContainer">
     <PropertyGroup>
-      <TargetVsixContainer>$(OutDir)$(AssemblyName)-$(NuGetPackageVersion).vsix</TargetVsixContainer>
+      <TargetVsixName>$(AssemblyName)-$(BuildVersionSimple)$(TargetVsixName).vsix</TargetVsixName>
+      <TargetVsixContainer>$(OutDir)$(TargetVsixName)</TargetVsixContainer>
     </PropertyGroup>
-    <Message Text="Updating package filename to '$(AssemblyName)-$(NuGetPackageVersion).vsix'" />
+
+    <Message Text="Updating package filename to '$(TargetVsixName)'" />
   </Target>
 
 </Project>
