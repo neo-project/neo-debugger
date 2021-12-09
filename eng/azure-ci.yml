@@ -109,7 +109,7 @@ jobs:
         ./src/adapter3/*.csproj
       arguments: --output ./src/vs-package/adapter/ --runtime win-x64 --no-self-contained
       versioningScheme: 'off'
-
+      publishWebProjects: false
   - script: |
       @echo off
       
