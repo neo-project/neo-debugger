@@ -31,7 +31,7 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: packages
-        path: ./src/vs-package/bin/Release/*.vsix
+        path: ./src/vs-package/bin/x64/Release/*.vsix
     - name: Create Release
       uses: marvinpinto/action-automatic-releases@v1.2.1
       if: ${{ startsWith(github.ref_name, 'release/') }}
@@ -41,4 +41,4 @@ jobs:
         title: Neo Debugger for Visual Studio Preview Release ${{ env.NUGET_PACKAGE_VERSION }}
         automatic_release_tag: vswin-latest
         files: |
-          ./src/vs-package/bin/Release/*.vsix
+          ./src/vs-package/bin/x64/Release/*.vsix
