@@ -26,18 +26,19 @@ jobs:
     - name: Install dependencies
       run: nuget restore ./src/vs-package/neodebug-vs.csproj
     - name: build vsix
-      run: msbuild ./src/vs-package/neodebug-vs.csproj /p:BaseOutputPath=bin\
+      run: msbuild ./src/vs-package/neodebug-vs.csproj /p:BaseOutputPath=bin\ /p:Configuration=Release
     - name: Upload artifact
       uses: actions/upload-artifact@v2
       with:
         name: packages
         path: ./src/vs-package/bin/Release/*.vsix
     - name: Create Release
-      uses: marvinpinto/action-automatic-releases@v1.1.1
+      uses: marvinpinto/action-automatic-releases@v1.2.1
+      if: ${{ startsWith(github.ref_name, 'release/') }}
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
         prerelease: true
         title: Neo Debugger for Visual Studio Preview Release ${{ env.NUGET_PACKAGE_VERSION }}
-        automatic_release_tag: ${{ env.NUGET_PACKAGE_VERSION }}
+        automatic_release_tag: vswin-latest
         files: |
           ./src/vs-package/bin/Release/*.vsix
