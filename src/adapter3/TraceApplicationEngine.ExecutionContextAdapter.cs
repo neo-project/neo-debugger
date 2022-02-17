@@ -5,6 +5,7 @@ using Neo;
 using Neo.VM;
 using Neo.BlockchainToolkit.TraceDebug;
 using Neo.SmartContract.Native;
+using Neo.SmartContract;
 
 namespace NeoDebug.Neo3
 {
@@ -54,6 +55,8 @@ namespace NeoDebug.Neo3
             public UInt160 ScriptIdentifier => frame.ScriptIdentifier;
 
             public Script Script { get; }
+            public MethodToken[]? Tokens => null;
+
 
             public IReadOnlyList<StackItem> EvaluationStack => frame.EvaluationStack;
 

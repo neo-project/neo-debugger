@@ -58,17 +58,17 @@ namespace NeoDebug.Neo3
         }
 
         public Disassembly GetDisassembly(IExecutionContext context, DebugInfo? debugInfo)
-            => GetDisassembly(context.ScriptIdentifier, context.Script, debugInfo);
+            => GetDisassembly(context.ScriptIdentifier, context.Script, debugInfo, context.Tokens);
 
-        public Disassembly GetDisassembly(UInt160 scriptHash, Script script, DebugInfo? debugInfo)
-            => disassemblies.GetOrAdd(scriptHash.GetHashCode(), sourceRef => ToDisassembly(sourceRef, scriptHash, script, debugInfo));
+        Disassembly GetDisassembly(UInt160 scriptHash, Script script, DebugInfo? debugInfo, MethodToken[]? tokens)
+            => disassemblies.GetOrAdd(scriptHash.GetHashCode(), sourceRef => ToDisassembly(sourceRef, scriptHash, script, debugInfo, tokens));
 
         public bool TryGetDisassembly(UInt160 scriptHash, out Disassembly disassembly)
         {
             if (tryGetScript(scriptHash, out var script))
             {
                 var debugInfo = tryGetDebugInfo(scriptHash, out var _debugInfo) ? _debugInfo : null;
-                disassembly = GetDisassembly(scriptHash, script, debugInfo);
+                disassembly = GetDisassembly(scriptHash, script, debugInfo, null);
                 return true;
             }
 
@@ -79,7 +79,7 @@ namespace NeoDebug.Neo3
         public bool TryGetDisassembly(int sourceRef, out Disassembly disassembly)
             => disassemblies.TryGetValue(sourceRef, out disassembly);
 
-        static Disassembly ToDisassembly(int sourceRef, UInt160 scriptHash, Script script, DebugInfo? debugInfo)
+        static Disassembly ToDisassembly(int sourceRef, UInt160 scriptHash, Script script, DebugInfo? debugInfo, MethodToken[]? tokens)
         {
             var padString = script.GetInstructionAddressPadding();
             var sourceBuilder = new StringBuilder();
@@ -128,7 +128,7 @@ namespace NeoDebug.Neo3
                     }
                 }
 
-                AddSource(sourceBuilder, instructions[i].address, instructions[i].instruction, padString);
+                AddSource(sourceBuilder, instructions[i].address, instructions[i].instruction, padString, tokens);
                 addressMapBuilder.Add(instructions[i].address, line);
                 lineMapBuilder.Add(line, instructions[i].address);
                 line++;
@@ -147,14 +147,14 @@ namespace NeoDebug.Neo3
                 addressMapBuilder.ToImmutable(),
                 lineMapBuilder.ToImmutable());
 
-            static void AddSource(StringBuilder sourceBuilder, int address, Instruction instruction, string padString)
+            static void AddSource(StringBuilder sourceBuilder, int address, Instruction instruction, string padString, MethodToken[]? tokens)
             {
                 sourceBuilder.Append($"{address.ToString(padString)} {instruction.OpCode}");
                 if (!instruction.Operand.IsEmpty)
                 {
                     sourceBuilder.Append($" {instruction.GetOperandString()}");
                 }
-                var comment = instruction.GetComment(address);
+                var comment = instruction.GetComment(address, tokens);
                 if (comment.Length > 0)
                 {
                     sourceBuilder.Append($" # {comment}");
