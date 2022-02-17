@@ -229,7 +229,7 @@ namespace NeoDebug.Neo3
 
         static ContractParameterParser CreateContractParameterParser(byte addressVersion, IStore store, ExpressChain? chain)
         {
-            ContractParameterParser.TryGetUInt160 tryGetContract = (string name, out UInt160 scriptHash) =>
+            ContractParameterParser.TryGetUInt160 tryGetContract = (string name, [MaybeNullWhen(false)] out UInt160 scriptHash) =>
                 {
                     using var snapshot = new SnapshotCache(store);
                     foreach (var contract in NativeContract.ContractManagement.ListContracts(snapshot))
@@ -247,7 +247,7 @@ namespace NeoDebug.Neo3
 
             ContractParameterParser.TryGetUInt160? tryGetAccount = chain == null
                 ? null
-                : (string name, out UInt160 scriptHash) =>
+                : (string name, [MaybeNullWhen(false)] out UInt160 scriptHash) =>
                 {
                     if (chain.TryGetDefaultAccount(name, out var account))
                     {
