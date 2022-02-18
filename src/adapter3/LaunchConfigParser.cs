@@ -133,9 +133,10 @@ namespace NeoDebug.Neo3
                 UpdateContractStorage(store, launchContractId, ParseStorage(config, paramParser));
                 invokeScript = await CreateInvokeScriptAsync(invocation, program, launchContractHash, paramParser);
 
-                if (invocation.IsT1) // T1 == OracleResponseInvocation
+                // T1 == OracleResponseInvocation
+                if (invocation.TryPickT1(out var oracleResponse, out _))
                 {
-                    attributes = GetTransactionAttributes(invocation.AsT1, store, launchContractHash, paramParser);
+                    attributes = GetTransactionAttributes(oracleResponse, store, launchContractHash, paramParser);
                 }
             }
 
