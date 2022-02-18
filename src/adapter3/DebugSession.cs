@@ -7,6 +7,7 @@ using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
 using Neo.BlockchainToolkit.Models;
 using Neo.SmartContract;
+using Neo.SmartContract.Native;
 using Neo.VM;
 
 namespace NeoDebug.Neo3
@@ -129,10 +130,17 @@ namespace NeoDebug.Neo3
                     method = debugInfo.GetMethod(context.InstructionPointer);
                 }
 
+                ContractState? contract = engine is DebugApplicationEngine debugEngine
+                    ? NativeContract.ContractManagement.GetContract(debugEngine.Snapshot, context.ScriptHash)
+                    : null;
+
+                var methodName = method?.Name ?? $"<frame {engine.InvocationStack.Count - index}>";
                 var frame = new StackFrame()
                 {
                     Id = index,
-                    Name = method?.Name ?? $"frame {engine.InvocationStack.Count - index}",
+                    Name = contract is not null 
+                        ? $"{methodName} ({contract.Manifest.Name})" 
+                        : methodName,
                 };
 
                 if (disassemblyView)
@@ -140,9 +148,8 @@ namespace NeoDebug.Neo3
                     var disassembly = disassemblyManager.GetDisassembly(context, debugInfo);
                     frame.Source = new Source()
                     {
-                        SourceReference = disassembly.SourceReference,
-                        Name = disassembly.Name,
-                        Path = disassembly.Name,
+                        Name = $"{context.ScriptHash}",
+                        SourceReference = disassembly.SourceReference
                     };
                     frame.Line = disassembly.AddressMap[context.InstructionPointer];
                     frame.Column = 1;
@@ -150,18 +157,19 @@ namespace NeoDebug.Neo3
                 else
                 {
                     var sequencePoint = method?.GetCurrentSequencePoint(context.InstructionPointer);
+                    var document = sequencePoint?.GetDocumentPath(debugInfo);
 
-                    if (sequencePoint != null)
+                    frame.Source = new Source()
                     {
-                        var document = sequencePoint.GetDocumentPath(debugInfo);
-                        if (document != null)
-                        {
-                            frame.Source = new Source()
-                            {
-                                Name = System.IO.Path.GetFileName(document),
-                                Path = document
-                            };
-                        }
+                        Name = document is not null
+                            ? System.IO.Path.GetFileName(document)
+                            : "<null>",
+                        Origin = $"ScriptHash: {context.ScriptHash}",
+                        Path = document ?? string.Empty,
+                    };
+
+                    if (sequencePoint is not null)
+                    {
                         frame.Line = sequencePoint.Start.line;
                         frame.Column = sequencePoint.Start.column;
 
@@ -205,7 +213,7 @@ namespace NeoDebug.Neo3
             }
 
             yield return AddScope("Storage", engine.GetStorageContainer(scriptId));
-            yield return AddScope("Engine", new EngineContainer(engine));
+            yield return AddScope("Engine", new EngineContainer(engine, context));
 
             Scope AddScope(string name, IVariableContainer container)
             {
