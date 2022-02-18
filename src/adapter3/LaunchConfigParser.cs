@@ -72,9 +72,10 @@ namespace NeoDebug.Neo3
                 throw new JsonException("missing invocation property");
             }
 
-            if (jsonInvocation.Type == JTokenType.Object && jsonInvocation["trace-file"] != null)
+            var traceFile =  jsonInvocation.Type == JTokenType.Object
+                ? jsonInvocation.Value<string>("trace-file") : null;
+            if (traceFile != null)
             {
-                var traceFile = jsonInvocation.Value<string>("trace-file") ?? throw new JsonException("invalid trace-file property");
                 var program = ParseProgram(config);
                 var launchContract = LoadNefFile(program);
                 var contracts = new List<NefFile> { launchContract };
