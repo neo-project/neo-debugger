@@ -81,6 +81,7 @@ namespace NeoDebug.Neo3
                 var contracts = new List<NefFile> { launchContract };
 
                 // TODO: load other contracts?
+                // TODO: Storage Schema 
 
                 return new TraceApplicationEngine(traceFile, contracts);
             }
@@ -107,6 +108,7 @@ namespace NeoDebug.Neo3
             var store = new MemoryTrackingStore(checkpoint);
             store.EnsureLedgerInitialized(checkpoint.Settings);
 
+            var launchContractHash = UInt160.Zero;
             var tx = new Transaction
             {
                 Version = 0,
@@ -114,13 +116,11 @@ namespace NeoDebug.Neo3
                 Script = Array.Empty<byte>(),
                 Signers = GetSigners(config, chain, checkpoint.Settings),
                 ValidUntilBlock = checkpoint.Settings.MaxValidUntilBlockIncrement,
-                Attributes = Array.Empty<TransactionAttribute>(),                
+                Attributes = Array.Empty<TransactionAttribute>(),
                 Witnesses = Array.Empty<Witness>()
             };
 
-            var launchContractHash = UInt160.Zero;
-
-            if (invocation.IsT3) // deployment invocation
+            if (invocation.IsT3) // T3 == DeploymentInvocation
             {
                 if (tx.Signers.Length == 0)
                 {
@@ -150,7 +150,7 @@ namespace NeoDebug.Neo3
                 UpdateContractStorage(store, launchContractHash, ParseStorage(config, paramParser));
                 tx.Script = await CreateInvokeScriptAsync(invocation, program, launchContractHash, paramParser);
 
-                if (invocation.TryPickT1(out var oracleResponse, out _))
+                if (invocation.TryPickT1(out var oracleResponse, out _)) // T1 == OracleResponseInvocation
                 {
                     tx.Attributes = GetTransactionAttributes(oracleResponse, store, launchContractHash, paramParser);
                 }
@@ -166,10 +166,19 @@ namespace NeoDebug.Neo3
             //          deploy whatever contracts you want and take a snapshot rather than deploying multiple contracts 
             //          during launch configuration.
 
+            var schemaMap = LoadStorageSchemaMap(config, launchContractHash);
             var block = CreateDummyBlock(store, tx);
-            var engine = new DebugApplicationEngine(tx, store, checkpoint.Settings, block, witnessChecker);
+            var engine = new DebugApplicationEngine(tx, store, schemaMap, checkpoint.Settings, block, witnessChecker);
             engine.LoadScript(tx.Script);
             return engine;
+        }
+
+        static ImmutableDictionary<UInt160, ContractStorageSchema> LoadStorageSchemaMap(ConfigProps config, UInt160 scriptHash)
+        {
+            var map = ImmutableDictionary<UInt160, ContractStorageSchema>.Empty;
+            return config.TryGetValue("storage-schema", out var schemaToken)
+                ? map.Add(scriptHash, ContractStorageSchema.Parse(schemaToken))
+                : map;
         }
 
         static NefFile LoadNefFile(string path)
@@ -641,7 +650,7 @@ namespace NeoDebug.Neo3
                 throw new JsonException("Invalid signer JSON");
             }
 
-            static WitnessScope ParseScopes(string? text) 
+            static WitnessScope ParseScopes(string? text)
                 => text is null ? WitnessScope.CalledByEntry : Enum.Parse<WitnessScope>(text);
         }
 

@@ -2,31 +2,64 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Numerics;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using Neo.BlockchainToolkit;
 using Neo.SmartContract;
+using OneOf;
 
 namespace NeoDebug.Neo3
 {
     using StackItem = Neo.VM.Types.StackItem;
+    using StorageValueTypeDef = OneOf<ContractParameterType, StructDef>;
 
     internal abstract class StorageContainerBase : IVariableContainer
     {
+        private readonly ContractStorageSchema? schema;
+
+        protected StorageContainerBase(ContractStorageSchema? schema)
+        {
+            this.schema = schema;
+        }
+
         protected abstract IEnumerable<(ReadOnlyMemory<byte> key, StorageItem item)> GetStorages();
+
+        static string ToString(StorageValueTypeDef typeDef) => typeDef.Match(cpt => $"{cpt}", sd => sd.Name);
 
         public IEnumerable<Variable> Enumerate(IVariableManager manager)
         {
             var storages = GetStorages();
-            foreach (var (key, item) in storages)
+
+            if (schema is not null)
             {
-                var keyHashCode = key.Span.GetSequenceHashCode().ToString("x8");
-                var kvp = new KvpContainer(key, item, keyHashCode);
-                yield return new Variable()
+                foreach (var storageDef in schema.StorageDefs)
                 {
-                    Name = keyHashCode,
-                    Value = string.Empty,
-                    VariablesReference = manager.Add(kvp),
-                    NamedVariables = 2
-                };
+                    if (storageDef.KeySegments.Count == 0)
+                    {
+                        var (_, item) = storages.SingleOrDefault(s => s.key.Span.SequenceEqual(storageDef.KeyPrefix.Span));
+                        yield return StorageDefContainer.Create(storageDef, item, schema.StructDefs);
+                    }
+                    else
+                    {
+                        var values = storages.Where(s => s.key.Span.StartsWith(storageDef.KeyPrefix.Span));
+                        yield return StorageDefContainer.Create(manager, storageDef, values, schema.StructDefs);
+                    }
+                }
+            }
+            // else
+            {
+                foreach (var (key, item) in storages)
+                {
+                    var keyHashCode = key.Span.GetSequenceHashCode().ToString("x8");
+                    var kvp = new KvpContainer(key, item, keyHashCode);
+                    yield return new Variable()
+                    {
+                        Name = keyHashCode,
+                        Value = string.Empty,
+                        VariablesReference = manager.Add(kvp),
+                        NamedVariables = 2
+                    };
+                }
             }
         }
 

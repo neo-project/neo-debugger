@@ -10,7 +10,7 @@ namespace NeoDebug.Neo3
         {
             public readonly IEnumerable<(ReadOnlyMemory<byte>, StorageItem)> storages;
 
-            public StorageContainer(IEnumerable<(ReadOnlyMemory<byte>, StorageItem)> storages)
+            public StorageContainer(IEnumerable<(ReadOnlyMemory<byte>, StorageItem)> storages) : base(null) // TODO: schema support
             {
                 this.storages = storages;
             }

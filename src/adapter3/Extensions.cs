@@ -1,12 +1,16 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Numerics;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
+using Neo.BlockchainToolkit;
 using Neo.BlockchainToolkit.Models;
 using Neo.Cryptography.ECC;
 using Neo.SmartContract;
 using Newtonsoft.Json.Linq;
+using OneOf;
 
 namespace NeoDebug.Neo3
 {
@@ -86,6 +90,23 @@ namespace NeoDebug.Neo3
         public static int GetSequenceHashCode(this byte[] array)
         {
             return GetSequenceHashCode(array.AsSpan());
+        }
+
+
+        public static string AsString(this OneOf<ContractParameterType, StructDef> typeDef)
+            => typeDef.Match(cpt => $"{cpt}", sd => sd.Name);
+
+        public static string ConvertStorageItem(this OneOf<ContractParameterType, StructDef> typeDef, StorageItem item, IReadOnlyDictionary<string, StructDef> structMap)
+        {
+            return typeDef.TryPickT0(out var cpt, out var structDef)
+                ? cpt switch
+                {
+                    ContractParameterType.Hash160 => $"{new UInt160(item.Value)}",
+                    ContractParameterType.Hash256 => $"{new UInt256(item.Value)}",
+                    ContractParameterType.Integer => $"{new BigInteger(item.Value)}",
+                    _ => $"<{cpt} not implemented>"
+                }
+                : "<struct def not implemented>";
         }
 
         public static JToken ToJson(this StackItem item)

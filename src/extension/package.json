@@ -87,6 +87,7 @@
                                 "type": "string",
                                 "description": "Absolute path to Neo smart contract (.avm/.nef)"
                             },
+                            "storage-schema": {},
                             "invocation": {
                                 "oneOf": [
                                     {
