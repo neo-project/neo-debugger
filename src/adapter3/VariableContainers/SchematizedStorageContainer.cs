@@ -51,14 +51,23 @@ namespace NeoDebug.Neo3
                 var (key, item) = storages[i];
                 var segments = key.AsKeySegments(storageDef).ToArray();
 
-                var container = new SchematizedStorageItemContainer(storageDef, key, item);
-                yield return new Variable()
+                if (segments.Length == 1)
                 {
-                    Name = $"{i}",
-                    Value = string.Empty,
-                    VariablesReference = manager.Add(container),
-                    NamedVariables = 2,
-                };
+                    var name = $"{segments[0].param.Value}";
+                    yield return item.AsVariable(manager, name, storageDef.Value);
+                }
+                else
+                {
+                    var container = new SchematizedStorageItemContainer(storageDef, key, item);
+                    yield return new Variable()
+                    {
+                        Name = $"{i}",
+                        Value = string.Empty,
+                        VariablesReference = manager.Add(container),
+                        NamedVariables = 2,
+                    };
+
+                }
             }
         }
     }
