@@ -34,19 +34,10 @@ namespace NeoDebug.Neo3
             {
                 foreach (var storageDef in schema.StorageDefs)
                 {
-                    if (storageDef.KeySegments.Count == 0)
-                    {
-                        var (_, item) = storages.SingleOrDefault(s => s.key.Span.SequenceEqual(storageDef.KeyPrefix.Span));
-                        yield return StorageDefContainer.Create(storageDef, item, schema.StructDefs);
-                    }
-                    else
-                    {
-                        var values = storages.Where(s => s.key.Span.StartsWith(storageDef.KeyPrefix.Span));
-                        yield return StorageDefContainer.Create(manager, storageDef, values, schema.StructDefs);
-                    }
+                    yield return SchematizedStoragesContainer.Create(manager, storageDef, storages);
                 }
             }
-            // else
+            else
             {
                 foreach (var (key, item) in storages)
                 {

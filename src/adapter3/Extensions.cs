@@ -93,21 +93,21 @@ namespace NeoDebug.Neo3
         }
 
 
-        public static string AsString(this OneOf<ContractParameterType, StructDef> typeDef)
-            => typeDef.Match(cpt => $"{cpt}", sd => sd.Name);
+        // public static string AsString(this OneOf<ContractParameterType, StructDef> typeDef)
+        //     => typeDef.Match(cpt => $"{cpt}", sd => sd.Name);
 
-        public static string ConvertStorageItem(this OneOf<ContractParameterType, StructDef> typeDef, StorageItem item, IReadOnlyDictionary<string, StructDef> structMap)
-        {
-            return typeDef.TryPickT0(out var cpt, out var structDef)
-                ? cpt switch
-                {
-                    ContractParameterType.Hash160 => $"{new UInt160(item.Value)}",
-                    ContractParameterType.Hash256 => $"{new UInt256(item.Value)}",
-                    ContractParameterType.Integer => $"{new BigInteger(item.Value)}",
-                    _ => $"<{cpt} not implemented>"
-                }
-                : "<struct def not implemented>";
-        }
+        // public static string ConvertStorageItem(this OneOf<ContractParameterType, StructDef> typeDef, StorageItem item, IReadOnlyDictionary<string, StructDef> structMap)
+        // {
+        //     return typeDef.TryPickT0(out var cpt, out var structDef)
+        //         ? cpt switch
+        //         {
+        //             ContractParameterType.Hash160 => $"{new UInt160(item.Value)}",
+        //             ContractParameterType.Hash256 => $"{new UInt256(item.Value)}",
+        //             ContractParameterType.Integer => $"{new BigInteger(item.Value)}",
+        //             _ => $"<{cpt} not implemented>"
+        //         }
+        //         : "<struct def not implemented>";
+        // }
 
         public static JToken ToJson(this StackItem item)
         {
