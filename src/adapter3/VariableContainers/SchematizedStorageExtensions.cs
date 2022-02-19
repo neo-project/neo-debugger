@@ -12,12 +12,26 @@ using NeoArray = Neo.VM.Types.Array;
 
 namespace NeoDebug.Neo3
 {
+    using StorageValueTypeDef = OneOf<PrimitiveStorageType, StructDef>;
+
     static class SchematizedStorageExtensions
     {
-        public static string AsString(this OneOf<ContractParameterType, StructDef> typeDef)
+        public static string AsAddress(this UInt160 @this, byte? version = null)
+        {
+            if (@this == UInt160.Zero) return "<zero address>";
+
+            return Neo.Wallets.Helper.ToAddress(@this, 
+                version ?? ProtocolSettings.Default.AddressVersion);
+        }
+
+        public static string AsString(this (string name, PrimitiveStorageType type, object value) @this, byte? version = null)
+            => @this.type == PrimitiveStorageType.Address && @this.value is UInt160 uint160
+                ? uint160.AsAddress(version) : $"{@this.value}";
+
+        public static string AsString(this StorageValueTypeDef typeDef)
             => typeDef.Match(cpt => $"{cpt}", sd => sd.Name);
 
-        public static Variable AsVariable(this StackItem stackItem, IVariableManager manager, string name, OneOf<ContractParameterType, StructDef> typeDef)
+        public static Variable AsVariable(this StackItem stackItem, IVariableManager manager, string name, StorageValueTypeDef typeDef)
         {
             var variable = new Variable
             {
@@ -54,7 +68,7 @@ namespace NeoDebug.Neo3
             return variable;
         }
 
-        public static Variable AsVariable(this StorageItem? storageItem, IVariableManager manager, string name, OneOf<ContractParameterType, StructDef> typeDef)
+        public static Variable AsVariable(this StorageItem? storageItem, IVariableManager manager, string name, OneOf<PrimitiveStorageType, StructDef> typeDef)
         {
             var variable = new Variable()
             {
@@ -99,31 +113,35 @@ namespace NeoDebug.Neo3
             return variable;
         }
 
-        public static string AsValue(this StackItem item, ContractParameterType cpt)
+        public static string ToAddress(this UInt160 scriptHash, byte version) => Neo.Wallets.Helper.ToAddress(scriptHash, version);
+
+        public static string AsValue(this StackItem item, PrimitiveStorageType cpt, byte? version = null)
             => cpt switch
                 {
-                    ContractParameterType.Boolean => $"{item.GetBoolean()}",
-                    ContractParameterType.Hash160 => $"{new UInt160(item.GetSpan())}",
-                    ContractParameterType.Hash256 => $"{new UInt256(item.GetSpan())}",
-                    ContractParameterType.Integer => $"{item.GetInteger()}",
-                    ContractParameterType.String => item.GetString() ?? string.Empty,
-                    ContractParameterType.ByteArray => item.GetSpan().ToHexString(),
+                    PrimitiveStorageType.Boolean => $"{item.GetBoolean()}",
+                    PrimitiveStorageType.Hash160 => $"{new UInt160(item.GetSpan())}",
+                    PrimitiveStorageType.Address => $"{new UInt160(item.GetSpan()).AsAddress(version)}",
+                    PrimitiveStorageType.Hash256 => $"{new UInt256(item.GetSpan())}",
+                    PrimitiveStorageType.Integer => $"{item.GetInteger()}",
+                    PrimitiveStorageType.String => item.GetString() ?? string.Empty,
+                    PrimitiveStorageType.ByteArray => item.GetSpan().ToHexString(),
                     _ => $"<{cpt} not implemented>"
                 };
 
-        public static string AsValue(this StorageItem item, ContractParameterType cpt)
+        public static string AsValue(this StorageItem item, PrimitiveStorageType cpt, byte? version = null)
             => cpt switch
                 {
-                    ContractParameterType.Boolean => $"{new BigInteger(item.Value) == 0}",
-                    ContractParameterType.Hash160 => $"{new UInt160(item.Value)}",
-                    ContractParameterType.Hash256 => $"{new UInt256(item.Value)}",
-                    ContractParameterType.Integer => $"{new BigInteger(item.Value)}",
-                    ContractParameterType.String => Neo.Utility.StrictUTF8.GetString(item.Value),
-                    ContractParameterType.ByteArray => item.Value.ToHexString(),
+                    PrimitiveStorageType.Boolean => $"{new BigInteger(item.Value) == 0}",
+                    PrimitiveStorageType.Hash160 => $"{new UInt160(item.Value)}",
+                    PrimitiveStorageType.Address => $"{new UInt160(item.Value).AsAddress(version)}",
+                    PrimitiveStorageType.Hash256 => $"{new UInt256(item.Value)}",
+                    PrimitiveStorageType.Integer => $"{new BigInteger(item.Value)}",
+                    PrimitiveStorageType.String => Neo.Utility.StrictUTF8.GetString(item.Value),
+                    PrimitiveStorageType.ByteArray => item.Value.ToHexString(),
                     _ => $"<{cpt} not implemented>"
                 };
 
-        public static IEnumerable<(string name, ContractParameter param)> AsKeySegments(this ReadOnlyMemory<byte> buffer, StorageDef storageDef)
+        public static IEnumerable<(string name, PrimitiveStorageType type, object value)> AsKeySegments(this ReadOnlyMemory<byte> buffer, StorageDef storageDef)
         {
             buffer = buffer.Slice(storageDef.KeyPrefix.Length);
 
@@ -134,35 +152,36 @@ namespace NeoDebug.Neo3
                 object value;
                 switch (segment.Type)
                 {
-                    case ContractParameterType.Hash160:
+                    case PrimitiveStorageType.Address:
+                    case PrimitiveStorageType.Hash160:
                     {
                         if (buffer.Length < UInt160.Length) throw new Exception();
                         value = new UInt160(buffer.Slice(0, UInt160.Length).Span);
                         buffer = buffer.Slice(UInt160.Length);
                         break;
                     }
-                    case ContractParameterType.Hash256:
+                    case PrimitiveStorageType.Hash256:
                     {
                         if (buffer.Length < UInt256.Length) throw new Exception();
                         value = new UInt256(buffer.Slice(0, UInt256.Length).Span);
                         buffer = buffer.Slice(UInt256.Length);
                         break;
                     }
-                    case ContractParameterType.ByteArray:
+                    case PrimitiveStorageType.ByteArray:
                     {
                         // byte array only supported for final key segment
                         if (i != storageDef.KeySegments.Count - 1) throw new Exception();
                         value = buffer.ToArray();
                         break;
                     }
-                    case ContractParameterType.String:
+                    case PrimitiveStorageType.String:
                     {
                         // string only supported for final key segment
                         if (i != storageDef.KeySegments.Count - 1) throw new Exception();
                         value = Neo.Utility.StrictUTF8.GetString(buffer.Span);
                         break;
                     }
-                    case ContractParameterType.Integer:
+                    case PrimitiveStorageType.Integer:
                     {
                         // Integer only supported for final key segment
                         if (i != storageDef.KeySegments.Count - 1) throw new Exception();
@@ -175,8 +194,7 @@ namespace NeoDebug.Neo3
                     }
                 }
 
-                var param = new ContractParameter { Type = segment.Type, Value = value };
-                yield return (segment.Name, param);
+                yield return (segment.Name, segment.Type, value);
             }
         }
     }

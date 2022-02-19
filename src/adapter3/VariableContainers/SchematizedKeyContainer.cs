@@ -1,14 +1,15 @@
 using System.Collections.Generic;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using Neo.BlockchainToolkit;
 using Neo.SmartContract;
 
 namespace NeoDebug.Neo3
 {
     internal class SchematizedKeyContainer : IVariableContainer
     {
-        readonly IReadOnlyList<(string name, ContractParameter param)> segments;
+        readonly IReadOnlyList<(string name, PrimitiveStorageType type, object value)> segments;
 
-        public SchematizedKeyContainer(IReadOnlyList<(string name, ContractParameter param)> segments)
+        public SchematizedKeyContainer(IReadOnlyList<(string name, PrimitiveStorageType type, object value)> segments)
         {
             this.segments = segments;
         }
@@ -20,8 +21,8 @@ namespace NeoDebug.Neo3
                 yield return new Variable
                 {
                     Name = segment.name,
-                    Value = $"{segment.param.Value}",
-                    Type = $"{segment.param.Type}"
+                    Value = segment.AsString(), // plumb address version
+                    Type = $"{segment.type}"
                 };
             }
         }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using Neo;
 using Neo.BlockchainToolkit;
 using Neo.SmartContract;
 
@@ -53,7 +54,7 @@ namespace NeoDebug.Neo3
 
                 if (segments.Length == 1)
                 {
-                    var name = $"{segments[0].param.Value}";
+                    var name = segments[0].AsString();
                     yield return item.AsVariable(manager, name, storageDef.Value);
                 }
                 else
