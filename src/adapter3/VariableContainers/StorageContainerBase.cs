@@ -34,7 +34,7 @@ namespace NeoDebug.Neo3
             {
                 foreach (var storageDef in schema.StorageDefs)
                 {
-                    yield return SchematizedStoragesContainer.Create(manager, storageDef, storages);
+                    yield return SchematizedStorageContainer.Create(manager, storageDef, storages);
                 }
             }
             else
