@@ -195,7 +195,6 @@ namespace NeoDebug.Neo3
         public IEnumerable<Scope> GetScopes(ScopesArguments args)
         {
             var context = engine.InvocationStack.ElementAt(args.FrameId);
-            var scriptId = context.ScriptHash;
 
             if (disassemblyView)
             {
@@ -212,7 +211,7 @@ namespace NeoDebug.Neo3
                 yield return AddScope("Variables", container);
             }
 
-            yield return AddScope("Storage", engine.GetStorageContainer(scriptId));
+            yield return AddScope("Storage", engine.GetStorageContainer(context.ScriptHash));
             yield return AddScope("Engine", new EngineContainer(engine, context));
 
             Scope AddScope(string name, IVariableContainer container)
