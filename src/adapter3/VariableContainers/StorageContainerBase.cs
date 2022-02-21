@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Numerics;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using Neo;
 using Neo.BlockchainToolkit;
 using Neo.SmartContract;
 using OneOf;
@@ -41,11 +43,10 @@ namespace NeoDebug.Neo3
             {
                 foreach (var (key, item) in storages)
                 {
-                    var keyHashCode = key.Span.GetSequenceHashCode().ToString("x8");
-                    var kvp = new KvpContainer(key, item, keyHashCode);
+                    var kvp = new KvpContainer(key, item);
                     yield return new Variable()
                     {
-                        Name = keyHashCode,
+                        Name = key.Span.ToHexString(),
                         Value = string.Empty,
                         VariablesReference = manager.Add(kvp),
                         NamedVariables = 2
@@ -56,53 +57,54 @@ namespace NeoDebug.Neo3
 
         public (StackItem? item, ReadOnlyMemory<char> remaining) Evaluate(ReadOnlyMemory<char> expression)
         {
-            if (TryGetKeyHash(expression, out var keyHash)
-                && TryFindStorage(GetStorages(), keyHash, out var storage))
+            if (TryGetKey(expression, out var key, out var remainder))
             {
-                var remain = expression.Slice(19);
-                if (remain.Length >= 3
-                    && remain.Span.Slice(0, 3).SequenceEqual("key"))
+                if (remainder.Span.StartsWith(".key"))
                 {
-                    return (storage.key, remain.Slice(3));
+                    return (key, remainder.Slice(4));
                 }
-                else if (remain.Length >= 4
-                    && remain.Span.Slice(0, 4).SequenceEqual("item"))
+                else if (remainder.Span.StartsWith(".item"))
                 {
-                    return (storage.item.Value, remain.Slice(4));
+                    if (TryFindStorageItem(GetStorages(), key, out var item))
+                    {
+                        return (item.Value, remainder.Slice(5));
+                    }
                 }
             }
 
             throw new InvalidOperationException("Invalid storage evaluation");
 
-            static bool TryGetKeyHash(ReadOnlyMemory<char> expression, out int value)
+            static bool TryGetKey(ReadOnlyMemory<char> expression, out ReadOnlyMemory<byte> key, out ReadOnlyMemory<char> remainder)
             {
-                if (expression.Length >= 18
-                    && expression.StartsWith(DebugSession.STORAGE_PREFIX)
-                    && expression.Span[8] == '['
-                    && expression.Span[17] == ']'
-                    && expression.Span[18] == '.'
-                    && int.TryParse(expression.Slice(9, 8).Span, NumberStyles.HexNumber, null, out value))
+                remainder = default;
+                key = default;
+                if (!expression.StartsWith($"{DebugSession.STORAGE_PREFIX}[")) return false;
+                expression = expression.Slice(DebugSession.STORAGE_PREFIX.Length + 1);
+                var bracketIndex = expression.Span.IndexOf(']');
+                if (bracketIndex == -1) return false;
+                remainder = expression.Slice(bracketIndex + 1);
+                expression = expression.Slice(0, bracketIndex);
+                if (expression.Span.StartsWith("0x")) expression = expression.Slice(2);
+                try
                 {
+                    key = Convert.FromHexString(expression.Span);
                     return true;
                 }
-
-                value = default;
-                return false;
+                catch { return false; }
             }
 
-            static bool TryFindStorage(IEnumerable<(ReadOnlyMemory<byte> key, StorageItem item)> storages, int hashCode, out (ReadOnlyMemory<byte> key, StorageItem item) storage)
+            static bool TryFindStorageItem(IEnumerable<(ReadOnlyMemory<byte> key, StorageItem item)> storages, ReadOnlyMemory<byte> key, [MaybeNullWhen(false)] out StorageItem item)
             {
-                foreach (var (key, item) in storages)
+                foreach (var storage in storages)
                 {
-                    var keyHashCode = key.Span.GetSequenceHashCode();
-                    if (hashCode == keyHashCode)
+                    if (key.Span.SequenceEqual(storage.key.Span))
                     {
-                        storage = (key, item);
+                        item = storage.item;
                         return true;
                     }
                 }
 
-                storage = default;
+                item = default;
                 return false;
             }
         }
@@ -113,11 +115,11 @@ namespace NeoDebug.Neo3
             private readonly StorageItem item;
             private readonly string prefix;
 
-            public KvpContainer(ReadOnlyMemory<byte> key, StorageItem item, string hashCode)
+            public KvpContainer(ReadOnlyMemory<byte> key, StorageItem item)
             {
                 this.key = key;
                 this.item = item;
-                this.prefix = $"{DebugSession.STORAGE_PREFIX}[{hashCode}].";
+                this.prefix = $"{DebugSession.STORAGE_PREFIX}[0x{key.Span.ToHexString()}].";
             }
 
             public IEnumerable<Variable> Enumerate(IVariableManager manager)
