@@ -38,6 +38,14 @@ namespace NeoDebug.Neo3
                 {
                     yield return SchematizedStorageContainer.Create(manager, storageDef, storages);
                 }
+
+                var container = new RawStorageContainer(GetStorages);
+                yield return new Variable()
+                {
+                    Name = "#rawStorage",
+                    Value = string.Empty,
+                    VariablesReference = manager.Add(container),
+                };
             }
             else
             {
@@ -107,6 +115,30 @@ namespace NeoDebug.Neo3
                 item = default;
                 return false;
             }
+        }
+
+        private class RawStorageContainer : IVariableContainer
+        {
+            Func<IEnumerable<(ReadOnlyMemory<byte> key, StorageItem item)>> getStorages;
+
+            public RawStorageContainer(Func<IEnumerable<(ReadOnlyMemory<byte> key, StorageItem item)>> getStorages)
+            {
+                this.getStorages = getStorages;
+            }
+
+            public IEnumerable<Variable> Enumerate(IVariableManager manager)
+            {
+                foreach (var (key, item) in getStorages())
+                {
+                    var kvp = new KvpContainer(key, item);
+                    yield return new Variable()
+                    {
+                        Name = key.Span.ToHexString(),
+                        Value = string.Empty,
+                        VariablesReference = manager.Add(kvp),
+                        NamedVariables = 2
+                    };
+                }            }
         }
 
         private class KvpContainer : IVariableContainer
