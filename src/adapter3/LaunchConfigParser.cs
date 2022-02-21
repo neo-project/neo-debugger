@@ -575,10 +575,10 @@ namespace NeoDebug.Neo3
                     return (trigger, hashOrPubkey => CheckWitness(hashOrPubkey, witnesses));
                 }
 
-                return (trigger, _ => true);
+                return (trigger, null);
             }
 
-            return (TriggerType.Application, _ => true);
+            return (TriggerType.Application, null);
 
             static bool CheckWitness(byte[] hashOrPubkey, ImmutableSortedSet<UInt160> witnesses)
             {
