@@ -27,7 +27,8 @@ namespace NeoDebug.Neo3
             if (storageDef.KeySegments.Count == 0)
             {
                 var (_, item) = storages.SingleOrDefault(s => s.key.Span.SequenceEqual(storageDef.KeyPrefix.Span));
-                return item.AsVariable(manager, storageDef.Name, storageDef.Value);
+                var variable = item.AsVariable(manager, storageDef.Name, storageDef.Value, storageDef.AsEvaluateName());
+                return variable;
             }
             else
             {
@@ -55,7 +56,8 @@ namespace NeoDebug.Neo3
                 if (segments.Length == 1)
                 {
                     var name = segments[0].AsString();
-                    yield return item.AsVariable(manager, name, storageDef.Value);
+                    var variable = item.AsVariable(manager, name, storageDef.Value, storageDef.AsEvaluateName(segments));
+                    yield return variable;
                 }
                 else
                 {

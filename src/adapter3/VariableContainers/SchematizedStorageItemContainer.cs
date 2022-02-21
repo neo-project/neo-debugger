@@ -30,12 +30,14 @@ namespace NeoDebug.Neo3
             yield return new Variable()
             {
                 Name = "key",
-                Value = string.Empty,
+                Value = " ",
                 VariablesReference = manager.Add(keyContainer),
-                NamedVariables = keySegments.Length
+                NamedVariables = keySegments.Length,
+                EvaluateName = storageDef.AsEvaluateName(keySegments) + ".key",
             };
 
-            yield return item.AsVariable(manager, "value", storageDef.Value);
+            var variable = item.AsVariable(manager, "value", storageDef.Value, storageDef.AsEvaluateName(keySegments));
+            yield return variable;
         }
     }
 }

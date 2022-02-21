@@ -91,6 +91,7 @@ namespace NeoDebug.Neo3
                 var bracketIndex = expression.Span.IndexOf(']');
                 if (bracketIndex == -1) return false;
                 remainder = expression.Slice(bracketIndex + 1);
+                if (!remainder.StartsWith(".key") && !remainder.StartsWith(".item")) return false;
                 expression = expression.Slice(0, bracketIndex);
                 if (expression.Span.StartsWith("0x")) expression = expression.Slice(2);
                 try
@@ -154,15 +155,31 @@ namespace NeoDebug.Neo3
                 this.prefix = $"{DebugSession.STORAGE_PREFIX}[0x{key.Span.ToHexString()}].";
             }
 
+
+            Variable CreateVariable(IVariableManager manager, ReadOnlyMemory<byte> buffer, string name)
+            {
+                if (buffer.Length < 35)
+                {
+                    return new Variable
+                    {
+                        Name = name,
+                        Value = "0x" + buffer.Span.ToHexString(),
+                        Type = $"ByteArray[{buffer.Length}]",
+                        EvaluateName = prefix + name,
+                    };
+                }
+                else
+                {
+                    var valueItem = ByteArrayContainer.Create(manager, buffer, name);
+                    valueItem.EvaluateName = prefix + name;
+                    return valueItem;
+                }
+            }
+
             public IEnumerable<Variable> Enumerate(IVariableManager manager)
             {
-                var keyItem = ByteArrayContainer.Create(manager, key, "key");
-                keyItem.EvaluateName = prefix + "key";
-                yield return keyItem;
-
-                var valueItem = ByteArrayContainer.Create(manager, new ReadOnlyMemory<byte>(item.Value), "item");
-                valueItem.EvaluateName = prefix + "item";
-                yield return valueItem;
+                yield return CreateVariable(manager, key, "key");
+                yield return CreateVariable(manager, new ReadOnlyMemory<byte>(item.Value), "item");
             }
         }
     }

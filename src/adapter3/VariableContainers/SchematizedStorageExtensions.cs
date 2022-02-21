@@ -16,6 +16,17 @@ namespace NeoDebug.Neo3
 
     static class SchematizedStorageExtensions
     {
+        public static string AsEvaluateName(this StorageDef @this, IReadOnlyList<(string name, PrimitiveStorageType type, object value)>? keySegments = null)
+        {
+            keySegments ??= Array.Empty<(string name, PrimitiveStorageType type, object value)>();
+            var builder = new System.Text.StringBuilder($"{DebugSession.STORAGE_PREFIX}.{@this.Name}");
+            for (int i = 0; i < keySegments.Count; i++)
+            {
+                builder.Append($"[{keySegments[i].value}]");
+            }
+            return builder.ToString();
+        }
+
         public static string AsAddress(this UInt160 @this, byte? version = null)
         {
             if (@this == UInt160.Zero) return "<zero address>";
@@ -31,13 +42,14 @@ namespace NeoDebug.Neo3
         public static string AsString(this StorageValueTypeDef typeDef)
             => typeDef.Match(cpt => $"{cpt}", sd => sd.Name);
 
-        public static Variable AsVariable(this StackItem stackItem, IVariableManager manager, string name, StorageValueTypeDef typeDef)
+        public static Variable AsVariable(this StackItem stackItem, IVariableManager manager, string name, StorageValueTypeDef typeDef, string evaluatePrefix)
         {
             var variable = new Variable
             {
                 Name = name,
-                Value = string.Empty,
+                Value = " ",
                 Type = typeDef.AsString(),
+                EvaluateName = $"{evaluatePrefix}.{name}",
             };
 
             if (typeDef.TryPickT0(out var cpt, out var structDef))
@@ -50,7 +62,7 @@ namespace NeoDebug.Neo3
                 {
                     if (array.Count == structDef.Fields.Count)
                     {
-                        var container = new SchematizedStructContainer(structDef, array);
+                        var container = new SchematizedStructContainer(structDef, array, variable.EvaluateName);
                         variable.VariablesReference = manager.Add(container);
                         variable.NamedVariables = structDef.Fields.Count;
                     }
@@ -68,7 +80,7 @@ namespace NeoDebug.Neo3
             return variable;
         }
 
-        public static Variable AsVariable(this StorageItem? storageItem, IVariableManager manager, string name, OneOf<PrimitiveStorageType, StructDef> typeDef)
+        public static Variable AsVariable(this StorageItem? storageItem, IVariableManager manager, string name, OneOf<PrimitiveStorageType, StructDef> typeDef, string evaluatePrefix)
         {
             var variable = new Variable()
             {
@@ -77,37 +89,39 @@ namespace NeoDebug.Neo3
                 Type = typeDef.AsString()
             };
 
-            if (storageItem is null)
+            if (typeDef.TryPickT0(out var cpt, out var structDef))
             {
-                variable.Value = "<no value stored>";
+                variable.Value = storageItem is null ? "<no value stored>" : storageItem.AsValue(cpt);
+                variable.EvaluateName = $"{evaluatePrefix}.item";
             }
             else
             {
-                if (typeDef.TryPickT0(out var cpt, out var structDef))
+                variable.Value = " ";
+                variable.EvaluateName = $"{evaluatePrefix}.key";
+
+                var stackItem = storageItem is null ? null : BinarySerializer.Deserialize(storageItem.Value, Neo.VM.ExecutionEngineLimits.Default);
+                if (stackItem is null)
                 {
-                    variable.Value = storageItem.AsValue(cpt);
+                    variable.Value = "<no value stored>";
                 }
-                else
+                else if (stackItem is NeoArray array)
                 {
-                    var stackItem = BinarySerializer.Deserialize(storageItem.Value, Neo.VM.ExecutionEngineLimits.Default);
-                    if (stackItem is NeoArray array)
+                    if (array.Count == structDef.Fields.Count)
                     {
-                        if (array.Count == structDef.Fields.Count)
-                        {
-                            var container = new SchematizedStructContainer(structDef, array);
-                            variable.VariablesReference = manager.Add(container);
-                            variable.NamedVariables = structDef.Fields.Count;
-                        }
-                        else
-                        {
-                            variable.Value = $"<storage item has {array.Count} fields, expected {structDef.Fields.Count}";
-                        }
+                        var container = new SchematizedStructContainer(structDef, array, $"{evaluatePrefix}.item");
+                        variable.VariablesReference = manager.Add(container);
+                        variable.NamedVariables = structDef.Fields.Count;
                     }
                     else
                     {
-                        variable.Value = $"<invalid storage item {stackItem.Type}";
+                        variable.Value = $"<storage item has {array.Count} fields, expected {structDef.Fields.Count}";
                     }
                 }
+                else
+                {
+                    variable.Value = $"<invalid storage item {stackItem.Type}";
+                }
+
             }
 
             return variable;
