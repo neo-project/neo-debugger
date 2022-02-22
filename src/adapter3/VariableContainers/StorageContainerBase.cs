@@ -1,7 +1,7 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.Linq;
 using System.Numerics;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
@@ -17,7 +17,7 @@ namespace NeoDebug.Neo3
 
     internal abstract class StorageContainerBase : IVariableContainer
     {
-        private readonly ContractStorageSchema? schema;
+        readonly ContractStorageSchema? schema;
 
         protected StorageContainerBase(ContractStorageSchema? schema)
         {
@@ -49,58 +49,148 @@ namespace NeoDebug.Neo3
             }
             else
             {
-                foreach (var (key, item) in storages)
+                foreach (var variable in RawStorageContainer.Enumerate(manager, storages))
                 {
-                    var kvp = new KvpContainer(key, item);
-                    yield return new Variable()
-                    {
-                        Name = key.Span.ToHexString(),
-                        Value = string.Empty,
-                        VariablesReference = manager.Add(kvp),
-                        NamedVariables = 2
-                    };
+                    yield return variable;
                 }
             }
         }
 
+        public bool TryEvaluate(ReadOnlyMemory<char> expression, [MaybeNullWhen(false)] out StackItem result, out ReadOnlyMemory<char> remaining)
+        {
+            result = default;
+            remaining = default;
+            return false;
+
+        }
+
+
+        bool TryParseStorageExpression(ReadOnlyMemory<char> expression, ContractStorageSchema schema, out StorageDef storageDef, out ReadOnlyMemory<byte> key, out ReadOnlyMemory<char> remainder)
+        {
+            key = default;
+            remainder = default;
+            storageDef = default;
+
+            if (!expression.StartsWith($"{DebugSession.STORAGE_PREFIX}.")) return false;
+            expression = expression.Slice(DebugSession.STORAGE_PREFIX.Length + 1);
+
+            for (int i = 0; i < schema.StorageDefs.Count; i++)
+            {
+                if (expression.StartsWith(schema.StorageDefs[i].Name))
+                {
+                    storageDef = schema.StorageDefs[i];
+                    break;
+                }
+            }
+
+            if (string.IsNullOrEmpty(storageDef.Name)) return false;
+            expression = expression.Slice(storageDef.Name.Length);
+
+            if (storageDef.KeySegments is null) return false;
+
+            var buffer = new ArrayBufferWriter<byte>();
+            buffer.Write(storageDef.KeyPrefix.Span);
+
+            foreach (var segment in storageDef.KeySegments)
+            {
+                if (expression.Span[0] != '[') return false;
+                var index = expression.Span.IndexOf(']');
+                if (index == -1) return false;
+                var segmentValue = expression.Slice(1, index - 1);
+                switch (segment.Type)
+                {
+                    case PrimitiveStorageType.Address: // TODO: address sting 
+                    case PrimitiveStorageType.Hash160:
+                        {
+                            var hash = UInt160.Parse(segmentValue.ToString());
+                            buffer.Write(Neo.IO.Helper.ToArray(hash));
+                            break;
+                        }
+                    case PrimitiveStorageType.Hash256:
+                        {
+                            var hash = UInt256.Parse(segmentValue.ToString());
+                            buffer.Write(Neo.IO.Helper.ToArray(hash));
+                            break;
+                        }
+                    case PrimitiveStorageType.Integer:
+                        {
+                            var value = BigInteger.Parse(segmentValue.Span);
+                            buffer.Write(value.ToByteArray());
+                            break;
+
+                        }
+                    default: throw new NotImplementedException();
+                }
+                expression = expression.Slice(index + 1);
+            }
+
+            key = buffer.WrittenMemory;
+            remainder = expression;
+            return true;
+        }
+
+        static bool TryParseStorageExpression(ReadOnlyMemory<char> expression, out ReadOnlyMemory<byte> key, out ReadOnlyMemory<char> remainder)
+        {
+            remainder = default;
+            key = default;
+            if (!expression.StartsWith($"{DebugSession.STORAGE_PREFIX}[")) return false;
+            expression = expression.Slice(DebugSession.STORAGE_PREFIX.Length + 1);
+            var bracketIndex = expression.Span.IndexOf(']');
+            if (bracketIndex == -1) return false;
+            remainder = expression.Slice(bracketIndex + 1);
+            if (!remainder.StartsWith(".key") && !remainder.StartsWith(".item")) return false;
+            expression = expression.Slice(0, bracketIndex);
+            if (expression.Span.StartsWith("0x")) expression = expression.Slice(2);
+            try
+            {
+                key = Convert.FromHexString(expression.Span);
+                return true;
+            }
+            catch { return false; }
+        }
         public (StackItem? item, ReadOnlyMemory<char> remaining) Evaluate(ReadOnlyMemory<char> expression)
         {
-            if (TryGetKey(expression, out var key, out var remainder))
+            if (schema is not null)
             {
-                if (remainder.Span.StartsWith(".key"))
+                if (TryParseStorageExpression(expression, schema, out var storageDef, out var key, out var remainder))
                 {
-                    return (key, remainder.Slice(4));
-                }
-                else if (remainder.Span.StartsWith(".item"))
-                {
-                    if (TryFindStorageItem(GetStorages(), key, out var item))
+                    if (remainder.Span.StartsWith(".key"))
                     {
-                        return (item.Value, remainder.Slice(5));
+                        return (key, remainder.Slice(4));
+                    }
+
+                    else if (remainder.Span.StartsWith(".item"))
+                    {
+                        remainder = remainder.Slice(5);
+                        if (TryFindStorageItem(GetStorages(), key, out var item))
+                        {
+
+                            return (item.Value, remainder);
+                        }
+                    }
+
+                }
+            }
+            {
+                if (TryParseStorageExpression(expression, out var key, out var remainder))
+                {
+                    if (remainder.Span.StartsWith(".key"))
+                    {
+                        return (key, remainder.Slice(4));
+                    }
+                    else if (remainder.Span.StartsWith(".item"))
+                    {
+                        if (TryFindStorageItem(GetStorages(), key, out var item))
+                        {
+                            return (item.Value, remainder.Slice(5));
+                        }
                     }
                 }
             }
 
             throw new InvalidOperationException("Invalid storage evaluation");
 
-            static bool TryGetKey(ReadOnlyMemory<char> expression, out ReadOnlyMemory<byte> key, out ReadOnlyMemory<char> remainder)
-            {
-                remainder = default;
-                key = default;
-                if (!expression.StartsWith($"{DebugSession.STORAGE_PREFIX}[")) return false;
-                expression = expression.Slice(DebugSession.STORAGE_PREFIX.Length + 1);
-                var bracketIndex = expression.Span.IndexOf(']');
-                if (bracketIndex == -1) return false;
-                remainder = expression.Slice(bracketIndex + 1);
-                if (!remainder.StartsWith(".key") && !remainder.StartsWith(".item")) return false;
-                expression = expression.Slice(0, bracketIndex);
-                if (expression.Span.StartsWith("0x")) expression = expression.Slice(2);
-                try
-                {
-                    key = Convert.FromHexString(expression.Span);
-                    return true;
-                }
-                catch { return false; }
-            }
+
 
             static bool TryFindStorageItem(IEnumerable<(ReadOnlyMemory<byte> key, StorageItem item)> storages, ReadOnlyMemory<byte> key, [MaybeNullWhen(false)] out StorageItem item)
             {
@@ -127,9 +217,9 @@ namespace NeoDebug.Neo3
                 this.getStorages = getStorages;
             }
 
-            public IEnumerable<Variable> Enumerate(IVariableManager manager)
+            public static IEnumerable<Variable> Enumerate(IVariableManager manager, IEnumerable<(ReadOnlyMemory<byte> key, StorageItem item)> storages)
             {
-                foreach (var (key, item) in getStorages())
+                foreach (var (key, item) in storages)
                 {
                     var kvp = new KvpContainer(key, item);
                     yield return new Variable()
@@ -139,7 +229,12 @@ namespace NeoDebug.Neo3
                         VariablesReference = manager.Add(kvp),
                         NamedVariables = 2
                     };
-                }            }
+                }
+            }
+            public IEnumerable<Variable> Enumerate(IVariableManager manager)
+            {
+                return Enumerate(manager, getStorages());
+            }
         }
 
         private class KvpContainer : IVariableContainer

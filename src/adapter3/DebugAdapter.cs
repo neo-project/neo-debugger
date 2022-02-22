@@ -231,14 +231,6 @@ namespace NeoDebug.Neo3
             }
         }
 
-        public static readonly EvaluateResponse FailedEvaluation = new EvaluateResponse()
-        {
-            PresentationHint = new VariablePresentationHint()
-            {
-                Attributes = VariablePresentationHint.AttributesValue.FailedEvaluation
-            }
-        };
-
         protected override EvaluateResponse HandleEvaluateRequest(EvaluateArguments arguments)
         {
             try
@@ -247,9 +239,10 @@ namespace NeoDebug.Neo3
 
                 return session.Evaluate(arguments);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                return FailedEvaluation;
+                Log(ex.Message, LogCategory.DebugAdapterOutput);
+                throw new ProtocolException(ex.Message, ex);
             }
         }
 

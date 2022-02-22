@@ -237,6 +237,8 @@ namespace NeoDebug.Neo3
             }
         }
 
+
+
         public static Variable ToVariable(this StackItem item, IVariableManager manager, string name)
         {
             return item switch
@@ -252,6 +254,20 @@ namespace NeoDebug.Neo3
                 Neo.VM.Types.Pointer _ => new Variable { Name = name, Value = "Pointer" },
                 _ => throw new NotSupportedException(),
             };
+        }
+
+        public static bool TryGetInteropType(this Neo.VM.Types.InteropInterface item, [MaybeNullWhen(false)] out Type type)
+        {
+            var iiType = typeof(Neo.VM.Types.InteropInterface);
+            var field = iiType.GetField("_object", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (field != null)
+            {
+                type = field.FieldType;
+                return true;
+            }
+
+            type = default;
+            return false;
         }
     }
 }

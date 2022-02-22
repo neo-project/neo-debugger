@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 
 namespace NeoDebug.Neo3
@@ -11,9 +12,39 @@ namespace NeoDebug.Neo3
     {
         private readonly ReadOnlyMemory<byte> memory;
 
-        ByteArrayContainer(ReadOnlyMemory<byte> memory)
+        public ReadOnlyMemory<byte> Memory => memory;
+
+        public ByteArrayContainer(ReadOnlyMemory<byte> memory)
         {
             this.memory = memory;
+        }
+
+        public static bool TryCreate(Neo.VM.Types.StackItem item, [MaybeNullWhen(false)] out ByteArrayContainer container)
+        {
+            if (item is Neo.VM.Types.ByteString byteString)
+            {
+                container = new ByteArrayContainer(byteString);
+                return true;
+            }
+            if (item is Neo.VM.Types.Buffer buffer)
+            {
+                container = new ByteArrayContainer(buffer.InnerBuffer);
+                return true;
+            }
+
+            if (item is Neo.VM.Types.PrimitiveType)
+            {
+                try
+                {
+                    byteString = (ByteString)item.ConvertTo(Neo.VM.Types.StackItemType.ByteString);
+                    container = new ByteArrayContainer(byteString);
+                    return true;
+                }
+                catch { }
+            }
+
+            container = default;
+            return false;
         }
 
         public static Variable Create(IVariableManager manager, ByteString byteString, string name)

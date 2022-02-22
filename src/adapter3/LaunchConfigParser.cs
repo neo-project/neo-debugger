@@ -53,7 +53,8 @@ namespace NeoDebug.Neo3
                 var builder = ImmutableList.CreateBuilder<CastOperation>();
                 foreach (var returnType in jsonReturnTypes)
                 {
-                    builder.Add(DebugSession.CastOperations[returnType.Value<string>() ?? ""]);
+                    // TODO: revert this commenting out
+                    // builder.Add(DebugSession.CastOperations[returnType.Value<string>() ?? ""]);
                 }
                 returnTypes = builder.ToImmutable();
             }
