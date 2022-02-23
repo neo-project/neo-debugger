@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
+using Neo.BlockchainToolkit;
 using Neo.BlockchainToolkit.Models;
-
+using OneOf;
 using StackItem = Neo.VM.Types.StackItem;
 using StackItemType = Neo.VM.Types.StackItemType;
 
@@ -153,167 +154,231 @@ namespace NeoDebug.Neo3
             {
                 if (!remaining.IsEmpty) throw new Exception("Remaining not empty");
 
-                return TryCreateResponse(manager, result, castOperation, out response);
+                // return TryCreateResponse(manager, result, out response);
             }
 
             response = null;
             return false;
         }
 
-        bool TryCreateResponse(IVariableManager manager, StackItem item, CastOperation castOperation, [MaybeNullWhen(false)] out EvaluateResponse response)
-        {
-            try
+        // bool TryCreateResponse(IVariableManager manager, StackItem item, OneOf<PrimitiveStorageType, StructDef, OneOf.Types.None> type, [MaybeNullWhen(false)] out EvaluateResponse response)
+        // {
+        //     response = default;
+        //     return false;
+        //     // maps have no type info
+        //     // if (item is Neo.VM.Types.Map || type.TryPickT2(out _, out var _type))
+        //     // {
+        //     //     return TryCreateResponse(manager, item, out response);
+        //     // }
+
+        //     // if (_type.TryPickT0(out var primitive, out var @struct))
+        //     // {
+        //     //     return TryCreateResponse(manager, item, primitive, out response);
+        //     // }
+        //     // else
+        //     // {
+        //     //     return TryCreateResponse(manager, item, @struct, out response);
+        //     // }
+        // }
+
+        // bool TryCreateResponse(IVariableManager manager, StackItem item, [MaybeNullWhen(false)] out EvaluateResponse response)
+        // {
+        //     switch (item)
+        //     {
+        //         case Neo.VM.Types.Struct @struct:
+        //             {
+        //                 var container = new NeoArrayContainer(@struct);
+        //                 response = new EvaluateResponse($"Struct[{@struct.Count}]", manager.Add(container));
+        //                 return true;
+        //             }
+        //         case Neo.VM.Types.Array array:
+        //             {
+        //                 var container = new NeoArrayContainer(array);
+        //                 response = new EvaluateResponse($"Array[{array.Count}]", manager.Add(container));
+        //                 return true;
+        //             }
+        //         case Neo.VM.Types.Boolean:
+        //             {
+        //                 response = new EvaluateResponse($"{item.GetBoolean()}", 0);
+        //                 return true;
+        //             }
+        //         case Neo.VM.Types.Buffer buffer:
+        //             {
+        //                 var container = new ByteArrayContainer(buffer.InnerBuffer);
+        //                 response = new EvaluateResponse($"Buffer[{buffer.InnerBuffer.Length}]", manager.Add(container));
+        //                 return true;
+        //             }
+        //         case Neo.VM.Types.ByteString byteString:
+        //             {
+        //                 var container = new ByteArrayContainer(byteString);
+        //                 response = new EvaluateResponse($"ByteString[{item.GetSpan().Length}]", manager.Add(container));
+        //                 return true;
+        //             }
+        //         case Neo.VM.Types.Integer:
+        //             {
+        //                 response = new EvaluateResponse($"{item.GetInteger()}", 0);
+        //                 return true;
+        //             }
+        //         case Neo.VM.Types.Map map:
+        //             {
+        //                 var container = new NeoMapContainer(map);
+        //                 response = new EvaluateResponse($"Map[{map.Count}]", manager.Add(container));
+        //                 return true;
+        //             }
+        //         case Neo.VM.Types.Null:
+        //             {
+        //                 response = new EvaluateResponse("<null>", 0);
+        //                 return true;
+        //             }
+        //         case Neo.VM.Types.InteropInterface @interface:
+        //             {
+        //                 var typeName = @interface.TryGetInteropType(out var type) ? type.Name : "unknown";
+        //                 response = new EvaluateResponse($"InteropInterface<{typeName}>", 0);
+        //                 return true;
+        //             }
+        //         case Neo.VM.Types.Pointer pointer:
+        //             {
+        //                 response = new EvaluateResponse($"Pointer[{pointer.Position}]", 0);
+        //                 return true;
+        //             }
+        //     }
+
+        //     response = default;
+        //     return false;
+        // }
+
+        // bool TryCreateResponse(IVariableManager manager, StackItem item, PrimitiveStorageType type, [MaybeNullWhen(false)] out EvaluateResponse response)
+        // {
+        //     try
+        //     {
+        //     switch (type)
+        //     {
+        //         case PrimitiveStorageType.Address:
+        //         {
+        //             var span = item.GetSpan();
+        //             if (span.Length == UInt160.Length)
+        //             {
+        //                 var hash = new UInt160(item.GetSpan());
+        //                 var address = Neo.Wallets.Helper.ToAddress(hash, addressVersion);
+        //                 response = new EvaluateResponse(address, 0);
+        //                 return true;
+        //             }
+        //             break;
+        //         }
+        //         case PrimitiveStorageType.Boolean:
+        //         {
+        //             response = new EvaluateResponse($"{item.GetBoolean()}", 0);
+        //             return true;
+        //         }
+        //         case PrimitiveStorageType.ByteArray:
+        //         {
+
+        //         }
+
+        //     }
+        //     }
+        //     catch {}
+
+        //     response = default;
+        //     return false;
+        // }
+
+        // bool TryCreateResponse(IVariableManager manager, StackItem item, StructDef type, [MaybeNullWhen(false)] out EvaluateResponse response)
+        // {
+
+        // }
+
+        // bool TryCreateResponse(IVariableManager manager, StackItem item, CastOperation castOperation, [MaybeNullWhen(false)] out EvaluateResponse response)
+        // {
+        //     try
+        //     {
+        //         switch (castOperation)
+        //         {
+        //             case CastOperation.Address:
+        //                 {
+        //                     var hash = new UInt160(item.GetSpan());
+        //                     var address = Neo.Wallets.Helper.ToAddress(hash, addressVersion);
+        //                     response = new EvaluateResponse(address, 0);
+        //                     return true;
+        //                 }
+        //             case CastOperation.HexString:
+        //                 {
+        //                     if (item.IsNull)
+        //                     {
+        //                         response = new EvaluateResponse("<null>", 0);
+        //                         return true;
+        //                     }
+        //                     else
+        //                     {
+        //                         var span = item.ConvertTo(StackItemType.ByteString).GetSpan();
+        //                         response = new EvaluateResponse(span.ToHexString(), 0);
+        //                         return true;
+        //                     }
+        //                 }
+        //             case CastOperation.Boolean:
+        //                 {
+        //                     response = new EvaluateResponse($"{item.GetBoolean()}", 0);
+        //                     return true;
+        //                 }
+        //             case CastOperation.Integer:
+        //                 {
+        //                     response = new EvaluateResponse($"{item.GetInteger()}", 0);
+        //                     return true;
+        //                 }
+        //             case CastOperation.String:
+        //                 {
+        //                     response = new EvaluateResponse(item.GetString(), 0);
+        //                     return true;
+        //                 }
+        //             case CastOperation.ByteArray:
+        //                 {
+        //                     if (item.IsNull)
+        //                     {
+        //                         response = new EvaluateResponse("<null>", 0);
+        //                         return true;
+        //                     }
+
+        //                     if (ByteArrayContainer.TryCreate(item, out var container))
+        //                     {
+        //                         response = new EvaluateResponse($"byte[{container.Memory.Length}]", manager.Add(container));
+        //                         return true;
+        //                     }
+
+        //                     break;
+        //                 }
+        //         }
+
+
+        //     }
+
+        // static ReadOnlySpan<byte> GetSpan(StackItem item)
+        //     {
+        //         try
+        //         {
+        //             return item.GetSpan();
+        //         }
+        //         catch { return default; }
+        //     }
+
+
+            static (CastOperation castOperation, ReadOnlyMemory<char> remaining) ParseCastOperation(ReadOnlyMemory<char> expression)
             {
-                switch (castOperation)
+
+                if (expression.Length >= 1 && expression.Span[0] == '(')
                 {
-                    case CastOperation.Address:
+                    expression = expression.Slice(1);
+                    foreach (var (key, operation) in CastOperations)
+                    {
+                        if (expression.StartsWith(key) && expression.Span[key.Length] == ')')
                         {
-                            var hash = new UInt160(item.GetSpan());
-                            var address = Neo.Wallets.Helper.ToAddress(hash, addressVersion);
-                            response = new EvaluateResponse(address, 0);
-                            return true;
+                            return (operation, expression.Slice(key.Length + 1));
                         }
-                    case CastOperation.HexString:
-                        {
-                            if (item.IsNull)
-                            {
-                                response = new EvaluateResponse("<null>", 0);
-                                return true;
-                            }
-                            else
-                            {
-                                var span = item.ConvertTo(StackItemType.ByteString).GetSpan();
-                                response = new EvaluateResponse(span.ToHexString(), 0);
-                                return true;
-                            }
-                        }
-                    case CastOperation.Boolean:
-                        {
-                            response = new EvaluateResponse($"{item.GetBoolean()}", 0);
-                            return true;
-                        }
-                    case CastOperation.Integer:
-                        {
-                            response = new EvaluateResponse($"{item.GetInteger()}", 0);
-                            return true;
-                        }
-                    case CastOperation.String:
-                        {
-                            response = new EvaluateResponse(item.GetString(), 0);
-                            return true;
-                        }
-                    case CastOperation.ByteArray:
-                        {
-                            if (item.IsNull)
-                            {
-                                response = new EvaluateResponse("<null>", 0);
-                                return true;
-                            }
+                    }
 
-                            if (ByteArrayContainer.TryCreate(item, out var container))
-                            {
-                                response = new EvaluateResponse($"byte[{container.Memory.Length}]", manager.Add(container));
-                                return true;
-                            }
-
-                            break;
-                        }
+                    throw new Exception("invalid cast operation");
                 }
 
-                switch (item)
-                {
-                    case Neo.VM.Types.Struct @struct:
-                    {
-                        var container = new NeoArrayContainer(@struct);
-                        response = new EvaluateResponse($"Struct[{@struct.Count}]", manager.Add(container));
-                        return true;
-                    }
-                    case Neo.VM.Types.Array array:
-                    {
-                        var container = new NeoArrayContainer(array);
-                        response = new EvaluateResponse($"Array[{array.Count}]", manager.Add(container));
-                        return true;
-                    }
-                    case Neo.VM.Types.Boolean:
-                    {
-                        response = new EvaluateResponse($"{item.GetBoolean()}", 0);
-                        return true;
-                    }
-                    case Neo.VM.Types.Buffer buffer:
-                    {
-                        var container = new ByteArrayContainer(buffer.InnerBuffer);
-                        response = new EvaluateResponse($"Buffer[{buffer.InnerBuffer.Length}]", manager.Add(container));
-                        return true;
-                    }
-                    case Neo.VM.Types.ByteString byteString:
-                    {
-                        var container = new ByteArrayContainer(byteString);
-                        response = new EvaluateResponse($"ByteString[{item.GetSpan().Length}]", manager.Add(container));
-                        return true;
-                    }
-                    case Neo.VM.Types.Integer:
-                    {
-                        response = new EvaluateResponse($"{item.GetInteger()}", 0);
-                        return true;
-                    }
-                    case Neo.VM.Types.Map map:
-                    {
-                        var container = new NeoMapContainer(map);
-                        response = new EvaluateResponse($"Map[{map.Count}]", manager.Add(container));
-                        return true;
-                    }
-                    case Neo.VM.Types.Null:
-                    {
-                        response = new EvaluateResponse("<null>", 0);
-                        return true;
-                    }
-                    case Neo.VM.Types.InteropInterface @interface:
-                    {
-                        var typeName = @interface.TryGetInteropType(out var type) ? type.Name : "unknown";
-                        response = new EvaluateResponse($"InteropInterface<{typeName}>", 0);
-                        return true;
-                    }
-                    case Neo.VM.Types.Pointer pointer: 
-                    {
-                        response = new EvaluateResponse($"Pointer[{pointer.Position}]", 0);
-                        return true;
-                    }
-                }
+                return (CastOperation.None, expression);
             }
-            catch { }
-
-            response = default;
-            return false;
-        }
-
-        static ReadOnlySpan<byte> GetSpan(StackItem item)
-        {
-            try
-            {
-                return item.GetSpan();
-            }
-            catch { return default; }
-        }
-
-
-        static (CastOperation castOperation, ReadOnlyMemory<char> remaining) ParseCastOperation(ReadOnlyMemory<char> expression)
-        {
-
-            if (expression.Length >= 1 && expression.Span[0] == '(')
-            {
-                expression = expression.Slice(1);
-                foreach (var (key, operation) in CastOperations)
-                {
-                    if (expression.StartsWith(key) && expression.Span[key.Length] == ')')
-                    {
-                        return (operation, expression.Slice(key.Length + 1));
-                    }
-                }
-
-                throw new Exception("invalid cast operation");
-            }
-
-            return (CastOperation.None, expression);
         }
     }
-}

@@ -4,7 +4,7 @@ using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Neo;
-using Neo.BlockchainToolkit;
+using Neo.BlockchainToolkit.Models;
 using Neo.BlockchainToolkit.SmartContract;
 using Neo.Network.P2P.Payloads;
 using Neo.Persistence;
@@ -115,7 +115,11 @@ namespace NeoDebug.Neo3
         }
 
         public StorageContainerBase GetStorageContainer(UInt160 scriptHash)
-            => new StorageContainer(scriptHash, Snapshot, schemaMap);
+        {
+            var schema = schemaMap.TryGetValue(scriptHash, out var _schema)
+                ? _schema : new ContractStorageSchema();
+            return new StorageContainer(scriptHash, Snapshot, schema, AddressVersion);
+        }
 
         IReadOnlyCollection<IExecutionContext> IApplicationEngine.InvocationStack => invocationStackAdapter;
 

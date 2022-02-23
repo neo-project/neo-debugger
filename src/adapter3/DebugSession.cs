@@ -211,13 +211,13 @@ namespace NeoDebug.Neo3
                 yield return AddScope("Variables", container);
             }
 
-            yield return AddScope("Storage", engine.GetStorageContainer(context.ScriptHash));
+            yield return AddScope("Storage", engine.GetStorageContainer(context.ScriptHash), true);
             yield return AddScope("Engine", new EngineContainer(engine, context));
 
-            Scope AddScope(string name, IVariableContainer container)
+            Scope AddScope(string name, IVariableContainer container, bool expensive = false)
             {
                 var reference = variableManager.Add(container);
-                return new Scope(name, reference, false);
+                return new Scope(name, reference, expensive);
             }
         }
 

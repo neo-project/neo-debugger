@@ -226,7 +226,7 @@ namespace NeoDebug.Neo3
             Variable? ConvertByteArray()
             {
                 if (item.IsNull) return new Variable { Name = name, Value = "<null>", Type = parameterType.ToString() };
-                if (item is Neo.VM.Types.Buffer buffer) return ByteArrayContainer.Create(manager, buffer, name);
+                if (item is Neo.VM.Types.Buffer buffer) return ByteArrayContainer.Create(manager, buffer.InnerBuffer, name);
                 if (item is Neo.VM.Types.ByteString byteString) return ByteArrayContainer.Create(manager, byteString, name);
                 if (item is Neo.VM.Types.PrimitiveType)
                 {
@@ -245,7 +245,7 @@ namespace NeoDebug.Neo3
             {
                 Neo.VM.Types.Array array => NeoArrayContainer.Create(manager, array, name),
                 Neo.VM.Types.Boolean _ => new Variable { Name = name, Value = $"{item.GetBoolean()}", Type = "Boolean" },
-                Neo.VM.Types.Buffer buffer => ByteArrayContainer.Create(manager, buffer, name),
+                Neo.VM.Types.Buffer buffer => ByteArrayContainer.Create(manager, buffer.InnerBuffer, name),
                 Neo.VM.Types.ByteString byteString => ByteArrayContainer.Create(manager, byteString, name),
                 Neo.VM.Types.Integer @int => new Variable { Name = name, Value = $"{@int.GetInteger()}", Type = "Boolean" },
                 Neo.VM.Types.InteropInterface _ => new Variable { Name = name, Value = "InteropInterface" },

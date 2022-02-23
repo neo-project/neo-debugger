@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Neo;
-using Neo.BlockchainToolkit;
+using Neo.BlockchainToolkit.Models;
 using Neo.Persistence;
 using Neo.SmartContract;
 using Neo.SmartContract.Native;
@@ -16,12 +16,7 @@ namespace NeoDebug.Neo3
             private readonly DataCache snapshot;
             private readonly int? contractId;
 
-            public StorageContainer(UInt160 scriptHash, DataCache snapshot, IReadOnlyDictionary<UInt160, ContractStorageSchema> schemaMap) 
-                : this(scriptHash, snapshot, schemaMap.TryGetValue(scriptHash, out var schema) ? schema : null)
-            {
-            }
-
-            public StorageContainer(UInt160 scriptHash, DataCache snapshot, ContractStorageSchema? schema) : base(schema)
+            public StorageContainer(UInt160 scriptHash, DataCache snapshot, ContractStorageSchema schema, byte addressVersion) : base(schema, addressVersion)
             {
                 this.snapshot = snapshot;
                 this.contractId = NativeContract.ContractManagement.GetContract(snapshot, scriptHash)?.Id;

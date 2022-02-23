@@ -10,6 +10,7 @@ using Neo.BlockchainToolkit.TraceDebug;
 using System.Linq;
 using System.IO;
 using Neo.SmartContract.Native;
+using Neo.BlockchainToolkit.Models;
 
 namespace NeoDebug.Neo3
 {
@@ -138,7 +139,11 @@ namespace NeoDebug.Neo3
 
         public StorageContainerBase GetStorageContainer(UInt160 scriptHash)
         {
-            return new StorageContainer(traceFile.FindStorage(scriptHash));
+            // TODO: Schema Support
+            return new StorageContainer(
+                traceFile.FindStorage(scriptHash), 
+                new ContractStorageSchema(), 
+                Neo.ProtocolSettings.Default.AddressVersion);
         }
     }
 }

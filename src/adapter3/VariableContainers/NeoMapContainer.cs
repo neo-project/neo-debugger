@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
+using Neo.BlockchainToolkit.Models;
 
 namespace NeoDebug.Neo3
 {
@@ -9,16 +10,18 @@ namespace NeoDebug.Neo3
 
     class NeoMapContainer : IVariableContainer
     {
-        private readonly NeoMap map;
+        readonly NeoMap map;
+        readonly MapContractType? type;
 
-        public NeoMapContainer(NeoMap map)
+        public NeoMapContainer(NeoMap map, MapContractType? type = null)
         {
             this.map = map;
+            this.type = type;
         }
 
-        public static Variable Create(IVariableManager manager, NeoMap map, string name)
+        public static Variable Create(IVariableManager manager, NeoMap map, string name, MapContractType? type = null)
         {
-            var container = new NeoMapContainer(map);
+            var container = new NeoMapContainer(map, type);
             return new Variable()
             {
                 Name = name,
