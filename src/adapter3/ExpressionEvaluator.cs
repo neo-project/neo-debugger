@@ -104,11 +104,12 @@ namespace NeoDebug.Neo3
             return false;
         }
 
-        bool TryEvaluate(ReadOnlyMemory<char> expression, [MaybeNullWhen(false)] out StackItem result, out ReadOnlyMemory<char> remaining)
+        bool TryEvaluate(ReadOnlyMemory<char> expression, [MaybeNullWhen(false)] out StackItem result, out ContractType? resultType, out ReadOnlyMemory<char> remaining)
         {
             if (expression.StartsWith("#"))
             {
-                if (storageContainer.TryEvaluate(expression, out result, out remaining)) return true;
+                if (storageContainer.TryEvaluate(expression, out result, out resultType, out remaining)) return true;
+                resultType = null;
                 if (TryEvaluateIndexedSlot(expression, ARG_SLOTS_PREFIX, context.Arguments, out result, out remaining)) return true;
                 if (TryEvaluateIndexedSlot(expression, EVAL_STACK_PREFIX, context.EvaluationStack, out result, out remaining)) return true;
                 if (TryEvaluateIndexedSlot(expression, LOCAL_SLOTS_PREFIX, context.LocalVariables, out result, out remaining)) return true;
@@ -118,7 +119,7 @@ namespace NeoDebug.Neo3
             else if (debugInfo is not null)
             {
                 // TODO: flow type info out
-
+                resultType = null;
                 if (TryEvaluateNamedSlot(expression, context.StaticFields, debugInfo.StaticVariables, out var _result, out remaining))
                 {
                     result = _result.item;
@@ -143,6 +144,7 @@ namespace NeoDebug.Neo3
             }
 
             result = default;
+            resultType = null;
             remaining = default;
             return false;
         }
@@ -150,36 +152,81 @@ namespace NeoDebug.Neo3
         public bool TryEvaluate(IVariableManager manager, EvaluateArguments args, [MaybeNullWhen(false)] out EvaluateResponse response)
         {
             var (castOperation, expression) = ParseCastOperation(args.Expression.AsMemory());
-            if (TryEvaluate(expression, out var result, out var remaining))
+            if (TryEvaluate(expression, out var result, out var resultType, out var remaining))
             {
-                if (!remaining.IsEmpty) throw new Exception("Remaining not empty");
-
-                // return TryCreateResponse(manager, result, out response);
+                if (!remaining.IsEmpty) throw new NotImplementedException(new string(remaining.Span));
+                return TryCreateResponse(manager, castOperation, result, resultType, out response);
             }
 
             response = null;
             return false;
         }
 
-        // bool TryCreateResponse(IVariableManager manager, StackItem item, OneOf<PrimitiveStorageType, StructDef, OneOf.Types.None> type, [MaybeNullWhen(false)] out EvaluateResponse response)
-        // {
-        //     response = default;
-        //     return false;
-        //     // maps have no type info
-        //     // if (item is Neo.VM.Types.Map || type.TryPickT2(out _, out var _type))
-        //     // {
-        //     //     return TryCreateResponse(manager, item, out response);
-        //     // }
 
-        //     // if (_type.TryPickT0(out var primitive, out var @struct))
-        //     // {
-        //     //     return TryCreateResponse(manager, item, primitive, out response);
-        //     // }
-        //     // else
-        //     // {
-        //     //     return TryCreateResponse(manager, item, @struct, out response);
-        //     // }
-        // }
+        bool TryCreateResponse(IVariableManager manager, CastOperation castOperation, StackItem result, ContractType? resultType, [MaybeNullWhen(false)] out EvaluateResponse response)
+        {
+            switch (castOperation)
+            {
+                case CastOperation.None:
+                    {
+                        var variable = resultType is null
+                            ? result.AsVariable(manager, string.Empty)
+                            : result.AsVariable(manager, string.Empty, resultType, addressVersion);
+                        response = variable.AsEvalResponse();
+                        return true;
+                    }
+                case CastOperation.Address:
+                    {
+                        var hash = new UInt160(result.GetSpan());
+                        var address = Neo.Wallets.Helper.ToAddress(hash, addressVersion);
+                        response = new EvaluateResponse(address, 0);
+                        return true;
+                    }
+                case CastOperation.HexString:
+                    {
+                        if (result.IsNull)
+                        {
+                            response = new EvaluateResponse("<null>", 0);
+                            return true;
+                        }
+                        else
+                        {
+                            response = new EvaluateResponse(result.AsReadOnlyMemory().Span.ToHexString(), 0);
+                            return true;
+                        }
+                    }
+                case CastOperation.Boolean:
+                    {
+                        response = new EvaluateResponse($"{result.GetBoolean()}", 0);
+                        return true;
+                    }
+                case CastOperation.Integer:
+                    {
+                        response = new EvaluateResponse($"{result.GetInteger()}", 0);
+                        return true;
+                    }
+                case CastOperation.String:
+                    {
+                        response = new EvaluateResponse(result.GetString(), 0);
+                        return true;
+                    }
+                case CastOperation.ByteArray:
+                    {
+                        if (result.IsNull)
+                        {
+                            response = new EvaluateResponse("<null>", 0);
+                            return true;
+                        }
+                        else
+                        {
+                            var container = new ByteArrayContainer(result.AsReadOnlyMemory());
+                            response = new EvaluateResponse($"{result.Type}", manager.Add(container));
+                            return true;
+                        }
+                    }
+                default: throw new InvalidOperationException($"Unrecognized Cast Operation {castOperation}");
+            }
+        }
 
         // bool TryCreateResponse(IVariableManager manager, StackItem item, [MaybeNullWhen(false)] out EvaluateResponse response)
         // {
@@ -361,24 +408,24 @@ namespace NeoDebug.Neo3
         //     }
 
 
-            static (CastOperation castOperation, ReadOnlyMemory<char> remaining) ParseCastOperation(ReadOnlyMemory<char> expression)
+        static (CastOperation castOperation, ReadOnlyMemory<char> remaining) ParseCastOperation(ReadOnlyMemory<char> expression)
+        {
+
+            if (expression.Length >= 1 && expression.Span[0] == '(')
             {
-
-                if (expression.Length >= 1 && expression.Span[0] == '(')
+                expression = expression.Slice(1);
+                foreach (var (key, operation) in CastOperations)
                 {
-                    expression = expression.Slice(1);
-                    foreach (var (key, operation) in CastOperations)
+                    if (expression.StartsWith(key) && expression.Span[key.Length] == ')')
                     {
-                        if (expression.StartsWith(key) && expression.Span[key.Length] == ')')
-                        {
-                            return (operation, expression.Slice(key.Length + 1));
-                        }
+                        return (operation, expression.Slice(key.Length + 1));
                     }
-
-                    throw new Exception("invalid cast operation");
                 }
 
-                return (CastOperation.None, expression);
+                throw new Exception("invalid cast operation");
             }
+
+            return (CastOperation.None, expression);
         }
     }
+}

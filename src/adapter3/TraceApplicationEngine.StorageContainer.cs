@@ -11,8 +11,8 @@ namespace NeoDebug.Neo3
         {
             public readonly IEnumerable<(ReadOnlyMemory<byte>, StorageItem)> storages;
 
-            public StorageContainer(IEnumerable<(ReadOnlyMemory<byte>, StorageItem)> storages, ContractStorageSchema schema, byte addressVersion)
-                : base(schema, addressVersion)
+            public StorageContainer(IEnumerable<(ReadOnlyMemory<byte>, StorageItem)> storages, IReadOnlyList<StorageDef> storageDefs, byte addressVersion)
+                : base(storageDefs, addressVersion)
             {
                 this.storages = storages;
             }

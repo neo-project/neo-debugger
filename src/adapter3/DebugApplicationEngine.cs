@@ -116,9 +116,9 @@ namespace NeoDebug.Neo3
 
         public StorageContainerBase GetStorageContainer(UInt160 scriptHash)
         {
-            var schema = schemaMap.TryGetValue(scriptHash, out var _schema)
-                ? _schema : new ContractStorageSchema();
-            return new StorageContainer(scriptHash, Snapshot, schema, AddressVersion);
+            var storageDefs = schemaMap.TryGetValue(scriptHash, out var schema)
+                ? schema.StorageDefs : Array.Empty<StorageDef>();
+            return new StorageContainer(scriptHash, Snapshot, storageDefs, AddressVersion);
         }
 
         IReadOnlyCollection<IExecutionContext> IApplicationEngine.InvocationStack => invocationStackAdapter;

@@ -20,6 +20,21 @@ namespace NeoDebug.Neo3
 
     internal static class Extensions
     {
+        public static EvaluateResponse AsEvalResponse(this Variable variable)
+        {
+            return new EvaluateResponse(variable.Value, variable.VariablesReference);
+        }
+
+        public static ReadOnlyMemory<byte> AsReadOnlyMemory(this StackItem item)
+        {
+            if (item is Neo.VM.Types.Buffer buffer) return buffer.InnerBuffer;
+            if (item is Neo.VM.Types.ByteString byteString) return byteString;
+            if (item is Neo.VM.Types.PrimitiveType) return (Neo.VM.Types.ByteString)item.ConvertTo(StackItemType.ByteString);
+            
+            throw new InvalidOperationException($"{item.Type} not accessable as ReadOnlyMemory<byte>");
+        }
+
+
         public static bool StartsWith<T>(this ReadOnlyMemory<T> @this, ReadOnlySpan<T> value)
             where T : IEquatable<T>
         {
