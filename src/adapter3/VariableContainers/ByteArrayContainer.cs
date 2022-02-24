@@ -5,6 +5,8 @@ using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 
 namespace NeoDebug.Neo3
 {
+    using StackItem = Neo.VM.Types.StackItem;
+    using StackItemType = Neo.VM.Types.StackItemType;
     using ByteString = Neo.VM.Types.ByteString;
     using Buffer = Neo.VM.Types.Buffer;
 
@@ -19,34 +21,6 @@ namespace NeoDebug.Neo3
             this.memory = memory;
         }
 
-        // public static bool TryCreate(Neo.VM.Types.StackItem item, [MaybeNullWhen(false)] out ByteArrayContainer container)
-        // {
-        //     if (item is Neo.VM.Types.ByteString byteString)
-        //     {
-        //         container = new ByteArrayContainer(byteString);
-        //         return true;
-        //     }
-        //     if (item is Neo.VM.Types.Buffer buffer)
-        //     {
-        //         container = new ByteArrayContainer(buffer.InnerBuffer);
-        //         return true;
-        //     }
-
-        //     if (item is Neo.VM.Types.PrimitiveType)
-        //     {
-        //         try
-        //         {
-        //             byteString = (ByteString)item.ConvertTo(Neo.VM.Types.StackItemType.ByteString);
-        //             container = new ByteArrayContainer(byteString);
-        //             return true;
-        //         }
-        //         catch { }
-        //     }
-
-        //     container = default;
-        //     return false;
-        // }
-
         public static Variable Create(IVariableManager manager, ReadOnlyMemory<byte> buffer, string name)
         {
             var container = new ByteArrayContainer(buffer);
@@ -57,6 +31,19 @@ namespace NeoDebug.Neo3
                 VariablesReference = manager.Add(container),
                 IndexedVariables = buffer.Length,
             };
+        }
+
+        public static Variable Create(IVariableManager manager, StackItem item, string name)
+        {
+            var variable = item switch
+            {
+                Buffer buffer => ByteArrayContainer.Create(manager, buffer.InnerBuffer, name),
+                ByteString byteString => ByteArrayContainer.Create(manager, byteString, name),
+                Neo.VM.Types.PrimitiveType primitive => ByteArrayContainer.Create(manager, (ByteString)item.ConvertTo(StackItemType.ByteString), name),
+                _ => throw new NotSupportedException($"{item.Type}"),
+            };
+            variable.Type = $"{item.Type}";
+            return variable;
         }
 
         public IEnumerable<Variable> Enumerate(IVariableManager manager)

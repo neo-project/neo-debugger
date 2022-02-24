@@ -43,7 +43,7 @@ namespace NeoDebug.Neo3
                     _ => throw new NotImplementedException($"Unknown primitive type {key.GetType()}"),
                 };
 
-                yield return map[key].ToVariable(manager, keyString);
+                yield return map[key].AsVariable(manager, keyString);
             }
         }
     }

@@ -22,7 +22,7 @@ namespace NeoDebug.Neo3
         {
             for (int i = 0; i < slot.Count; i++)
             {
-                var v = slot[i].ToVariable(manager, $"{prefix}{i}");
+                var v = slot[i].AsVariable(manager, $"{prefix}{i}");
                 v.EvaluateName = v.Name;
                 yield return v;
             }

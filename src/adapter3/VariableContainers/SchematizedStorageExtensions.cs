@@ -9,6 +9,7 @@ using Neo.Cryptography.ECC;
 using StackItem = Neo.VM.Types.StackItem;
 using NeoArray = Neo.VM.Types.Array;
 using NeoMap = Neo.VM.Types.Map;
+using ContractParameterType = Neo.SmartContract.ContractParameterType;
 
 namespace NeoDebug.Neo3
 {
@@ -134,6 +135,29 @@ namespace NeoDebug.Neo3
                 _ => throw new NotSupportedException($"{type.Type} primitive type"),
             };
 
+        public static Variable AsVariable(this StackItem item, IVariableManager manager, string name, ContractParameterType parameterType)
+        {
+            if (item.IsNull) return new Variable { Name = name, Value = "<null>", Type = $"{parameterType}" };
+
+            return parameterType switch
+            {
+                // ContractParameterType.Any
+                ContractParameterType.Array => NeoArrayContainer.Create(manager, (NeoArray)item, name),
+                ContractParameterType.Boolean => new Variable { Name = name, Value = $"{item.GetBoolean()}", Type = $"{parameterType}" },
+                ContractParameterType.ByteArray => ByteArrayContainer.Create(manager, item, name),
+                ContractParameterType.Hash160 => new Variable { Name = name, Value = $"{new UInt160(item.GetSpan())}", Type = $"{parameterType}" },
+                ContractParameterType.Hash256 => new Variable { Name = name, Value = $"{new UInt256(item.GetSpan())}", Type = $"{parameterType}" },
+                ContractParameterType.Integer => new Variable { Name = name, Value = $"{item.GetInteger()}", Type = $"{parameterType}" },
+                // ContractParameterType.InteropInterface
+                ContractParameterType.Map => NeoMapContainer.Create(manager, (NeoMap)item, name),
+                ContractParameterType.PublicKey => new Variable { Name = name, Value = $"{ECPoint.DecodePoint(item.GetSpan(), ECCurve.Secp256r1)}", Type = $"{parameterType}" },
+                ContractParameterType.Signature => ByteArrayContainer.Create(manager, item, name),
+                ContractParameterType.String => new Variable { Name = name, Value = item.GetString(), Type = $"{parameterType}" },
+                // ContractParameterType.Void
+                _ => throw new NotSupportedException($"{parameterType}"),
+            };
+        }
+
         public static Variable AsVariable(this ReadOnlyMemory<byte> @this, IVariableManager manager, string name, PrimitiveContractType type, byte addressVersion)
         {
             if (type.Type == PrimitiveType.ByteArray)
@@ -165,7 +189,7 @@ namespace NeoDebug.Neo3
                     return variable;
                 }
 
-                string value = primitive.Type switch 
+                string value = primitive.Type switch
                 {
                     PrimitiveType.Address => new UInt160(@this.GetSpan()).AsAddress(addressVersion),
                     PrimitiveType.Boolean => $"{@this.GetBoolean()}",
