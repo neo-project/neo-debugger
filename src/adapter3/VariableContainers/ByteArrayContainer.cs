@@ -21,29 +21,49 @@ namespace NeoDebug.Neo3
             this.memory = memory;
         }
 
-        public static Variable Create(IVariableManager manager, ReadOnlyMemory<byte> buffer, string name)
+        public static Variable Create(IVariableManager manager, ReadOnlyMemory<byte> buffer, string name, string typeName = "byte")
         {
             var container = new ByteArrayContainer(buffer);
             return new Variable()
             {
                 Name = name,
-                Value = $"byte[{buffer.Length}]",
+                Value = $"{typeName}[{buffer.Length}]",
                 VariablesReference = manager.Add(container),
                 IndexedVariables = buffer.Length,
             };
         }
 
+        public static bool TryCreate(IVariableManager manager, StackItem item, string name, [MaybeNullWhen(false)] out Variable variable)
+        {
+            if (item is Buffer buffer)
+            {
+                variable = ByteArrayContainer.Create(manager, buffer.InnerBuffer, name, nameof(Buffer));
+                return true;
+            }
+            if (item is ByteString byteString)
+            {
+                variable = ByteArrayContainer.Create(manager, byteString, name, nameof(ByteString));
+                return true;
+            }
+            if (item is Neo.VM.Types.PrimitiveType primitive)
+            {
+                byteString = (ByteString)item.ConvertTo(StackItemType.ByteString);
+                variable = ByteArrayContainer.Create(manager, byteString, name);
+                return true;
+            }
+
+            variable = default;
+            return false;
+        }
+
         public static Variable Create(IVariableManager manager, StackItem item, string name)
         {
-            var variable = item switch
+            if (TryCreate(manager, item, name, out var variable))
             {
-                Buffer buffer => ByteArrayContainer.Create(manager, buffer.InnerBuffer, name),
-                ByteString byteString => ByteArrayContainer.Create(manager, byteString, name),
-                Neo.VM.Types.PrimitiveType primitive => ByteArrayContainer.Create(manager, (ByteString)item.ConvertTo(StackItemType.ByteString), name),
-                _ => throw new NotSupportedException($"{item.Type}"),
-            };
-            variable.Type = $"{item.Type}";
-            return variable;
+                return variable;
+            }
+            
+            throw new NotSupportedException($"cannot create ByteArrayContainer for {item.Type}");
         }
 
         public IEnumerable<Variable> Enumerate(IVariableManager manager)

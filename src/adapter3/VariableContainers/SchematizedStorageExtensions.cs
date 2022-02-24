@@ -141,21 +141,30 @@ namespace NeoDebug.Neo3
 
             return parameterType switch
             {
-                // ContractParameterType.Any
-                ContractParameterType.Array => NeoArrayContainer.Create(manager, (NeoArray)item, name),
-                ContractParameterType.Boolean => new Variable { Name = name, Value = $"{item.GetBoolean()}", Type = $"{parameterType}" },
+                ContractParameterType.Any => item.AsVariable(manager, name),
+                ContractParameterType.Array => ConvertArray(item, manager, name),
+                ContractParameterType.Boolean => new Variable(name, $"{item.GetBoolean()}", 0) { Type = $"{parameterType}" },
                 ContractParameterType.ByteArray => ByteArrayContainer.Create(manager, item, name),
-                ContractParameterType.Hash160 => new Variable { Name = name, Value = $"{new UInt160(item.GetSpan())}", Type = $"{parameterType}" },
-                ContractParameterType.Hash256 => new Variable { Name = name, Value = $"{new UInt256(item.GetSpan())}", Type = $"{parameterType}" },
-                ContractParameterType.Integer => new Variable { Name = name, Value = $"{item.GetInteger()}", Type = $"{parameterType}" },
-                // ContractParameterType.InteropInterface
+                ContractParameterType.Hash160 => new Variable(name, $"{new UInt160(item.GetSpan())}", 0) { Type = $"{parameterType}" },
+                ContractParameterType.Hash256 => new Variable(name, $"{new UInt256(item.GetSpan())}", 0) { Type = $"{parameterType}" },
+                ContractParameterType.Integer => new Variable(name, $"{item.GetInteger()}", 0) { Type = $"{parameterType}" },
+                ContractParameterType.InteropInterface => ((Neo.VM.Types.InteropInterface)item).TryGetInteropType(out var interopType)
+                    ? new Variable(name, $"InteropInterface<{interopType.Name}>", 0)
+                    : new Variable(name, $"InteropInterface", 0),                
                 ContractParameterType.Map => NeoMapContainer.Create(manager, (NeoMap)item, name),
-                ContractParameterType.PublicKey => new Variable { Name = name, Value = $"{ECPoint.DecodePoint(item.GetSpan(), ECCurve.Secp256r1)}", Type = $"{parameterType}" },
+                ContractParameterType.PublicKey => new Variable(name,$"{ECPoint.DecodePoint(item.GetSpan(), ECCurve.Secp256r1)}", 0) { Type = $"{parameterType}" },
                 ContractParameterType.Signature => ByteArrayContainer.Create(manager, item, name),
-                ContractParameterType.String => new Variable { Name = name, Value = item.GetString(), Type = $"{parameterType}" },
+                ContractParameterType.String => new Variable(name, item.GetString(), 0) { Type = $"{parameterType}" },
                 // ContractParameterType.Void
-                _ => throw new NotSupportedException($"{parameterType}"),
+                _ => throw new NotSupportedException($"AsVariable {parameterType} not supported"),
             };
+
+            static Variable ConvertArray(StackItem item, IVariableManager manager, string name)
+            {
+                if (item is NeoArray array) return NeoArrayContainer.Create(manager, array, name);
+                if (ByteArrayContainer.TryCreate(manager, item, name, out var variable)) return variable;
+                throw new NotSupportedException($"Cannot convert {item.Type} to array variable");
+            }
         }
 
         public static Variable AsVariable(this ReadOnlyMemory<byte> @this, IVariableManager manager, string name, PrimitiveContractType type, byte addressVersion)
