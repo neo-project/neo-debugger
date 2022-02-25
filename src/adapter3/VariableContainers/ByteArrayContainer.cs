@@ -23,6 +23,16 @@ namespace NeoDebug.Neo3
 
         public static Variable Create(IVariableManager manager, ReadOnlyMemory<byte> buffer, string name, string typeName = "byte")
         {
+            if (buffer.Length == 1)
+            {
+                return new Variable()
+                {
+                    Name = name,
+                    Value = "0x" + buffer.Span[0].ToString("x"),
+                    Type = "Byte"
+                };
+            }
+
             var container = new ByteArrayContainer(buffer);
             return new Variable()
             {

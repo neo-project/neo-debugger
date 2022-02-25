@@ -4,7 +4,9 @@ using System.Diagnostics.CodeAnalysis;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
 using Neo.BlockchainToolkit.Models;
+
 using StackItem = Neo.VM.Types.StackItem;
+using NeoArray = Neo.VM.Types.Array;
 
 namespace NeoDebug.Neo3
 {
@@ -12,7 +14,6 @@ namespace NeoDebug.Neo3
 
     class ExpressionEvaluator
     {
-
         public const string ARG_SLOTS_PREFIX = "#arg";
         public const string EVAL_STACK_PREFIX = "#eval";
         public const string LOCAL_SLOTS_PREFIX = "#local";
@@ -51,14 +52,21 @@ namespace NeoDebug.Neo3
         public bool TryEvaluate(IVariableManager manager, EvaluateArguments args, [MaybeNullWhen(false)] out EvaluateResponse response)
         {
             var (castOperation, expression) = ParseCastOperation(args.Expression.AsMemory());
-            if (TryEvaluate(expression, out var evalContext))
+            if (TryInitialEvaluate(expression, out var evalContext))
             {
+                while (!evalContext.Expression.IsEmpty)
+                {
+                    if (!TryRemainingEvaluate(ref evalContext)) break;
+                }
+
                 if (!evalContext.Expression.IsEmpty)
                 {
-                    response = new EvaluateResponse($"\"{new string(evalContext.Expression.Span)}\" expression not implemented", 0)
+                    string expr = new string(evalContext.Expression.Span);
+                    response = new EvaluateResponse($"\"{expr}\" expression not implemented", 0)
                         .AsFailedEval();
                     return true;
                 }
+
                 return TryCreateResponse(manager, castOperation, evalContext.Item, evalContext.Type, out response);
             }
 
@@ -66,7 +74,74 @@ namespace NeoDebug.Neo3
             return false;
         }
 
-        bool TryEvaluate(ReadOnlyMemory<char> expression, [MaybeNullWhen(false)] out ExpressionEvalContext evalContext) 
+        bool TryRemainingEvaluate(ref ExpressionEvalContext evalContext)
+        {
+            var expr = evalContext.Expression;
+            if (expr.IsEmpty) return false;
+
+            var item = evalContext.Item;
+            var type = evalContext.Type;
+            if (expr.Span[0] == '[')
+            {
+                var bracketIndex = expr.Span.IndexOf(']');
+                if (bracketIndex != -1)
+                {
+                    var keyBuffer = expr.Slice(1, bracketIndex - 1);
+                    var remain = expr.Slice(bracketIndex + 1);
+
+                    if (item is Neo.VM.Types.Map)
+                    {
+                        // TODO: implement map contract type 
+                        return false;
+                    }
+                    else
+                    {
+                        if (int.TryParse(keyBuffer.Span, out var key))
+                        {
+                            if (item is NeoArray array
+                                && key < array.Count)
+                            {
+                                ContractType? newType = type is StructContractType structType && array.Count == structType.Fields.Count
+                                    ? structType.Fields[key].Type : null;
+
+                                evalContext = new ExpressionEvalContext(remain, array[key], newType);
+                                return true;
+                            }
+                            else if (item is Neo.VM.Types.PrimitiveType primitive)
+                            {
+                                var span = primitive.GetSpan();
+                                if (key < span.Length)
+                                {
+                                    evalContext = new ExpressionEvalContext(remain, new Neo.VM.Types.ByteString(new [] { span[key] }), new PrimitiveContractType(PrimitiveType.ByteArray));
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            else if (expr.Span[0] == '.' 
+                && type is StructContractType structType
+                && item is Neo.VM.Types.Array array
+                && structType.Fields.Count == array.Count)
+            {
+                expr = expr.Slice(1);
+                for (int i = 0; i < structType.Fields.Count; i++)
+                {
+                    var field = structType.Fields[i];
+                    if (expr.StartsWith(field.Name))
+                    {
+                        expr = expr.Slice(field.Name.Length);
+                        evalContext = new ExpressionEvalContext(expr, array[i], field.Type);
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        bool TryInitialEvaluate(ReadOnlyMemory<char> expression, [MaybeNullWhen(false)] out ExpressionEvalContext evalContext) 
         {
             if (expression.StartsWith("#"))
             {
