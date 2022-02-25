@@ -176,6 +176,17 @@ namespace NeoDebug.Neo3
 
         static ImmutableDictionary<UInt160, ContractStorageSchema> LoadStorageSchemaMap(ConfigProps config, UInt160 scriptHash)
         {
+            // TODO: LoadStorageSchemaMap should look in multiple places for the storage schema, in order to make it
+            //       as easy as possible on the developer until the end-to-end tooling is complete.
+
+            // First, check the "storage-schema" value of the config props
+            //        If the storage-schema property is a JSON object, pass the object to ContractStorageSchema.Parse
+            //        If the storage-schema property is a string, treat it as a path to a JSON file that can be fed to ContractStorageSchema.Parse
+            // If the storage schema isn't specified in the ConfigProps, check for a "storage-schema.json" file in the
+            //        same directory as the .nef file specified in the the "program" config property
+            // Finally, if the storage schema still hasn't been loaded, check for a "storage-schema.json" file in the 
+            //        same directory as the .neo-express file specified in the optional "neo-express" config property
+
             var map = ImmutableDictionary<UInt160, ContractStorageSchema>.Empty;
             return config.TryGetValue("storage-schema", out var schemaToken)
                 ? map.Add(scriptHash, ContractStorageSchema.Parse(schemaToken))
