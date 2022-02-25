@@ -134,5 +134,16 @@ namespace NeoDebug.Neo3
             type = default;
             return false;
         }
+
+        public static EvaluateResponse AsFailedEval(this EvaluateResponse @this)
+        {
+            throw new Exception(@this.Result);
+
+            // @this.PresentationHint = new VariablePresentationHint
+            // {
+            //     Attributes = VariablePresentationHint.AttributesValue.FailedEvaluation
+            // };
+            // return @this;
+        }
     }
 }

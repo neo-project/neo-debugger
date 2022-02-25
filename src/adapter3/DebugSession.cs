@@ -255,13 +255,7 @@ namespace NeoDebug.Neo3
                 if (evaluator.TryEvaluate(variableManager, args, out var response)) return response;
             }
 
-            return new EvaluateResponse()
-            {
-                PresentationHint = new VariablePresentationHint()
-                {
-                    Attributes = VariablePresentationHint.AttributesValue.FailedEvaluation
-                }
-            };
+            return new EvaluateResponse("Evaluation failed", 0).AsFailedEval();
         }
 
         public IEnumerable<Breakpoint> SetBreakpoints(Source source, IReadOnlyList<SourceBreakpoint> sourceBreakpoints)

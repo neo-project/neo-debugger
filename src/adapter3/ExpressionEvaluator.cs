@@ -48,6 +48,24 @@ namespace NeoDebug.Neo3
             this.addressVersion = engine.AddressVersion;
         }
 
+        public bool TryEvaluate(IVariableManager manager, EvaluateArguments args, [MaybeNullWhen(false)] out EvaluateResponse response)
+        {
+            var (castOperation, expression) = ParseCastOperation(args.Expression.AsMemory());
+            if (TryEvaluate(expression, out var result, out var resultType, out var remaining))
+            {
+                if (!remaining.IsEmpty)
+                {
+                    response = new EvaluateResponse($"\"{new string(remaining.Span)}\" expression not implemented", 0)
+                        .AsFailedEval();
+                    return true;
+                }
+                return TryCreateResponse(manager, castOperation, result, resultType, out response);
+            }
+
+            response = null;
+            return false;
+        }
+
         static bool IsValidRemaining(ReadOnlyMemory<char> expression) => expression.IsEmpty || expression.Span[0] == '.' || expression.Span[0] == '[';
 
         static bool TryEvaluateIndexedSlot(ReadOnlyMemory<char> expression, string prefix, IReadOnlyList<StackItem> slot, [MaybeNullWhen(false)] out StackItem result, out ReadOnlyMemory<char> remaining)
@@ -149,20 +167,6 @@ namespace NeoDebug.Neo3
             return false;
         }
 
-        public bool TryEvaluate(IVariableManager manager, EvaluateArguments args, [MaybeNullWhen(false)] out EvaluateResponse response)
-        {
-            var (castOperation, expression) = ParseCastOperation(args.Expression.AsMemory());
-            if (TryEvaluate(expression, out var result, out var resultType, out var remaining))
-            {
-                if (!remaining.IsEmpty) throw new NotImplementedException(new string(remaining.Span));
-                return TryCreateResponse(manager, castOperation, result, resultType, out response);
-            }
-
-            response = null;
-            return false;
-        }
-
-
         bool TryCreateResponse(IVariableManager manager, CastOperation castOperation, StackItem result, ContractType? resultType, [MaybeNullWhen(false)] out EvaluateResponse response)
         {
             switch (castOperation)
@@ -224,7 +228,12 @@ namespace NeoDebug.Neo3
                             return true;
                         }
                     }
-                default: throw new InvalidOperationException($"Unrecognized Cast Operation {castOperation}");
+                default:
+                    {
+                        response = new EvaluateResponse($"Unrecognized Cast Operation {castOperation}", 0)
+                            .AsFailedEval();
+                        return true;
+                    }
             }
         }
 
