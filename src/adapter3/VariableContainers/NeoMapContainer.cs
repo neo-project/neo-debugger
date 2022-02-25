@@ -11,17 +11,15 @@ namespace NeoDebug.Neo3
     class NeoMapContainer : IVariableContainer
     {
         readonly NeoMap map;
-        readonly MapContractType? type;
 
-        public NeoMapContainer(NeoMap map, MapContractType? type = null)
+        public NeoMapContainer(NeoMap map)
         {
             this.map = map;
-            this.type = type;
         }
 
-        public static Variable Create(IVariableManager manager, NeoMap map, string name, MapContractType? type = null)
+        public static Variable Create(IVariableManager manager, NeoMap map, string name)
         {
-            var container = new NeoMapContainer(map, type);
+            var container = new NeoMapContainer(map);
             return new Variable()
             {
                 Name = name,

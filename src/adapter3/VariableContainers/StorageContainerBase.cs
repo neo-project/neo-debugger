@@ -200,7 +200,7 @@ namespace NeoDebug.Neo3
                         _ => new Neo.VM.Types.ByteString(item.Value),
                     },
                 StructContractType _ => (Neo.VM.Types.Array)BinarySerializer.Deserialize(item.Value, Neo.VM.ExecutionEngineLimits.Default),
-                MapContractType _ => (Neo.VM.Types.Map)BinarySerializer.Deserialize(item.Value, Neo.VM.ExecutionEngineLimits.Default),
+                // MapContractType _ => (Neo.VM.Types.Map)BinarySerializer.Deserialize(item.Value, Neo.VM.ExecutionEngineLimits.Default),
                 _ => throw new InvalidOperationException($"Unknown ContractType {type.GetType().Name}"),
             };
         }

@@ -26,7 +26,7 @@ namespace NeoDebug.Neo3
             {
                 PrimitiveContractType primitiveType => $"{primitiveType.Type}",
                 StructContractType structType => structType.Name,
-                MapContractType mapType => $"Map<{mapType.KeyType}, {mapType.ValueType.AsTypeName()}>",
+                // MapContractType mapType => $"Map<{mapType.KeyType}, {mapType.ValueType.AsTypeName()}>",
                 _ => throw new ArgumentException(type.GetType().Name, nameof(type)),
             };
 
@@ -229,13 +229,13 @@ namespace NeoDebug.Neo3
                 return variable;
             }
 
-            if (@this is NeoMap map
-                && type is MapContractType mapType)
-            {
-                var variable = NeoMapContainer.Create(manager, map, name, mapType);
-                variable.Type = type.AsTypeName();
-                return variable;
-            }
+            // if (@this is NeoMap map
+            //     && type is MapContractType mapType)
+            // {
+            //     var variable = NeoMapContainer.Create(manager, map, name, mapType);
+            //     variable.Type = type.AsTypeName();
+            //     return variable;
+            // }
 
             {
                 var variable = @this.AsVariable(manager, name);
