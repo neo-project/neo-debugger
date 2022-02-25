@@ -48,6 +48,130 @@ namespace NeoDebug.Neo3
             }
         }
 
+        public bool TryEvaluate(ReadOnlyMemory<char> expression, [MaybeNullWhen(false)] out ExpressionEvalContext context)
+        {
+            if (expression.StartsWith(DebugSession.STORAGE_PREFIX))
+            {
+                expression = expression.Slice(DebugSession.STORAGE_PREFIX.Length);
+                if (expression.IsEmpty)
+                {
+                    throw new InvalidOperationException("Empty storage expression");
+                }
+                else
+                {
+                    if (expression.Span[0] == '.')
+                    {
+                        expression = expression.Slice(1);
+                        for (int i = 0; i < storageDefs.Count; i++)
+                        {
+                            if (expression.StartsWith(storageDefs[i].Name))
+                            {
+                                return TryEvaluate(
+                                    expression.Slice(storageDefs[i].Name.Length),
+                                    storageDefs[i],
+                                    out context);
+                            }
+                        }
+                        throw new InvalidOperationException($"Unknown StorageDef in storage expression {new String(expression.Span)}");
+                    }
+                    else if (expression.Span[0] == '[')
+                    {
+                        expression = expression.Slice(1);
+                        var bracketIndex = expression.Span.IndexOf(']');
+                        if (bracketIndex == -1) throw new InvalidOperationException($"Missing end bracket in storage expression {new String(expression.Span)}");
+                        return TryEvaluate(
+                            expression.Slice(bracketIndex + 1),
+                            expression.Slice(0, bracketIndex),
+                            out context);
+
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException($"Invalid storage expression {new String(expression.Span)}");
+                    }
+                }
+            }
+
+            context = default;
+            return false;
+        }
+
+        bool TryEvaluate(ReadOnlyMemory<char> expression, StorageDef storageDef, [MaybeNullWhen(false)] out ExpressionEvalContext context)
+        {
+            var keyWriter = new ArrayBufferWriter<byte>();
+            keyWriter.Write(storageDef.KeyPrefix.Span);
+            foreach (var segment in storageDef.KeySegments)
+            {
+                if (expression.IsEmpty || expression.Span[0] != '[') throw new InvalidOperationException($"Invalid storage expression {new string(expression.Span)}");
+                expression = expression.Slice(1);
+                var bracketIndex = expression.Span.IndexOf(']');
+                if (bracketIndex == -1) throw new InvalidOperationException($"Invalid storage expression {new string(expression.Span)}");
+                keyWriter.Write(ParsePrimitiveType(expression.Slice(0, bracketIndex), segment.Type).Span);
+                expression = expression.Slice(bracketIndex + 1);
+            }
+
+            if (expression.StartsWith(".key"))
+            {
+                var result = new Neo.VM.Types.ByteString(keyWriter.WrittenMemory);
+                var resultType = new PrimitiveContractType(PrimitiveType.ByteArray);
+                var remaining = expression.Slice(4);
+                context = new ExpressionEvalContext(remaining, result, resultType);
+                return true;
+            }
+            else if (expression.StartsWith(".item"))
+            {
+                var (_, item) = GetStorages().SingleOrDefault(kvp => kvp.key.Span.SequenceEqual(keyWriter.WrittenSpan));
+                var remaining = expression.Slice(5);
+
+                if (item is null)
+                {
+                    var result = Neo.VM.Types.StackItem.Null;
+                    var resultType = storageDef.ValueType;
+                    context = new ExpressionEvalContext(remaining, result, resultType);
+                    return true;
+                }
+                else
+                {
+                    var result = AsStackItem(item, storageDef.ValueType);
+                    var resultType = storageDef.ValueType;
+                    context = new ExpressionEvalContext(remaining, result, resultType);
+                    return true;
+                }
+            }
+            else
+            {
+                throw new InvalidOperationException($"Invalid storage expression {new string(expression.Span)}");
+            }
+        }
+
+        bool TryEvaluate(ReadOnlyMemory<char> expression, ReadOnlyMemory<char> keyBuffer, [MaybeNullWhen(false)] out ExpressionEvalContext context)
+        {
+            if (keyBuffer.StartsWith("0x")) { keyBuffer = keyBuffer.Slice(2); }
+            var key = Convert.FromHexString(keyBuffer.Span);
+
+            if (expression.StartsWith(".key"))
+            {
+                var result = new Neo.VM.Types.ByteString(key);
+                var remaining = expression.Slice(4);
+                context = new ExpressionEvalContext(remaining, result, null);
+                return true;
+            }
+            else if (expression.StartsWith(".item"))
+            {
+                var storage = GetStorages().SingleOrDefault(kvp => kvp.key.Span.SequenceEqual(key));
+                var result = storage.item is null
+                    ? Neo.VM.Types.Null.Null
+                    : new Neo.VM.Types.ByteString(storage.item.Value);
+                var remaining = expression.Slice(5);
+                context = new ExpressionEvalContext(remaining, result, null);
+                return true;
+            }
+            else
+            {
+                throw new InvalidOperationException($"Invalid storage expression {new string(expression.Span)}");
+            }
+        }
+
         ReadOnlyMemory<byte> ParsePrimitiveType(ReadOnlyMemory<char> buffer, PrimitiveType type)
         {
             return type switch
@@ -79,129 +203,6 @@ namespace NeoDebug.Neo3
                 MapContractType _ => (Neo.VM.Types.Map)BinarySerializer.Deserialize(item.Value, Neo.VM.ExecutionEngineLimits.Default),
                 _ => throw new InvalidOperationException($"Unknown ContractType {type.GetType().Name}"),
             };
-        }
-        public bool TryEvaluate(ReadOnlyMemory<char> expression, StorageDef storageDef, [MaybeNullWhen(false)] out StackItem result, out ContractType? resultType, out ReadOnlyMemory<char> remaining)
-        {
-            var keyWriter = new ArrayBufferWriter<byte>();
-            keyWriter.Write(storageDef.KeyPrefix.Span);
-            foreach (var segment in storageDef.KeySegments)
-            {
-                if (expression.IsEmpty || expression.Span[0] != '[') throw new InvalidOperationException($"Invalid storage expression {new string(expression.Span)}");
-                expression = expression.Slice(1);
-                var bracketIndex = expression.Span.IndexOf(']');
-                if (bracketIndex == -1) throw new InvalidOperationException($"Invalid storage expression {new string(expression.Span)}");
-                keyWriter.Write(ParsePrimitiveType(expression.Slice(0, bracketIndex), segment.Type).Span);
-                expression = expression.Slice(bracketIndex + 1);
-            }
-
-            if (expression.StartsWith(".key"))
-            {
-                result = new Neo.VM.Types.ByteString(keyWriter.WrittenMemory);
-                resultType = new PrimitiveContractType(PrimitiveType.ByteArray);
-                remaining = expression.Slice(4);
-                return true;
-            }
-            else if (expression.StartsWith(".item"))
-            {
-                var (_, item) = GetStorages().SingleOrDefault(kvp => kvp.key.Span.SequenceEqual(keyWriter.WrittenSpan));
-                remaining = expression.Slice(5);
-
-                if (item is null)
-                {
-                    result = Neo.VM.Types.StackItem.Null;
-                    resultType = storageDef.ValueType;
-                    return true;
-                }
-                else
-                {
-                    result = AsStackItem(item, storageDef.ValueType);
-                    resultType = storageDef.ValueType;
-                    return true;
-                }
-            }
-            else
-            {
-                throw new InvalidOperationException($"Invalid storage expression {new string(expression.Span)}");
-            }
-        }
-
-        public bool TryEvaluate(ReadOnlyMemory<char> expression, ReadOnlyMemory<char> keyBuffer, [MaybeNullWhen(false)] out StackItem result, out ReadOnlyMemory<char> remaining)
-        {
-            if (keyBuffer.StartsWith("0x")) { keyBuffer = keyBuffer.Slice(2); }
-            var key = Convert.FromHexString(keyBuffer.Span);
-
-            if (expression.StartsWith(".key"))
-            {
-                result = new Neo.VM.Types.ByteString(key);
-                remaining = expression.Slice(4);
-                return true;
-            }
-            else if (expression.StartsWith(".item"))
-            {
-                var storage = GetStorages().SingleOrDefault(kvp => kvp.key.Span.SequenceEqual(key));
-                result = storage.item is null
-                    ? Neo.VM.Types.Null.Null
-                    : new Neo.VM.Types.ByteString(storage.item.Value);
-                remaining = expression.Slice(5);
-                return true;
-            }
-            else
-            {
-                throw new InvalidOperationException($"Invalid storage expression {new string(expression.Span)}");
-            }
-        }
-
-        public bool TryEvaluate(ReadOnlyMemory<char> expression, [MaybeNullWhen(false)] out StackItem result, out ContractType? resultType, out ReadOnlyMemory<char> remaining)
-        {
-            if (expression.StartsWith(DebugSession.STORAGE_PREFIX))
-            {
-                expression = expression.Slice(DebugSession.STORAGE_PREFIX.Length);
-                if (expression.IsEmpty)
-                {
-                    throw new InvalidOperationException("Empty storage expression");
-                }
-                else
-                {
-                    if (expression.Span[0] == '.')
-                    {
-                        expression = expression.Slice(1);
-                        for (int i = 0; i < storageDefs.Count; i++)
-                        {
-                            if (expression.StartsWith(storageDefs[i].Name))
-                            {
-                                return TryEvaluate(
-                                    expression.Slice(storageDefs[i].Name.Length),
-                                    storageDefs[i],
-                                    out result,
-                                    out resultType,
-                                    out remaining);
-                            }
-                        }
-                        throw new InvalidOperationException($"Unknown StorageDef in storage expression {new String(expression.Span)}");
-                    }
-                    else if (expression.Span[0] == '[')
-                    {
-                        expression = expression.Slice(1);
-                        var bracketIndex = expression.Span.IndexOf(']');
-                        if (bracketIndex == -1) throw new InvalidOperationException($"Missing end bracket in storage expression {new String(expression.Span)}");
-                        resultType = default;
-                        return TryEvaluate(
-                            expression.Slice(bracketIndex + 1),
-                            expression.Slice(0, bracketIndex),
-                            out result,
-                            out remaining);
-                    }
-                    else
-                    {
-                        throw new InvalidOperationException($"Invalid storage expression {new String(expression.Span)}");
-                    }
-                }
-            }
-
-            result = default;
-            resultType = default;
-            remaining = default;
-            return false;
         }
 
         Variable CreateStorageVariable(IVariableManager manager, StorageDef storageDef, IEnumerable<(ReadOnlyMemory<byte> key, StorageItem item)> storages)

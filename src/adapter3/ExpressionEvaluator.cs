@@ -3,16 +3,16 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
-using Neo.BlockchainToolkit;
 using Neo.BlockchainToolkit.Models;
-using OneOf;
 using StackItem = Neo.VM.Types.StackItem;
-using StackItemType = Neo.VM.Types.StackItemType;
 
 namespace NeoDebug.Neo3
 {
+    record ExpressionEvalContext(ReadOnlyMemory<char> Expression, StackItem Item, ContractType? Type);
+
     class ExpressionEvaluator
     {
+
         public const string ARG_SLOTS_PREFIX = "#arg";
         public const string EVAL_STACK_PREFIX = "#eval";
         public const string LOCAL_SLOTS_PREFIX = "#local";
@@ -51,24 +51,50 @@ namespace NeoDebug.Neo3
         public bool TryEvaluate(IVariableManager manager, EvaluateArguments args, [MaybeNullWhen(false)] out EvaluateResponse response)
         {
             var (castOperation, expression) = ParseCastOperation(args.Expression.AsMemory());
-            if (TryEvaluate(expression, out var result, out var resultType, out var remaining))
+            if (TryEvaluate(expression, out var evalContext))
             {
-                if (!remaining.IsEmpty)
+                if (!evalContext.Expression.IsEmpty)
                 {
-                    response = new EvaluateResponse($"\"{new string(remaining.Span)}\" expression not implemented", 0)
+                    response = new EvaluateResponse($"\"{new string(evalContext.Expression.Span)}\" expression not implemented", 0)
                         .AsFailedEval();
                     return true;
                 }
-                return TryCreateResponse(manager, castOperation, result, resultType, out response);
+                return TryCreateResponse(manager, castOperation, evalContext.Item, evalContext.Type, out response);
             }
 
             response = null;
             return false;
         }
 
+        bool TryEvaluate(ReadOnlyMemory<char> expression, [MaybeNullWhen(false)] out ExpressionEvalContext evalContext) 
+        {
+            if (expression.StartsWith("#"))
+            {
+                if (storageContainer.TryEvaluate(expression, out evalContext)) return true;
+                if (TryEvaluateIndexedSlot(expression, ARG_SLOTS_PREFIX, context.Arguments, out evalContext)) return true;
+                if (TryEvaluateIndexedSlot(expression, EVAL_STACK_PREFIX, context.EvaluationStack, out evalContext)) return true;
+                if (TryEvaluateIndexedSlot(expression, LOCAL_SLOTS_PREFIX, context.LocalVariables, out evalContext)) return true;
+                if (TryEvaluateIndexedSlot(expression, RESULT_STACK_PREFIX, resultStack, out evalContext)) return true;
+                if (TryEvaluateIndexedSlot(expression, STATIC_SLOTS_PREFIX, context.StaticFields, out evalContext)) return true;
+            }
+            else if (debugInfo is not null)
+            {
+                if (TryEvaluateNamedSlot(expression, context.StaticFields, debugInfo.StaticVariables, out evalContext)) return true;
+
+                if (debugInfo.TryGetMethod(context.InstructionPointer, out var method))
+                {
+                    if (TryEvaluateNamedSlot(expression, context.Arguments, method.Parameters, out evalContext)) return true;
+                    if (TryEvaluateNamedSlot(expression, context.LocalVariables, method.Variables, out evalContext)) return true;
+                }
+            }
+
+            evalContext = default;
+            return false;
+        }
+
         static bool IsValidRemaining(ReadOnlyMemory<char> expression) => expression.IsEmpty || expression.Span[0] == '.' || expression.Span[0] == '[';
 
-        static bool TryEvaluateIndexedSlot(ReadOnlyMemory<char> expression, string prefix, IReadOnlyList<StackItem> slot, [MaybeNullWhen(false)] out StackItem result, out ReadOnlyMemory<char> remaining)
+        static bool TryEvaluateIndexedSlot(ReadOnlyMemory<char> expression, string prefix, IReadOnlyList<StackItem> slot, [MaybeNullWhen(false)] out ExpressionEvalContext context)
         {
             if (expression.StartsWith(prefix))
             {
@@ -88,84 +114,41 @@ namespace NeoDebug.Neo3
                         && int.TryParse(slotIndexExpr.Span, out var slotIndex)
                         && slotIndex < slot.Count)
                     {
-                        result = slot[slotIndex];
-                        remaining = expression.Slice(slotIndexExpr.Length);
+                        var result = slot[slotIndex];
+                        var remaining = expression.Slice(slotIndexExpr.Length);
+                        context = new ExpressionEvalContext(remaining, result, null);
                         return true;
                     }
                 }
             }
 
-            remaining = default;
-            result = default;
+            context = default;
             return false;
         }
 
         static bool TryEvaluateNamedSlot(ReadOnlyMemory<char> expression, IReadOnlyList<StackItem> slot, IReadOnlyList<DebugInfo.SlotVariable> variables,
-            out (StackItem item, string type) result, out ReadOnlyMemory<char> remaining)
+            [MaybeNullWhen(false)] out ExpressionEvalContext context)
         {
             for (int i = 0; i < variables.Count; i++)
             {
                 var variable = variables[i];
                 if (expression.StartsWith(variable.Name) && variable.Index < slot.Count)
                 {
-                    remaining = expression.Slice(variable.Name.Length);
+                    var remaining = expression.Slice(variable.Name.Length);
                     if (IsValidRemaining(remaining))
                     {
-                        result = (slot[variable.Index], variable.Type);
+                        // result = (slot[variable.Index], variable.Type);
+                        // TODO: return type info
+                        context = new ExpressionEvalContext(remaining, slot[variable.Index], null);
                         return true;
                     }
                 }
             }
 
-            result = default;
-            remaining = default;
+            context = default;
             return false;
         }
 
-        bool TryEvaluate(ReadOnlyMemory<char> expression, [MaybeNullWhen(false)] out StackItem result, out ContractType? resultType, out ReadOnlyMemory<char> remaining)
-        {
-            if (expression.StartsWith("#"))
-            {
-                if (storageContainer.TryEvaluate(expression, out result, out resultType, out remaining)) return true;
-                resultType = null;
-                if (TryEvaluateIndexedSlot(expression, ARG_SLOTS_PREFIX, context.Arguments, out result, out remaining)) return true;
-                if (TryEvaluateIndexedSlot(expression, EVAL_STACK_PREFIX, context.EvaluationStack, out result, out remaining)) return true;
-                if (TryEvaluateIndexedSlot(expression, LOCAL_SLOTS_PREFIX, context.LocalVariables, out result, out remaining)) return true;
-                if (TryEvaluateIndexedSlot(expression, RESULT_STACK_PREFIX, resultStack, out result, out remaining)) return true;
-                if (TryEvaluateIndexedSlot(expression, STATIC_SLOTS_PREFIX, context.StaticFields, out result, out remaining)) return true;
-            }
-            else if (debugInfo is not null)
-            {
-                // TODO: flow type info out
-                resultType = null;
-                if (TryEvaluateNamedSlot(expression, context.StaticFields, debugInfo.StaticVariables, out var _result, out remaining))
-                {
-                    result = _result.item;
-                    return true;
-                }
-
-                if (debugInfo.TryGetMethod(context.InstructionPointer, out var method))
-                {
-                    if (TryEvaluateNamedSlot(expression, context.Arguments, method.Parameters, out _result, out remaining))
-                    {
-                        result = _result.item;
-                        return true;
-
-                    }
-
-                    if (TryEvaluateNamedSlot(expression, context.LocalVariables, method.Variables, out _result, out remaining))
-                    {
-                        result = _result.item;
-                        return true;
-                    }
-                }
-            }
-
-            result = default;
-            resultType = null;
-            remaining = default;
-            return false;
-        }
 
         bool TryCreateResponse(IVariableManager manager, CastOperation castOperation, StackItem result, ContractType? resultType, [MaybeNullWhen(false)] out EvaluateResponse response)
         {
