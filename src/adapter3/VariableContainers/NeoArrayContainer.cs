@@ -39,7 +39,7 @@ namespace NeoDebug.Neo3
             return new Variable()
             {
                 Name = name,
-                Value = $"{type.AsTypeName()}[{array.Count}]",
+                Value = type.AsTypeName(),
                 VariablesReference = manager.Add(container),
                 NamedVariables = array.Count,
             };

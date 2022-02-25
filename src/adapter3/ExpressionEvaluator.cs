@@ -6,7 +6,10 @@ using Neo;
 using Neo.BlockchainToolkit.Models;
 
 using StackItem = Neo.VM.Types.StackItem;
+using StackItemType = Neo.VM.Types.StackItemType;
 using NeoArray = Neo.VM.Types.Array;
+using ByteString = Neo.VM.Types.ByteString;
+using Boolean = Neo.VM.Types.Boolean;
 
 namespace NeoDebug.Neo3
 {
@@ -51,7 +54,7 @@ namespace NeoDebug.Neo3
 
         public bool TryEvaluate(IVariableManager manager, EvaluateArguments args, [MaybeNullWhen(false)] out EvaluateResponse response)
         {
-            var (castOperation, expression) = ParseCastOperation(args.Expression.AsMemory());
+            var (cast, expression) = ParseCastOperation(args.Expression.AsMemory());
             if (TryInitialEvaluate(expression, out var evalContext))
             {
                 while (!evalContext.Expression.IsEmpty)
@@ -67,7 +70,7 @@ namespace NeoDebug.Neo3
                     return true;
                 }
 
-                return TryCreateResponse(manager, castOperation, evalContext.Item, evalContext.Type, out response);
+                return TryCreateResponse(manager, cast, evalContext.Item, evalContext.Type, out response);
             }
 
             response = null;
@@ -112,7 +115,7 @@ namespace NeoDebug.Neo3
                                 var span = primitive.GetSpan();
                                 if (key < span.Length)
                                 {
-                                    evalContext = new ExpressionEvalContext(remain, new Neo.VM.Types.ByteString(new [] { span[key] }), new PrimitiveContractType(PrimitiveType.ByteArray));
+                                    evalContext = new ExpressionEvalContext(remain, new Neo.VM.Types.ByteString(new[] { span[key] }), PrimitiveContractType.ByteArray);
                                     return true;
                                 }
                             }
@@ -120,7 +123,7 @@ namespace NeoDebug.Neo3
                     }
                 }
             }
-            else if (expr.Span[0] == '.' 
+            else if (expr.Span[0] == '.'
                 && type is StructContractType structType
                 && item is Neo.VM.Types.Array array
                 && structType.Fields.Count == array.Count)
@@ -141,7 +144,7 @@ namespace NeoDebug.Neo3
             return false;
         }
 
-        bool TryInitialEvaluate(ReadOnlyMemory<char> expression, [MaybeNullWhen(false)] out ExpressionEvalContext evalContext) 
+        bool TryInitialEvaluate(ReadOnlyMemory<char> expression, [MaybeNullWhen(false)] out ExpressionEvalContext evalContext)
         {
             if (expression.StartsWith("#"))
             {
@@ -224,95 +227,159 @@ namespace NeoDebug.Neo3
             return false;
         }
 
-
-        bool TryCreateResponse(IVariableManager manager, CastOperation castOperation, StackItem result, ContractType? resultType, [MaybeNullWhen(false)] out EvaluateResponse response)
+        EvaluateResponse AsResponse(IVariableManager manager, StackItem result, ContractType? resultType)
         {
-            switch (castOperation)
+            var variable = resultType is null
+                ? result.AsVariable(manager, string.Empty)
+                : result.AsVariable(manager, string.Empty, resultType, addressVersion);
+
+            return new EvaluateResponse(variable.Value, variable.VariablesReference)
             {
-                case CastOperation.None:
-                    {
-                        var variable = resultType is null
-                            ? result.AsVariable(manager, string.Empty)
-                            : result.AsVariable(manager, string.Empty, resultType, addressVersion);
-                        response = new EvaluateResponse(variable.Value, variable.VariablesReference);
-                        return true;
-                    }
-                case CastOperation.Address:
-                    {
-                        var hash = new UInt160(result.GetSpan());
-                        var address = Neo.Wallets.Helper.ToAddress(hash, addressVersion);
-                        response = new EvaluateResponse(address, 0);
-                        return true;
-                    }
-                case CastOperation.HexString:
-                    {
-                        if (result.IsNull)
-                        {
-                            response = new EvaluateResponse("<null>", 0);
-                            return true;
-                        }
-                        else
-                        {
-                            response = new EvaluateResponse(result.AsReadOnlyMemory().Span.ToHexString(), 0);
-                            return true;
-                        }
-                    }
-                case CastOperation.Boolean:
-                    {
-                        response = new EvaluateResponse($"{result.GetBoolean()}", 0);
-                        return true;
-                    }
-                case CastOperation.Integer:
-                    {
-                        response = new EvaluateResponse($"{result.GetInteger()}", 0);
-                        return true;
-                    }
-                case CastOperation.String:
-                    {
-                        response = new EvaluateResponse(result.GetString(), 0);
-                        return true;
-                    }
-                case CastOperation.ByteArray:
-                    {
-                        if (result.IsNull)
-                        {
-                            response = new EvaluateResponse("<null>", 0);
-                            return true;
-                        }
-                        else
-                        {
-                            var container = new ByteArrayContainer(result.AsReadOnlyMemory());
-                            response = new EvaluateResponse($"{result.Type}", manager.Add(container));
-                            return true;
-                        }
-                    }
-                default:
-                    {
-                        response = new EvaluateResponse($"Unrecognized Cast Operation {castOperation}", 0)
-                            .AsFailedEval();
-                        return true;
-                    }
-            }
+                Type = resultType?.AsTypeName() ?? string.Empty
+            };
         }
 
-        static (CastOperation castOperation, ReadOnlyMemory<char> remaining) ParseCastOperation(ReadOnlyMemory<char> expression)
+        bool TryCast(StackItem item, CastOperation castOp, [MaybeNullWhen(false)] out StackItem result, [MaybeNullWhen(false)] out ContractType resultType)
         {
-
-            if (expression.Length >= 1 && expression.Span[0] == '(')
+            resultType = castOp switch
             {
-                expression = expression.Slice(1);
-                foreach (var (key, operation) in CastOperations)
+                CastOperation.Address => PrimitiveContractType.Address,
+                CastOperation.Boolean => PrimitiveContractType.Boolean,
+                CastOperation.ByteArray => PrimitiveContractType.ByteArray,
+                CastOperation.HexString => PrimitiveContractType.String,
+                CastOperation.Integer => PrimitiveContractType.Integer,
+                CastOperation.String => PrimitiveContractType.String,
+                _ => throw new InvalidCastException($"Unexpected Cast Operator {castOp}"),
+            };
+
+            try
+            {
+                if (castOp == CastOperation.Boolean)
                 {
-                    if (expression.StartsWith(key) && expression.Span[key.Length] == ')')
-                    {
-                        return (operation, expression.Slice(key.Length + 1));
-                    }
+                    result = item.GetBoolean();
+                    return true;
+                }
+                if (item.IsNull)
+                {
+                    result = StackItem.Null;
+                    return true;
                 }
 
-                throw new Exception("invalid cast operation");
+                switch (castOp)
+                {
+                    case CastOperation.Integer:
+                        result = item.GetInteger();
+                        return true;
+                    case CastOperation.String:
+                        result = item.GetString() ?? StackItem.Null;
+                        return true;
+                    case CastOperation.HexString:
+                        result = Convert.ToHexString(item.GetSpan());
+                        return true;
+                    case CastOperation.ByteArray:
+                        {
+                            result = null!;
+                            if (item is ByteString byteString)
+                            {
+                                result = byteString;
+                            }
+                            if (item is Neo.VM.Types.Buffer buffer)
+                            {
+                                result = (ByteString)buffer.InnerBuffer;
+                            }
+                            if (item is Neo.VM.Types.PrimitiveType)
+                            {
+                                result = (ByteString)item.GetSpan().ToArray();
+                            }
+
+                            if (result is not null)
+                            {
+                                return true;
+                            }
+                            else  
+                            {
+                                break;
+                            }
+                        }
+                    case CastOperation.Address:
+                    {
+                        var span = item is Neo.VM.Types.PrimitiveType || item is Neo.VM.Types.Buffer ? item.GetSpan() : default;
+                        if (span.Length == UInt160.Length)
+                        {
+                            result = item is ByteString byteString
+                                ? byteString
+                                : item is Neo.VM.Types.Buffer buffer
+                                    ? buffer.InnerBuffer
+                                    : item.GetSpan().ToArray();
+                            return true;
+                        }
+                    }
+                    break;
+                }
+            }
+            catch { }
+
+            result = null;
+            return false;
+        }
+
+        bool TryCreateResponse(IVariableManager manager, string cast, StackItem item, ContractType? type, [MaybeNullWhen(false)] out EvaluateResponse response)
+        {
+            if (string.IsNullOrEmpty(cast))
+            {
+                response = AsResponse(manager, item, type);
+                return true;
             }
 
-            return (CastOperation.None, expression);
+            if (CastOperations.TryGetValue(cast, out var castOp))
+            {
+                if (castOp == CastOperation.None)
+                {
+                    response = AsResponse(manager, item, type);
+                    return true;
+                }
+
+                response = TryCast(item, castOp, out var castResult, out var castResultTime)
+                    ? AsResponse(manager, castResult, castResultTime)
+                    : new EvaluateResponse($"'{cast}' cast failed", 0).AsFailedEval();
+                return true;
+            }
+
+            if (cast == "tx")
+            {
+                response = item is NeoArray array && array.Count == NeoCoreTypes.Transaction.Fields.Count
+                    ? AsResponse(manager, item, NeoCoreTypes.Transaction)
+                    : new EvaluateResponse($"'tx' cast failed", 0).AsFailedEval();
+                return true;
+            }
+
+            if (cast == "block")
+            {
+                response = item is NeoArray array && array.Count == NeoCoreTypes.TrimmedBlock.Fields.Count
+                    ? AsResponse(manager, item, NeoCoreTypes.TrimmedBlock)
+                    : new EvaluateResponse($"'block' cast failed", 0).AsFailedEval();
+                return true;
+            }
+
+
+
+            response = new EvaluateResponse($"Unknown cast operator {cast}", 0).AsFailedEval();
+            return true;
+        }
+
+        static (string cast, ReadOnlyMemory<char> expression) ParseCastOperation(ReadOnlyMemory<char> expression)
+        {
+            if (!expression.IsEmpty && expression.Span[0] == '(')
+            {
+                var parenIndex = expression.Span.IndexOf(')');
+                if (parenIndex != -1)
+                {
+                    var cast = new string(expression.Slice(1, parenIndex - 1).Span);
+                    return (cast, expression.Slice(parenIndex + 1));
+                }
+            }
+
+            return (string.Empty, expression);
         }
     }
 }

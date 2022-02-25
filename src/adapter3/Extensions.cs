@@ -25,7 +25,7 @@ namespace NeoDebug.Neo3
             if (item is Neo.VM.Types.Buffer buffer) return buffer.InnerBuffer;
             if (item is Neo.VM.Types.ByteString byteString) return byteString;
             if (item is Neo.VM.Types.PrimitiveType) return (Neo.VM.Types.ByteString)item.ConvertTo(StackItemType.ByteString);
-            
+
             throw new InvalidOperationException($"{item.Type} not accessable as ReadOnlyMemory<byte>");
         }
 
@@ -145,5 +145,27 @@ namespace NeoDebug.Neo3
             // };
             // return @this;
         }
+
+        public static ReadOnlyMemory<byte> AsMemory(this StackItem item)
+            => item.IsNull
+                ? default
+                : item is Neo.VM.Types.Buffer buffer
+                    ? buffer.InnerBuffer.AsMemory()
+                    : item is Neo.VM.Types.ByteString byteString
+                        ? byteString
+                        : item is Neo.VM.Types.PrimitiveType primitive
+                            ? primitive.GetSpan().ToArray()
+                            : throw new InvalidCastException($"Cannot get memory of {item.Type}");
+
+        public static ReadOnlySpan<byte> AsSpan(this StackItem item)
+            => item.IsNull
+                ? default
+                : item is Neo.VM.Types.PrimitiveType primitive
+                    ? primitive.GetSpan()
+                    : item is Neo.VM.Types.Buffer buffer
+                        ? buffer.InnerBuffer.AsSpan()
+                        : throw new InvalidCastException($"Cannot get span of {item.Type}");
+
+
     }
 }

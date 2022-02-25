@@ -225,6 +225,7 @@ namespace NeoDebug.Neo3
                 && array.Count == structType.Fields.Count)
             {
                 var variable = NeoArrayContainer.Create(manager, array, name, structType, addressVersion);
+                variable.Type = type.AsTypeName();
                 return variable;
             }
 
@@ -232,10 +233,15 @@ namespace NeoDebug.Neo3
                 && type is MapContractType mapType)
             {
                 var variable = NeoMapContainer.Create(manager, map, name, mapType);
+                variable.Type = type.AsTypeName();
                 return variable;
             }
 
-            return @this.AsVariable(manager, name);
+            {
+                var variable = @this.AsVariable(manager, name);
+                variable.Type = type.AsTypeName();
+                return variable;
+            }
         }
 
         public static Variable AsVariable(this StackItem @this, IVariableManager manager, string name)
