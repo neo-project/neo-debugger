@@ -15,6 +15,7 @@ namespace NeoDebug.Neo3
         UInt160 ScriptHash { get; }
         UInt160 ScriptIdentifier { get; }
         Script Script { get; }
+        MethodToken[] Tokens { get; }
         IReadOnlyList<StackItem> EvaluationStack { get; }
         IReadOnlyList<StackItem> LocalVariables { get; }
         IReadOnlyList<StackItem> StaticFields { get; }
