@@ -44,7 +44,8 @@ namespace NeoDebug.Neo3
             public IReadOnlyList<StackItem> Arguments => Coalese(context.Arguments);
 
             public Script Script => context.Script;
-            public MethodToken[]? Tokens => context.GetState<ExecutionContextState>()?.Contract.Nef.Tokens;
+            public MethodToken[] Tokens => context.GetState<ExecutionContextState>()?.Contract.Nef.Tokens
+                ?? Array.Empty<MethodToken>();
 
             public UInt160 ScriptHash { get; }
             public UInt160 ScriptIdentifier { get; }

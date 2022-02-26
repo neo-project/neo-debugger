@@ -60,7 +60,7 @@ namespace NeoDebug.Neo3
         public Disassembly GetDisassembly(IExecutionContext context, DebugInfo? debugInfo)
             => GetDisassembly(context.ScriptIdentifier, context.Script, debugInfo, context.Tokens);
 
-        Disassembly GetDisassembly(UInt160 scriptHash, Script script, DebugInfo? debugInfo, MethodToken[]? tokens)
+        Disassembly GetDisassembly(UInt160 scriptHash, Script script, DebugInfo? debugInfo, MethodToken[] tokens)
             => disassemblies.GetOrAdd(scriptHash.GetHashCode(), sourceRef => ToDisassembly(sourceRef, scriptHash, script, debugInfo, tokens));
 
         public bool TryGetDisassembly(UInt160 scriptHash, out Disassembly disassembly)
@@ -68,7 +68,7 @@ namespace NeoDebug.Neo3
             if (tryGetScript(scriptHash, out var script))
             {
                 var debugInfo = tryGetDebugInfo(scriptHash, out var _debugInfo) ? _debugInfo : null;
-                disassembly = GetDisassembly(scriptHash, script, debugInfo, null);
+                disassembly = GetDisassembly(scriptHash, script, debugInfo, Array.Empty<MethodToken>());
                 return true;
             }
 
@@ -79,7 +79,7 @@ namespace NeoDebug.Neo3
         public bool TryGetDisassembly(int sourceRef, out Disassembly disassembly)
             => disassemblies.TryGetValue(sourceRef, out disassembly);
 
-        static Disassembly ToDisassembly(int sourceRef, UInt160 scriptHash, Script script, DebugInfo? debugInfo, MethodToken[]? tokens)
+        static Disassembly ToDisassembly(int sourceRef, UInt160 scriptHash, Script script, DebugInfo? debugInfo, MethodToken[] tokens)
         {
             var padString = script.GetInstructionAddressPadding();
             var sourceBuilder = new StringBuilder();
