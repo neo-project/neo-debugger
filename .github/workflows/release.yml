@@ -35,6 +35,9 @@ jobs:
     - name: calculate isPreRel value based on nbgv VersionMinor % 2
       run:  echo "::set-output name=isPreRel::$((${{ steps.nbgv.outputs.VersionMinor }} % 2))"
       id: calcPreRel
+    - name: update vscode-engine on pre release builds
+      if: ${{ steps.calcPreRel.outputs.isPreRel != 0 }}
+      run: node ./src/extension/scripts/update-vscode-engine.js
     - name: set --pre-release arg if calcPreRel.isPreRel != 0
       if: ${{ steps.calcPreRel.outputs.isPreRel != 0 }}
       run:  echo "::set-output name=arg::--pre-release"
