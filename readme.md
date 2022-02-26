@@ -20,6 +20,21 @@ This format is supported by a variety of Neo smart contract compilers including
 * [NeoGo (GoLang)](https://github.com/nspcc-dev/neo-go)
 * [NEO•ONE (TypeScript)](https://neo-one.io)
 
+## Versioning Strategy
+
+As of March 2022, the Neo Smart Contract Debugger project has adopted 
+[VS Code recommended guidance](https://code.visualstudio.com/api/working-with-extensions/publishing-extension#prerelease-extensions)
+for version numbers. This will allow the VS Code Marketplace to offer production and pre-release
+versions of this extension. Developers will be able to choose which version to install and VS Code
+will automatically keep the extension up to date.
+
+Going forward, the minor version of this extension will be even for production releases and odd
+for preview releases. The first production release under this new versioning strategy will ve
+v3.2. The first pre-release of this extension will be v3.3.
+
+> Note, this project uses NerdBank Git Versioning to manage release version numbers.
+> As such, patch versions of public releases will typically not be sequential. 
+
 ## Installation
 
 The Neo Smart Contract Debugger requires a [.NET runtime](https://dotnet.microsoft.com/download/dotnet)

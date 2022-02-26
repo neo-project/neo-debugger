@@ -13,6 +13,22 @@ will not have contiguous patch numbers. Initial major and minor releases will be
 in this file without a patch number. Patch version will be included for bug fix releases, but
 may not exactly match a publicly released version.
 
+## [Unreleased]
+
+## Changed
+
+* Only override CheckWitness when specified via `runtime.witnesses` launch config property. (#155)
+* Render method token information in Disassembly view (#156)
+
+## Fixed
+
+* Respect DebugInfo.SlotVariable.Index (#155)
+
+## Engineering
+
+* Adopting [VS Code recommendations](https://code.visualstudio.com/api/working-with-extensions/publishing-extension#prerelease-extensions)
+  for version numbers to enable shipping pre-release versions of the debugger. 
+
 ## [3.1.23] - 2021-12-14
 
 ### Changed

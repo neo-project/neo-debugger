@@ -38,7 +38,7 @@ namespace NeoDebug.Neo3
 
                 for (int i = 0; i < variableList.Count; i++)
                 {
-                    var slotIndex = variableList[i].Index; 
+                    var slotIndex = variableList[i].Index;
                     var type = Enum.TryParse<ContractParameterType>(variableList[i].Type, out var _type)
                         ? _type
                         : ContractParameterType.Any;
