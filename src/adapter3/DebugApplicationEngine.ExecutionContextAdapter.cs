@@ -15,8 +15,6 @@ namespace NeoDebug.Neo3
 
             public ExecutionContextAdapter(ExecutionContext context, IDictionary<UInt160, UInt160> scriptIdMap)
             {
-                var foo = context.GetState<ExecutionContextState>();
-                
                 this.context = context;
                 this.ScriptHash = context.GetScriptHash();
 

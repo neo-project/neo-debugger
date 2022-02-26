@@ -17,11 +17,12 @@ may not exactly match a publicly released version.
 
 ## Changed
 
-* Only override CheckWitness when specified via `runtime.witnesses` launch config property.
+* Only override CheckWitness when specified via `runtime.witnesses` launch config property. (#155)
+* Render method token information in Disassembly view
 
 ## Fixed
 
-* Respect DebugInfo.SlotVariable.Index
+* Respect DebugInfo.SlotVariable.Index (#155)
 
 ## Engineering
 
