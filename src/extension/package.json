@@ -540,7 +540,7 @@
         "pretest": "npm run compile",
         "test": "node ./out/test/runTest.js",
         "pack-adapters-local": "dotnet pack ../adapter2 -o . && dotnet pack ../adapter3 -o .",
-        "package-local": "npm run pack-adapters-local && npm run package"
+        "package-local": "npm run pack-adapters-local && vsce package"
     },
     "dependencies": {
         "glob": "^7.2.0",

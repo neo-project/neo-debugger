@@ -7,6 +7,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+
     - uses: actions/checkout@v2
       with:
         fetch-depth: 0
@@ -18,59 +19,72 @@ jobs:
       uses: actions/setup-node@v2
       with:
         node-version: 'lts/*'
-    - name: Nerdbank.GitVersioning
+    - id: nbgv
+      name: Nerdbank.GitVersioning
       uses: dotnet/nbgv@v0.4.0
-      id: nbgv
-    - name: Install dependencies
+    # Production releases are published from release branches and have an *even* minor version number
+    # Preview releases are published from master branch and have an *odd* minor version number
+    #   Details: https://github.com/neo-project/neo-debugger#versioning-strategy
+    # relInfo step calculates release information for later use in the workflow
+    #   * isPreRel is 0 for production releases and 1 for pre-releases
+    #   * isRelBranch is true for master and release branches, false otherwise
+    - id: relInfo
+      name: Calculate release information (isPreRel and isRelBranch)
+      run: |
+        echo "::set-output name=isPreRel::$((${{ steps.nbgv.outputs.VersionMinor }} % 2))"
+        echo "::set-output name=isRelBranch::${{ startsWith(github.ref, 'refs/heads/release/') || github.ref == 'refs/heads/master' }}"
+
+    - name: Install debug adapter dependencies
       run: dotnet restore
-    - name: Pack debug adapters
+    - name: Build + Package debug adapters
       run: dotnet pack --output ./adapters --configuration Release --no-restore --verbosity normal --include-symbols
-    - name: copy adapters nuget package into extension folder
+
+    - name: copy debug adapter packages into extension folder
       run: cp adapters/*.nupkg src/extension/
     - name: copy repo root readme into extension folder
       run: cp readme.md src/extension/
-    - name: NPM install
+
+    - name: Install debug extension dependencies
       run: npm ci
       working-directory: './src/extension'
-    - name: calculate isPreRel value based on nbgv VersionMinor % 2
-      run:  echo "::set-output name=isPreRel::$((${{ steps.nbgv.outputs.VersionMinor }} % 2))"
-      id: calcPreRel
-    - name: update vscode-engine on pre release builds
-      if: ${{ steps.calcPreRel.outputs.isPreRel != 0 }}
-      run: node ./src/extension/scripts/update-vscode-engine.js
-    - name: set --pre-release arg if calcPreRel.isPreRel != 0
-      if: ${{ steps.calcPreRel.outputs.isPreRel != 0 }}
+    # GitHub action expressions don't support an if expression, so use a step + if conditional
+    # to conditionally generate the "--pre-release" vsce argument
+    - name: Configure debug extension pre-release argument
+      if: ${{ steps.relInfo.outputs.isPreRel != 0 }}
       run:  echo "::set-output name=arg::--pre-release"
       id: preRel
-    - name: package extension
-      run: npx vsce package ${{ steps.preRel.outputs.arg }} ${{ steps.nbgv.outputs.NpmPackageVersion }}
+    # use SimpleVersion for packaging so pre-release extensions can be published to VSCode marketplace
+    - name: Build + Package debug extension 
+      run: npx vsce package ${{ steps.preRel.outputs.arg }} ${{ steps.nbgv.outputs.SimpleVersion }}
       working-directory: './src/extension'
-    - name: Upload artifact
+
+    - name: Upload debug adapter artifacts
       uses: actions/upload-artifact@v2
       with:
         name: adapters
         path: ./adapters/*
-    - name: Upload artifact
+    - name: Upload debug extension artifact
       uses: actions/upload-artifact@v2
       with:
         name: extension
         path: ./src/extension/*.vsix
-    - name: Create Release
-      if: ${{ startsWith(github.ref, 'refs/heads/release/') }}
+
+    # for release branch builds, create a GitHub release and publish to VS code marketplace
+    - name: Create GitHub release
+      if: ${{ steps.isRelBranch.outputs.isRelBranch }}
       uses: marvinpinto/action-automatic-releases@v1.1.1
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        prerelease: ${{ steps.nbgv.outputs.PrereleaseVersion != '' }}
-        title: Release ${{ steps.nbgv.outputs.NuGetPackageVersion }}
-        automatic_release_tag: ${{ steps.nbgv.outputs.NuGetPackageVersion }}
+        prerelease: ${{ steps.relInfo.outputs.isPreRel != '' }}
+        title: Release ${{ steps.nbgv.outputs.CloudBuildNumber }}
+        automatic_release_tag: ${{ steps.nbgv.outputs.CloudBuildNumber }}
         files: |
           ./adapters/*
           ./src/extension/*.vsix
-    - name: Publish VS Code Extension
-      if: ${{ startsWith(github.ref, 'refs/heads/release/') }}
+    - name: Publish debug extension to VSCode Marketplace
+      if: ${{ steps.isRelBranch.outputs.isRelBranch }}
       uses: HaaLeo/publish-vscode-extension@v1
       with:
         registryUrl: https://marketplace.visualstudio.com
-        extensionFile: ${{ format('./src/extension/neo-contract-debug-{0}.vsix', steps.nbgv.outputs.NpmPackageVersion) }}
+        extensionFile: ${{ format('./src/extension/neo-contract-debug-{0}.vsix', steps.nbgv.outputs.SimpleVersion) }}
         pat: ${{ secrets.VSCODE_MARKETPLACE_TOKEN }}
-
