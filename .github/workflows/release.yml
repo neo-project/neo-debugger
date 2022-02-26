@@ -17,11 +17,10 @@ jobs:
     - name: Setup Node
       uses: actions/setup-node@v2
       with:
-        node-version: '14'
-    - name: Install nbgv
-      run: dotnet tool install nbgv --tool-path ./tools 
-    - name: Run nbgv
-      run: echo "NUGET_PACKAGE_VERSION=$(./tools/nbgv get-version -v NuGetPackageVersion)" >> $GITHUB_ENV
+        node-version: 'lts/*'
+    - name: Nerdbank.GitVersioning
+      uses: dotnet/nbgv@v0.4.0
+      id: nbgv
     - name: Install dependencies
       run: dotnet restore
     - name: Pack debug adapters
@@ -33,26 +32,42 @@ jobs:
     - name: NPM install
       run: npm ci
       working-directory: './src/extension'
-    - name: NPM run package
-      run: npm run package
+    - name: calculate isPreRel value based on nbgv VersionMinor % 2
+      run:  echo "::set-output name=isPreRel::$((${{ steps.nbgv.outputs.VersionMinor }} % 2))"
+      id: calcPreRel
+    - name: set --pre-release arg if calcPreRel.isPreRel != 0
+      if: ${{ steps.calcPreRel.outputs.isPreRel != 0 }}
+      run:  echo "::set-output name=arg::--pre-release"
+      id: preRel
+    - name: package extension
+      run: npx vsce package ${{ steps.preRel.outputs.arg }} ${{ steps.nbgv.outputs.NpmPackageVersion }}
       working-directory: './src/extension'
     - name: Upload artifact
       uses: actions/upload-artifact@v2
       with:
-        name: packages
+        name: adapters
         path: ./adapters/*
     - name: Upload artifact
       uses: actions/upload-artifact@v2
       with:
-        name: packages
+        name: extension
         path: ./src/extension/*.vsix
     - name: Create Release
+      if: ${{ startsWith(github.ref, 'refs/heads/release/') }}
       uses: marvinpinto/action-automatic-releases@v1.1.1
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        prerelease: ${{ contains(env.NUGET_PACKAGE_VERSION, '-preview') }}
-        title: Release ${{ env.NUGET_PACKAGE_VERSION }}
-        automatic_release_tag: ${{ env.NUGET_PACKAGE_VERSION }}
+        prerelease: ${{ steps.nbgv.outputs.PrereleaseVersion != '' }}
+        title: Release ${{ steps.nbgv.outputs.NuGetPackageVersion }}
+        automatic_release_tag: ${{ steps.nbgv.outputs.NuGetPackageVersion }}
         files: |
           ./adapters/*
           ./src/extension/*.vsix
+    - name: Publish VS Code Extension
+      if: ${{ startsWith(github.ref, 'refs/heads/release/') }}
+      uses: HaaLeo/publish-vscode-extension@v1
+      with:
+        registryUrl: https://marketplace.visualstudio.com
+        extensionFile: ${{ format('./src/extension/neo-contract-debug-{0}.vsix', steps.nbgv.outputs.NpmPackageVersion) }}
+        pat: ${{ secrets.VSCODE_MARKETPLACE_TOKEN }}
+
