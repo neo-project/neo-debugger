@@ -18,7 +18,7 @@ may not exactly match a publicly released version.
 ## Changed
 
 * Only override CheckWitness when specified via `runtime.witnesses` launch config property. (#155)
-* Render method token information in Disassembly view
+* Render method token information in Disassembly view (#156)
 
 ## Fixed
 
