@@ -28,6 +28,7 @@ using Newtonsoft.Json.Linq;
 using OneOf;
 using Script = Neo.VM.Script;
 using StackItem = Neo.VM.Types.StackItem;
+using NotFound = OneOf.Types.NotFound;
 
 namespace NeoDebug.Neo3
 {
@@ -171,30 +172,55 @@ namespace NeoDebug.Neo3
             //          deploy whatever contracts you want and take a snapshot rather than deploying multiple contracts 
             //          during launch configuration.
 
-            var schemaMap = LoadStorageSchemaMap(config, launchContractHash);
+            var schemaMap = ImmutableDictionary<UInt160, ContractStorageSchema>.Empty;
+            var storageSchema = await GetStorageSchemaAsync(config);
+            if (storageSchema.TryPickT0(out var schema, out _))
+            {
+                schemaMap = schemaMap.Add(launchContractHash, schema);
+            }
+            
             var block = CreateDummyBlock(store, tx);
             var engine = new DebugApplicationEngine(tx, store, schemaMap, checkpoint.Settings, block, witnessChecker);
             engine.LoadScript(tx.Script);
             return engine;
         }
 
-        static ImmutableDictionary<UInt160, ContractStorageSchema> LoadStorageSchemaMap(ConfigProps config, UInt160 scriptHash)
+        static async Task<OneOf<ContractStorageSchema, NotFound>> GetStorageSchemaAsync(ConfigProps config)
         {
-            // TODO: LoadStorageSchemaMap should look in multiple places for the storage schema, in order to make it
-            //       as easy as possible on the developer until the end-to-end tooling is complete.
+            if (config.TryGetValue("storage-schema", out var schemaToken))
+            {
+                if (schemaToken.Type == JTokenType.Object)
+                {
+                    return ContractStorageSchema.Parse(schemaToken);
+                }
+            }
 
-            // First, check the "storage-schema" value of the config props
-            //        If the storage-schema property is a JSON object, pass the object to ContractStorageSchema.Parse
-            //        If the storage-schema property is a string, treat it as a path to a JSON file that can be fed to ContractStorageSchema.Parse
-            // If the storage schema isn't specified in the ConfigProps, check for a "storage-schema.json" file in the
-            //        same directory as the .nef file specified in the the "program" config property
-            // Finally, if the storage schema still hasn't been loaded, check for a "storage-schema.json" file in the 
-            //        same directory as the .neo-express file specified in the optional "neo-express" config property
+            var program = ParseProgram(config);
+            var programPathSchema = await TryGetSchema(Path.GetDirectoryName(program));
+            if (programPathSchema.IsT0) return programPathSchema.AsT0;
 
-            var map = ImmutableDictionary<UInt160, ContractStorageSchema>.Empty;
-            return config.TryGetValue("storage-schema", out var schemaToken)
-                ? map.Add(scriptHash, ContractStorageSchema.Parse(schemaToken))
-                : map;
+            if (config.TryGetValue("neo-express", out var neoExpressPath))
+            {
+                return await TryGetSchema(Path.GetDirectoryName(neoExpressPath.Value<string>()));
+            }
+
+            return default(NotFound);
+
+            static async Task<OneOf<ContractStorageSchema, NotFound>> TryGetSchema(string? folderPath)
+            {
+                if (folderPath is not null)
+                {
+                    var path = Path.Combine(folderPath, "storage-schema.json");
+                    if (File.Exists(path))
+                    {
+                        var text = await File.ReadAllTextAsync(path);
+                        var json = JObject.Parse(text);
+                        return ContractStorageSchema.Parse(json);
+                    }
+                }
+
+                return default(NotFound);
+            }
         }
 
         static NefFile LoadNefFile(string path)
