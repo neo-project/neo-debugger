@@ -95,7 +95,7 @@ jobs:
           // environment values are passed as strings, so convert PRERELEASE to integer and then boolean
           const preRelease = !!(+PRERELEASE);
 
-          const args = ["vsce", "package"];
+          const args = ["vsce", "package", "--no-git-tag-version"];
           if (preRelease) { 
             await exec.exec("node", ["./src/extension/scripts/update-vscode-engine.js"]);
             args.push("--pre-release"); 
@@ -132,8 +132,4 @@ jobs:
           ./src/extension/*.vsix
     - name: Publish debug extension to VSCode Marketplace
       if: ${{ steps.relInfo.outputs.publish && (github.event.inputs.marketplaceRelease == 'true') }}
-      uses: HaaLeo/publish-vscode-extension@v1
-      with:
-        registryUrl: https://marketplace.visualstudio.com
-        extensionFile: ${{ format('./src/extension/neo-contract-debug-{0}.vsix', steps.relInfo.outputs.version) }}
-        pat: ${{ secrets.VSCODE_MARKETPLACE_TOKEN }}
+      run: npx vsce publish -i ${{ format('./src/extension/neo-contract-debug-{0}.vsix', steps.relInfo.outputs.version) }} -p ${{ secrets.VSCODE_MARKETPLACE_TOKEN }}
