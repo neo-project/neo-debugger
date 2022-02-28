@@ -91,7 +91,7 @@ jobs:
       with:
         script: |
           const { PRERELEASE, VERSION } = process.env;
-          const preRelease = !!PRERELEASE;
+          const preRelease = PRERELEASE === 'true';
 
           const args = ["vsce", "package"];
           if (preRelease) { 
