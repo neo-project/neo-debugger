@@ -64,8 +64,11 @@ jobs:
             core.setFailed('release branch releases must have even minor version '); 
           }
           const publish = onMasterBranch || onReleaseBranch;
-          const version = publish ? SIMPLE_VERSION : NPM_VERSION;  
-          return { preRelease, publish, version };
+          const version = publish ? SIMPLE_VERSION : NPM_VERSION;
+
+          core.setOutput('preRelease', preRelease);
+          core.setOutput('publish', publish);
+          core.setOutput('version', version);
 
     - name: Install debug adapter dependencies
       run: dotnet restore
