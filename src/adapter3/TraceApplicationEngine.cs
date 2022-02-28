@@ -137,13 +137,14 @@ namespace NeoDebug.Neo3
             return contracts.TryGetValue(scriptHash, out script);
         }
 
-        public StorageContainerBase GetStorageContainer(UInt160 scriptHash)
+        public StorageContainerBase GetStorageContainer(UInt160 scriptHash, StorageView storageView)
         {
             // TODO: Schema Support
             return new StorageContainer(
                 traceFile.FindStorage(scriptHash), 
                 Array.Empty<StorageDef>(), 
-                Neo.ProtocolSettings.Default.AddressVersion);
+                Neo.ProtocolSettings.Default.AddressVersion,
+                storageView);
         }
     }
 }

@@ -37,7 +37,11 @@ namespace NeoDebug.Neo3
 
     partial class LaunchConfigParser
     {
-        public static async Task<IDebugSession> CreateDebugSessionAsync(LaunchArguments launchArguments, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
+        public static async Task<IDebugSession> CreateDebugSessionAsync(
+            LaunchArguments launchArguments,
+            Action<DebugEvent> sendEvent,
+            DebugView defaultDebugView,
+            StorageView storageView)
         {
             var sourceFileMap = ImmutableDictionary<string, string>.Empty;
             if (launchArguments.ConfigurationProperties.TryGetValue("sourceFileMap", out var jsonSourceFileMap) && jsonSourceFileMap.Type == JTokenType.Object)
@@ -61,7 +65,7 @@ namespace NeoDebug.Neo3
 
             var debugInfoList = await LoadDebugInfosAsync(launchArguments.ConfigurationProperties, sourceFileMap).ToListAsync().ConfigureAwait(false);
             var engine = await CreateEngineAsync(launchArguments.ConfigurationProperties).ConfigureAwait(false);
-            return new DebugSession(engine, debugInfoList, returnTypes, sendEvent, defaultDebugView);
+            return new DebugSession(engine, debugInfoList, returnTypes, sendEvent, defaultDebugView, storageView);
         }
 
         static string ParseProgram(ConfigProps config) => config["program"].Value<string>() ?? throw new JsonException("missing program property");

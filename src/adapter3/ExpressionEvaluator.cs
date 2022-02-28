@@ -43,11 +43,11 @@ namespace NeoDebug.Neo3
         readonly DebugInfo? debugInfo;
         readonly byte addressVersion;
 
-        public ExpressionEvaluator(IApplicationEngine engine, IExecutionContext context, DebugInfo? debugInfo)
+        public ExpressionEvaluator(IApplicationEngine engine, IExecutionContext context, DebugInfo? debugInfo, StorageView storageView)
         {
             this.context = context;
             this.resultStack = engine.ResultStack;
-            this.storageContainer = engine.GetStorageContainer(context.ScriptHash);
+            this.storageContainer = engine.GetStorageContainer(context.ScriptHash, storageView);
             this.debugInfo = debugInfo;
             this.addressVersion = engine.AddressVersion;
         }

@@ -16,7 +16,8 @@ namespace NeoDebug.Neo3
             private readonly DataCache snapshot;
             private readonly int? contractId;
 
-            public StorageContainer(UInt160 scriptHash, DataCache snapshot, IReadOnlyList<StorageDef> storageDefs, byte addressVersion) : base(storageDefs, addressVersion)
+            public StorageContainer(UInt160 scriptHash, DataCache snapshot, IReadOnlyList<StorageDef> storageDefs, byte addressVersion, StorageView storageView)
+                : base(storageDefs, addressVersion, storageView)
             {
                 this.snapshot = snapshot;
                 this.contractId = NativeContract.ContractManagement.GetContract(snapshot, scriptHash)?.Id;

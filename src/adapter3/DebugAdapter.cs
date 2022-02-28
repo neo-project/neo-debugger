@@ -28,15 +28,18 @@ namespace NeoDebug.Neo3
 
         private readonly Action<LogCategory, string> logger;
         private readonly DebugView defaultDebugView;
+        private readonly StorageView storageView;
         private IDebugSession? session;
 
         public DebugAdapter(System.IO.Stream @in,
                             System.IO.Stream @out,
                             Action<LogCategory, string>? logger,
-                            DebugView defaultDebugView)
+                            DebugView defaultDebugView,
+                            StorageView storageView)
         {
             this.logger = logger ?? ((_, __) => { });
             this.defaultDebugView = defaultDebugView;
+            this.storageView = storageView;
 
             InitializeProtocolClient(@in, @out);
             Protocol.LogMessage += (sender, args) => this.logger(args.Category, args.Message);
@@ -89,7 +92,7 @@ namespace NeoDebug.Neo3
                 return;
             }
 
-            _ = LaunchConfigParser.CreateDebugSessionAsync(responder.Arguments, Protocol.SendEvent, defaultDebugView)
+            _ = LaunchConfigParser.CreateDebugSessionAsync(responder.Arguments, Protocol.SendEvent, defaultDebugView, storageView)
                 .ContinueWith(t =>
                 {
                     if (t.IsCompletedSuccessfully)

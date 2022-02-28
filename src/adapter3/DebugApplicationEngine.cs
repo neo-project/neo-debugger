@@ -114,11 +114,11 @@ namespace NeoDebug.Neo3
             return false;
         }
 
-        public StorageContainerBase GetStorageContainer(UInt160 scriptHash)
+        public StorageContainerBase GetStorageContainer(UInt160 scriptHash, StorageView storageView)
         {
             var storageDefs = schemaMap.TryGetValue(scriptHash, out var schema)
                 ? schema.StorageDefs : Array.Empty<StorageDef>();
-            return new StorageContainer(scriptHash, Snapshot, storageDefs, AddressVersion);
+            return new StorageContainer(scriptHash, Snapshot, storageDefs, AddressVersion, storageView);
         }
 
         IReadOnlyCollection<IExecutionContext> IApplicationEngine.InvocationStack => invocationStackAdapter;

@@ -45,15 +45,15 @@
             "type": "object",
             "title": "Neo Debugger",
             "properties": {
-                "neo-debugger.log": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable debug adapter logging to %LOCALAPPDATA%/Neo-Debugger/logs"
-                },
                 "neo-debugger.debug": {
                     "type": "boolean",
                     "default": false,
                     "markdownDescription": "Pass the `--debug` flag when launching the Neo Debugger server. Note, this setting is for developers who are _contributing_ to the Neo Debugger extension. If you're _using_ the Neo Debugger extension, this flag will **_cause the debugger to hang_**."
+                },
+                "neo-debugger.debug-adapter": {
+                    "type": "array",
+                    "items": "string",
+                    "description": "Path to the Neo Debugger server"
                 },
                 "neo-debugger.default-debug-view": {
                     "type": "string",
@@ -64,10 +64,19 @@
                     "default": "source",
                     "description": "Specify the default debug view"
                 },
-                "neo-debugger.debug-adapter": {
-                    "type": "array",
-                    "items": "string",
-                    "description": "Path to the Neo Debugger server"
+                "neo-debugger.log": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable debug adapter logging to %LOCALAPPDATA%/Neo-Debugger/logs"
+                },
+                "neo-debugger.storage-view": {
+                    "type": "string",
+                    "enum": [
+                        "hashedKey",
+                        "fullKey"
+                    ],
+                    "default": "fullKey",
+                    "description": "Specify the storage view (hashed or full key)"
                 }
             }
         },

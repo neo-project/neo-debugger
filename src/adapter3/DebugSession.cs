@@ -27,19 +27,27 @@ namespace NeoDebug.Neo3
         private readonly IReadOnlyDictionary<UInt160, DebugInfo> debugInfoMap;
         private readonly Action<DebugEvent> sendEvent;
         private bool disassemblyView;
+        private readonly StorageView storageView;
         private readonly DisassemblyManager disassemblyManager;
         private readonly VariableManager variableManager = new VariableManager();
         private readonly BreakpointManager breakpointManager;
         private bool breakOnCaughtExceptions;
         private bool breakOnUncaughtExceptions = true;
+        
 
-        public DebugSession(IApplicationEngine engine, IReadOnlyList<DebugInfo> debugInfoList, IReadOnlyList<CastOperation> returnTypes, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
+        public DebugSession(IApplicationEngine engine,
+                            IReadOnlyList<DebugInfo> debugInfoList,
+                            IReadOnlyList<CastOperation> returnTypes,
+                            Action<DebugEvent> sendEvent,
+                            DebugView defaultDebugView,
+                            StorageView storageView)
         {
             this.engine = engine;
             this.returnTypes = returnTypes;
             this.sendEvent = sendEvent;
             debugInfoMap = debugInfoList.ToDictionary(di => di.ScriptHash);
             disassemblyView = defaultDebugView == DebugView.Disassembly;
+            this.storageView = storageView;
             disassemblyManager = new DisassemblyManager(TryGetScript, debugInfoMap.TryGetValue);
             breakpointManager = new BreakpointManager(disassemblyManager, debugInfoList);
 
@@ -211,7 +219,7 @@ namespace NeoDebug.Neo3
                 yield return AddScope("Variables", container);
             }
 
-            yield return AddScope("Storage", engine.GetStorageContainer(context.ScriptHash), true);
+            yield return AddScope("Storage", engine.GetStorageContainer(context.ScriptHash, storageView), true);
             yield return AddScope("Engine", new EngineContainer(engine, context));
 
             Scope AddScope(string name, IVariableContainer container, bool expensive = false)
@@ -250,7 +258,7 @@ namespace NeoDebug.Neo3
             {
                 var context = engine.InvocationStack.ElementAt(args.FrameId.Value);
                 var debugInfo = debugInfoMap.TryGetValue(context.ScriptIdentifier, out var _debugInfo) ? _debugInfo : null;
-                var evaluator = new ExpressionEvaluator(engine, context, debugInfo);
+                var evaluator = new ExpressionEvaluator(engine, context, debugInfo, storageView);
 
                 if (evaluator.TryEvaluate(variableManager, args, out var response)) return response;
             }
