@@ -124,7 +124,7 @@ jobs:
       uses: marvinpinto/action-automatic-releases@v1.1.1
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        prerelease: ${{ steps.relInfo.outputs.preRelease }}
+        prerelease: ${{ steps.relInfo.outputs.preRelease == 1 }}
         title: Release ${{ steps.nbgv.outputs.NuGetPackageVersion }}
         automatic_release_tag: ${{ steps.nbgv.outputs.NuGetPackageVersion }}
         files: |
