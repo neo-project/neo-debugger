@@ -66,8 +66,9 @@ jobs:
           const publish = onMasterBranch || onReleaseBranch;
           const version = publish ? SIMPLE_VERSION : NPM_VERSION;
 
-          core.setOutput('preRelease', preRelease);
-          core.setOutput('publish', publish);
+          // convert boolean values to integers for github expressions compat
+          core.setOutput('preRelease', +preRelease);
+          core.setOutput('publish', +publish);
           core.setOutput('version', version);
 
     - name: Install debug adapter dependencies
@@ -91,7 +92,8 @@ jobs:
       with:
         script: |
           const { PRERELEASE, VERSION } = process.env;
-          const preRelease = PRERELEASE === 'true';
+          // environment values are passed as strings, so convert PRERELEASE to integer and then boolean
+          const preRelease = !!(+PRERELEASE);
 
           const args = ["vsce", "package"];
           if (preRelease) { 
@@ -113,8 +115,12 @@ jobs:
         path: ./src/extension/*.vsix
 
     # for release branch builds, create a GitHub release and publish to VS code marketplace
+    # NOTE: even though github/marketplaceRelease inputs are marked as type boolean, the value returned 
+    #       via github.event.inputs is string encoded (i.e. 'true' or 'false'). This feels somewhat
+    #       fragile, but if the github.event.inputs encoding changes at least it will most likely break
+    #       such that the releases do not get published
     - name: Create GitHub release
-      if: ${{ steps.relInfo.outputs.publish && github.event.inputs.githubRelease }}
+      if: ${{ steps.relInfo.outputs.publish && (github.event.inputs.githubRelease == "true") }}
       uses: marvinpinto/action-automatic-releases@v1.1.1
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
@@ -125,7 +131,7 @@ jobs:
           ./adapters/*
           ./src/extension/*.vsix
     - name: Publish debug extension to VSCode Marketplace
-      if: ${{ steps.relInfo.outputs.publish && github.event.inputs.marketplaceRelease }}
+      if: ${{ steps.relInfo.outputs.publish && (github.event.inputs.marketplaceRelease == "true") }}
       uses: HaaLeo/publish-vscode-extension@v1
       with:
         registryUrl: https://marketplace.visualstudio.com
