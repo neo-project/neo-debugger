@@ -86,8 +86,8 @@ jobs:
     - name: Build + Package debug extension 
       uses: actions/github-script@v6.0.0
       env:
-        VERSION: ${{ steps.relInfo.outputs.result.version }}
-        PRERELEASE: ${{ steps.relInfo.outputs.result.preRelease }}
+        VERSION: ${{ steps.relInfo.outputs.version }}
+        PRERELEASE: ${{ steps.relInfo.outputs.preRelease }}
       with:
         script: |
           const { PRERELEASE, VERSION } = process.env;
@@ -114,20 +114,20 @@ jobs:
 
     # for release branch builds, create a GitHub release and publish to VS code marketplace
     - name: Create GitHub release
-      if: ${{ steps.relInfo.outputs.result.publish && github.event.inputs.githubRelease }}
+      if: ${{ steps.relInfo.outputs.publish && github.event.inputs.githubRelease }}
       uses: marvinpinto/action-automatic-releases@v1.1.1
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        prerelease: ${{ steps.relInfo.outputs.result.preRelease }}
+        prerelease: ${{ steps.relInfo.outputs.preRelease }}
         title: Release ${{ steps.nbgv.outputs.NuGetPackageVersion }}
         automatic_release_tag: ${{ steps.nbgv.outputs.NuGetPackageVersion }}
         files: |
           ./adapters/*
           ./src/extension/*.vsix
     - name: Publish debug extension to VSCode Marketplace
-      if: ${{ steps.relInfo.outputs.result.publish && github.event.inputs.marketplaceRelease }}
+      if: ${{ steps.relInfo.outputs.publish && github.event.inputs.marketplaceRelease }}
       uses: HaaLeo/publish-vscode-extension@v1
       with:
         registryUrl: https://marketplace.visualstudio.com
-        extensionFile: ${{ format('./src/extension/neo-contract-debug-{0}.vsix', steps.relInfo.outputs.result.version) }}
+        extensionFile: ${{ format('./src/extension/neo-contract-debug-{0}.vsix', steps.relInfo.outputs.version) }}
         pat: ${{ secrets.VSCODE_MARKETPLACE_TOKEN }}
