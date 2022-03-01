@@ -29,6 +29,7 @@ using OneOf;
 using Script = Neo.VM.Script;
 using StackItem = Neo.VM.Types.StackItem;
 using NotFound = OneOf.Types.NotFound;
+using System.Runtime.InteropServices;
 
 namespace NeoDebug.Neo3
 {
@@ -173,7 +174,7 @@ namespace NeoDebug.Neo3
             //          during launch configuration.
 
             var schemaMap = ImmutableDictionary<UInt160, ContractStorageSchema>.Empty;
-            var storageSchema = await GetStorageSchemaAsync(config);
+            var storageSchema = await LoadStorageSchemaAsync(config);
             if (storageSchema.TryPickT0(out var schema, out _))
             {
                 schemaMap = schemaMap.Add(launchContractHash, schema);
@@ -185,24 +186,34 @@ namespace NeoDebug.Neo3
             return engine;
         }
 
-        static async Task<OneOf<ContractStorageSchema, NotFound>> GetStorageSchemaAsync(ConfigProps config)
+        static async Task<OneOf<ContractStorageSchema, NotFound>> LoadStorageSchemaAsync(ConfigProps config)
         {
-            if (config.TryGetValue("storage-schema", out var schemaToken))
-            {
-                if (schemaToken.Type == JTokenType.Object)
-                {
-                    return ContractStorageSchema.Parse(schemaToken);
-                }
-            }
+            // if (config.TryGetValue("storage-schema", out var schemaToken))
+            // {
+            //     if (schemaToken.Type == JTokenType.Object)
+            //     {
+            //         return ContractStorageSchema.Parse(schemaToken);
+            //     }
+            // }
+
+            var comparison = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                ? StringComparison.InvariantCultureIgnoreCase
+                : StringComparison.InvariantCulture;
 
             var program = ParseProgram(config);
-            var programPathSchema = await TryGetSchema(Path.GetDirectoryName(program));
-            if (programPathSchema.IsT0) return programPathSchema.AsT0;
-
-            if (config.TryGetValue("neo-express", out var neoExpressPath))
+            var dir = Path.GetDirectoryName(program);
+            while (dir is not null)
             {
-                return await TryGetSchema(Path.GetDirectoryName(neoExpressPath.Value<string>()));
+                var schemaResult = await TryGetSchema(dir);
+                if (schemaResult.IsT0) return schemaResult.AsT0;
+                if (Environment.CurrentDirectory.Equals(dir, comparison)) break;
+                dir = Path.GetDirectoryName(dir);
             }
+
+            // if (config.TryGetValue("neo-express", out var neoExpressPath))
+            // {
+            //     return await TryGetSchema(Path.GetDirectoryName(neoExpressPath.Value<string>()));
+            // }
 
             return default(NotFound);
 
