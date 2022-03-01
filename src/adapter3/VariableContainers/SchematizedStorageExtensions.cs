@@ -24,9 +24,11 @@ namespace NeoDebug.Neo3
         public static string AsTypeName(this ContractType type)
             => type switch
             {
-                PrimitiveContractType primitiveType => $"{primitiveType.Type}",
+                PrimitiveContractType primitiveType => $"#{primitiveType.Type}",
                 StructContractType structType => structType.Name,
-                // MapContractType mapType => $"Map<{mapType.KeyType}, {mapType.ValueType.AsTypeName()}>",
+                UnspecifiedContractType => "<unspecified>",
+                MapContractType mapType => $"Map<{mapType.KeyType}, {mapType.ValueType.AsTypeName()}>",
+                ArrayContractType arrayType => $"Array<{arrayType.AsTypeName()}>",
                 _ => throw new ArgumentException(type.GetType().Name, nameof(type)),
             };
 
@@ -187,6 +189,8 @@ namespace NeoDebug.Neo3
 
         public static Variable AsVariable(this StackItem @this, IVariableManager manager, string name, ContractType type, byte addressVersion)
         {
+            if (type is UnspecifiedContractType) return AsVariable(@this, manager, name);
+
             if (type is PrimitiveContractType primitive
                 && @this is Neo.VM.Types.PrimitiveType)
             {

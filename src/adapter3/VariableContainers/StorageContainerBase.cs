@@ -165,7 +165,7 @@ namespace NeoDebug.Neo3
             {
                 var result = new Neo.VM.Types.ByteString(key);
                 var remaining = expression.Slice(4);
-                context = new ExpressionEvalContext(remaining, result, null);
+                context = new ExpressionEvalContext(remaining, result, UnspecifiedContractType.Unspecified);
                 return true;
             }
 
@@ -176,7 +176,7 @@ namespace NeoDebug.Neo3
                     ? Neo.VM.Types.Null.Null
                     : new Neo.VM.Types.ByteString(storage.item.Value);
                 var remaining = expression.Slice(5);
-                context = new ExpressionEvalContext(remaining, result, null);
+                context = new ExpressionEvalContext(remaining, result, UnspecifiedContractType.Unspecified);
                 return true;
             }
 
@@ -197,7 +197,7 @@ namespace NeoDebug.Neo3
                         {
                             var result = new Neo.VM.Types.ByteString(key);
                             var remaining = expression.Slice(4);
-                            context = new ExpressionEvalContext(remaining, result, null);
+                            context = new ExpressionEvalContext(remaining, result, UnspecifiedContractType.Unspecified);
                             return true;
                         }
 
@@ -208,7 +208,7 @@ namespace NeoDebug.Neo3
                                 ? Neo.VM.Types.Null.Null
                                 : new Neo.VM.Types.ByteString(item.Value);
                             var remaining = expression.Slice(5);
-                            context = new ExpressionEvalContext(remaining, result, null);
+                            context = new ExpressionEvalContext(remaining, result, UnspecifiedContractType.Unspecified);
                             return true;
                         }
                     }

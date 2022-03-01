@@ -13,7 +13,7 @@ using Boolean = Neo.VM.Types.Boolean;
 
 namespace NeoDebug.Neo3
 {
-    record ExpressionEvalContext(ReadOnlyMemory<char> Expression, StackItem Item, ContractType? Type);
+    record ExpressionEvalContext(ReadOnlyMemory<char> Expression, StackItem Item, ContractType Type);
 
     class ExpressionEvaluator
     {
@@ -104,8 +104,8 @@ namespace NeoDebug.Neo3
                             if (item is NeoArray array
                                 && key < array.Count)
                             {
-                                ContractType? newType = type is StructContractType structType && array.Count == structType.Fields.Count
-                                    ? structType.Fields[key].Type : null;
+                                ContractType newType = type is StructContractType structType && array.Count == structType.Fields.Count
+                                    ? structType.Fields[key].Type : UnspecifiedContractType.Unspecified;
 
                                 evalContext = new ExpressionEvalContext(remain, array[key], newType);
                                 return true;
@@ -194,7 +194,7 @@ namespace NeoDebug.Neo3
                     {
                         var result = slot[slotIndex];
                         var remaining = expression.Slice(slotIndexExpr.Length);
-                        context = new ExpressionEvalContext(remaining, result, null);
+                        context = new ExpressionEvalContext(remaining, result, UnspecifiedContractType.Unspecified);
                         return true;
                     }
                 }
@@ -217,7 +217,7 @@ namespace NeoDebug.Neo3
                     {
                         // result = (slot[variable.Index], variable.Type);
                         // TODO: return type info
-                        context = new ExpressionEvalContext(remaining, slot[variable.Index], null);
+                        context = new ExpressionEvalContext(remaining, slot[variable.Index], UnspecifiedContractType.Unspecified);
                         return true;
                     }
                 }
@@ -227,19 +227,17 @@ namespace NeoDebug.Neo3
             return false;
         }
 
-        EvaluateResponse AsResponse(IVariableManager manager, StackItem result, ContractType? resultType)
+        EvaluateResponse AsResponse(IVariableManager manager, StackItem result, ContractType resultType)
         {
-            var variable = resultType is null
-                ? result.AsVariable(manager, string.Empty)
-                : result.AsVariable(manager, string.Empty, resultType, addressVersion);
+            var variable = result.AsVariable(manager, string.Empty, resultType, addressVersion);
 
             return new EvaluateResponse(variable.Value, variable.VariablesReference)
             {
-                Type = resultType?.AsTypeName() ?? string.Empty
+                Type = resultType.AsTypeName()
             };
         }
 
-        bool TryCast(StackItem item, CastOperation castOp, [MaybeNullWhen(false)] out StackItem result, [MaybeNullWhen(false)] out ContractType resultType)
+        bool TryCast(StackItem item, CastOperation castOp, [MaybeNullWhen(false)] out StackItem result, out ContractType resultType)
         {
             resultType = castOp switch
             {
@@ -323,7 +321,7 @@ namespace NeoDebug.Neo3
             return false;
         }
 
-        bool TryCreateResponse(IVariableManager manager, string cast, StackItem item, ContractType? type, [MaybeNullWhen(false)] out EvaluateResponse response)
+        bool TryCreateResponse(IVariableManager manager, string cast, StackItem item, ContractType type, [MaybeNullWhen(false)] out EvaluateResponse response)
         {
             if (string.IsNullOrEmpty(cast))
             {
