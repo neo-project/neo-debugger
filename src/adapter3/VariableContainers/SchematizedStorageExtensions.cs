@@ -67,6 +67,7 @@ namespace NeoDebug.Neo3
                             // byte array only supported for final key segment
                             if (i != storageDef.KeySegments.Count - 1) throw new Exception();
                             value = buffer.ToArray();
+                            buffer = default;
                             break;
                         }
                     case PrimitiveType.String:
@@ -74,6 +75,7 @@ namespace NeoDebug.Neo3
                             // string only supported for final key segment
                             if (i != storageDef.KeySegments.Count - 1) throw new Exception();
                             value = Neo.Utility.StrictUTF8.GetString(buffer.Span);
+                            buffer = default;
                             break;
                         }
                     case PrimitiveType.Integer:
@@ -81,6 +83,7 @@ namespace NeoDebug.Neo3
                             // Integer only supported for final key segment
                             if (i != storageDef.KeySegments.Count - 1) throw new Exception();
                             value = new BigInteger(buffer.Span);
+                            buffer = default;
                             break;
                         }
                     default:
@@ -91,6 +94,8 @@ namespace NeoDebug.Neo3
 
                 yield return new KeySegment(segment.Name, segment.Type, value);
             }
+
+            if (!buffer.IsEmpty) throw new Exception("woops, key def wrong");
         }
 
         public static string AsAddress(this UInt160 @this, byte addressVersion)
