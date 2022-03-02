@@ -115,31 +115,3 @@ jobs:
       with:
         name: vscode-extension
         path: ./src/extension/*.vsix
-
-
-  build-vswin:
-    runs-on: windows-2019
-    steps:
-    - uses: actions/checkout@v2
-      with:
-        fetch-depth: 0
-    - name: Setup .NET Core
-      uses: actions/setup-dotnet@v1
-      with:
-        dotnet-version: '6.0.x'
-
-    - name: Install adapter dependencies
-      run: dotnet restore
-    - name: publish Neo N3 debug adapter
-      run: dotnet publish ./src/adapter3/neodebug-3-adapter.csproj -c Release --output ./src/vs-package/adapter/ --runtime win-x64 --no-self-contained
-    - uses: ilammy/msvc-dev-cmd@v1
-    - name: Install extension dependencies
-      run: nuget restore ./src/vs-package/neodebug-vs.csproj
-    - name: build vsix
-      run: msbuild ./src/vs-package/neodebug-vs.csproj /p:BaseOutputPath=bin\ /p:Configuration=Release
-
-    - name: Upload extension
-      uses: actions/upload-artifact@v2
-      with:
-        name: vswin-extension
-        path: ./src/vs-package/bin/x64/Release/*.vsix
