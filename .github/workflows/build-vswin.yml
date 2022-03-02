@@ -1,4 +1,4 @@
-name: Build VSCode Extension
+name: Build VS Extension
 
 on:
   pull_request:
