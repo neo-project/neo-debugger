@@ -18,8 +18,12 @@ namespace NeoDebug.Neo3
     static class SchematizedStorageExtensions
     {
         public static string AsString(this KeySegment @this, byte addressVersion)
-            => @this.Type == PrimitiveType.Address && @this.Value is UInt160 uint160
-                ? uint160.AsAddress(addressVersion) : $"{@this.Value}";
+            => @this.Type switch
+            {
+                PrimitiveType.Address when @this.Value is UInt160 uint160 => uint160.AsAddress(addressVersion),
+                PrimitiveType.ByteArray when @this.Value is byte[] array => Convert.ToHexString(array),
+                _ => $"@this.Value",
+            };
 
         public static string AsTypeName(this ContractType type)
             => type switch
