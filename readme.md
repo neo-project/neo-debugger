@@ -1,6 +1,6 @@
 # Neo Smart Contract Debugger
 
-[![Build Status](https://github.com/neo-project/neo-debugger/actions/workflows/build-vscode.yml/badge.svg)
+[![](https://github.com/neo-project/neo-debugger/actions/workflows/build-vscode.yml/badge.svg)](https://github.com/neo-project/neo-debugger/actions)
 [![](https://vsmarketplacebadge.apphb.com/version-short/ngd-seattle.neo-contract-debug.svg)](https://marketplace.visualstudio.com/items?itemName=ngd-seattle.neo-contract-debug)
 
 The Neo Smart Contract Debugger enables Neo developers to debug their smart contracts
