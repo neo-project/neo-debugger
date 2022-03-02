@@ -25,9 +25,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
-      releaseVersion: ${{ steps.nbgv.outputs.CloudBuildNumber }}
-      extensionVersion: ${{ steps.relInfo.outputs.version }}
-      preRelease: ${{ steps.relInfo.outputs.preRelease }}
+      releaseVersion:   ${{ steps.nbgv.outputs.CloudBuildNumber }}
+      extensionVersion: ${{ steps.relInfo.outputs.extensionVersion }}
+      preRelease:       ${{ steps.relInfo.outputs.preRelease }}
     steps:
     - uses: actions/checkout@v2
       with:
