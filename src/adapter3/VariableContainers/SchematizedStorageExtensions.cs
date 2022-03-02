@@ -22,7 +22,7 @@ namespace NeoDebug.Neo3
             {
                 PrimitiveType.Address when @this.Value is UInt160 uint160 => uint160.AsAddress(addressVersion),
                 PrimitiveType.ByteArray when @this.Value is byte[] array => Convert.ToHexString(array),
-                _ => $"@this.Value",
+                _ => $"{@this.Value}",
             };
 
         public static string AsTypeName(this ContractType type)
