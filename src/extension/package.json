@@ -31,8 +31,8 @@
     ],
     "badges": [
         {
-            "url": "https://dev.azure.com/ngdenterprise/Build/_apis/build/status/neo-project.neo-debugger?branchName=master",
-            "href": "https://dev.azure.com/ngdenterprise/Build/_build/latest?definitionId=4&branchName=master",
+            "url":  "https://github.com/neo-project/neo-debugger/actions/workflows/build-vscode.yml/badge.svg",
+            "href": "https://github.com/neo-project/neo-debugger/actions",
             "description": "Build Status"
         }
     ],

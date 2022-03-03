@@ -44,7 +44,7 @@ jobs:
     - name: Download a Build Artifact
       uses: actions/download-artifact@v2.1.0
       with:
-        name: extension
+        name: vscode-extension
         path: ./artifacts
 
     # for release branch builds, create a GitHub release and publish to VS code marketplace
