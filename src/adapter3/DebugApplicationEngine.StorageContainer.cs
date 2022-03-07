@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using Neo;
+using Neo.BlockchainToolkit.Models;
 using Neo.Persistence;
 using Neo.SmartContract;
+using Neo.SmartContract.Native;
 
 namespace NeoDebug.Neo3
 {
@@ -14,10 +16,11 @@ namespace NeoDebug.Neo3
             private readonly DataCache snapshot;
             private readonly int? contractId;
 
-            public StorageContainer(UInt160 scriptHash, DataCache snapshot)
+            public StorageContainer(UInt160 scriptHash, DataCache snapshot, IReadOnlyList<StorageDef> storageDefs, byte addressVersion, StorageView storageView)
+                : base(storageDefs, addressVersion, storageView)
             {
                 this.snapshot = snapshot;
-                contractId = Neo.SmartContract.Native.NativeContract.ContractManagement.GetContract(snapshot, scriptHash)?.Id;
+                this.contractId = NativeContract.ContractManagement.GetContract(snapshot, scriptHash)?.Id;
             }
 
             protected override IEnumerable<(ReadOnlyMemory<byte>, StorageItem)> GetStorages()

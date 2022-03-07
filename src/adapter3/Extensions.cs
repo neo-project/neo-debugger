@@ -1,12 +1,16 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Numerics;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
+using Neo.BlockchainToolkit;
 using Neo.BlockchainToolkit.Models;
 using Neo.Cryptography.ECC;
 using Neo.SmartContract;
 using Newtonsoft.Json.Linq;
+using OneOf;
 
 namespace NeoDebug.Neo3
 {
@@ -16,11 +20,20 @@ namespace NeoDebug.Neo3
 
     internal static class Extensions
     {
+        public static ReadOnlyMemory<byte> AsReadOnlyMemory(this StackItem item)
+        {
+            if (item is Neo.VM.Types.Buffer buffer) return buffer.InnerBuffer;
+            if (item is Neo.VM.Types.ByteString byteString) return byteString;
+            if (item is Neo.VM.Types.PrimitiveType) return (Neo.VM.Types.ByteString)item.ConvertTo(StackItemType.ByteString);
+
+            throw new InvalidOperationException($"{item.Type} not accessable as ReadOnlyMemory<byte>");
+        }
+
+
         public static bool StartsWith<T>(this ReadOnlyMemory<T> @this, ReadOnlySpan<T> value)
             where T : IEquatable<T>
         {
-            return @this.Length >= value.Length
-                && @this.Slice(0, value.Length).Span.SequenceEqual(value);
+            return @this.Span.StartsWith(value);
         }
 
         public static DebugInfo.Method? GetMethod(this DebugInfo debugInfo, int instructionPointer)
@@ -69,25 +82,6 @@ namespace NeoDebug.Neo3
             return sequencePoints[0];
         }
 
-        //https://stackoverflow.com/a/1646913
-        public static int GetSequenceHashCode(this ReadOnlySpan<byte> span)
-        {
-            unchecked
-            {
-                int hash = 17;
-                for (int i = 0; i < span.Length; i++)
-                {
-                    hash = (hash * 31) + span[i];
-                }
-                return hash;
-            }
-        }
-
-        public static int GetSequenceHashCode(this byte[] array)
-        {
-            return GetSequenceHashCode(array.AsSpan());
-        }
-
         public static JToken ToJson(this StackItem item)
         {
             return item switch
@@ -127,110 +121,51 @@ namespace NeoDebug.Neo3
             }
         }
 
-        // public static string? TryConvert(this StackItem item, CastOperation typeHint = CastOperation.None)
-        // {
-        //     try
-        //     {
-        //         return typeHint switch
-        //         {
-        //             CastOperation.Boolean => item.GetBoolean().ToString(),
-        //             CastOperation.Integer => item.IsNull
-        //                 ? BigInteger.Zero.ToString()
-        //                 : ((Neo.VM.Types.Integer)item.ConvertTo(StackItemType.Integer)).GetInteger().ToString(),
-        //             CastOperation.String => item.GetString(),
-        //             CastOperation.HexString => ToHexString(item),
-        //             CastOperation.ByteArray => ToHexString(item),
-        //             // CastOperation.Address => ToAddress(item, 0x35),
-        //             _ => null
-        //         };
-        //     }
-        //     catch
-        //     {
-        //         return null;
-        //     }
-
-        //     // static string? ToAddress(StackItem item, byte version = 0x35)
-        //     // {
-        //     //     var span = item.GetSpan();
-        //     //     if (span.Length == UInt160.Length)
-        //     //     {
-        //     //         var uint160 = new UInt160(span);
-        //     //         return Neo.Wallets.Helper.ToAddress(uint160, version);
-        //     //     }
-
-        //     //     return null;
-        //     // }
-
-        //     static string ToHexString(StackItem item) => item.IsNull
-        //         ? "<null>"
-        //         : ((ByteString)item.ConvertTo(StackItemType.ByteString)).GetSpan().ToHexString();
-        // }
-
-        // public static T TryConvert<T>(this StackItem item) where T : StackItem
-        // {
-        //     switch (typeof(T))
-        //     {
-        //         case typeof(Neo.VM.Types.Integer):
-        //             break;
-
-        //     }
-
-        // }
-
-        public static Variable ToVariable(this StackItem item, IVariableManager manager, string name, ContractParameterType parameterType)
+        public static bool TryGetInteropType(this Neo.VM.Types.InteropInterface item, [MaybeNullWhen(false)] out Type type)
         {
-            try
+            var iiType = typeof(Neo.VM.Types.InteropInterface);
+            var field = iiType.GetField("_object", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (field != null)
             {
-                Variable? variable = parameterType switch
-                {
-                    ContractParameterType.Boolean => NewVariable(item.GetBoolean()),
-                    ContractParameterType.ByteArray => ConvertByteArray(),
-                    ContractParameterType.Hash160 => NewVariable(new UInt160(item.GetSpan())),
-                    ContractParameterType.Hash256 => NewVariable(new UInt256(item.GetSpan())),
-                    ContractParameterType.Integer => NewVariable(item.GetInteger()),
-                    ContractParameterType.PublicKey => NewVariable(ECPoint.DecodePoint(item.GetSpan(), ECCurve.Secp256r1)),
-                    ContractParameterType.Signature => ConvertByteArray(),
-                    ContractParameterType.String => NewVariable(item.GetString()),
-                    _ => null
-                };
-
-                if (variable != null) return variable;
+                type = field.FieldType;
+                return true;
             }
-            catch { }
 
-            return item.ToVariable(manager, name);
-
-            Variable? NewVariable(object? obj) => obj == null ? null : new Variable { Name = name, Value = obj.ToString(), Type = parameterType.ToString() };
-
-            Variable? ConvertByteArray()
-            {
-                if (item.IsNull) return new Variable { Name = name, Value = "<null>", Type = parameterType.ToString() };
-                if (item is Neo.VM.Types.Buffer buffer) return ByteArrayContainer.Create(manager, buffer, name);
-                if (item is Neo.VM.Types.ByteString byteString) return ByteArrayContainer.Create(manager, byteString, name);
-                if (item is Neo.VM.Types.PrimitiveType)
-                {
-                    byteString = (ByteString)item.ConvertTo(StackItemType.ByteString);
-                    return ByteArrayContainer.Create(manager, (ReadOnlyMemory<byte>)byteString, name);
-                }
-                return null;
-            }
+            type = default;
+            return false;
         }
 
-        public static Variable ToVariable(this StackItem item, IVariableManager manager, string name)
+        public static EvaluateResponse AsFailedEval(this EvaluateResponse @this)
         {
-            return item switch
-            {
-                Neo.VM.Types.Array array => NeoArrayContainer.Create(manager, array, name),
-                Neo.VM.Types.Boolean _ => new Variable { Name = name, Value = $"{item.GetBoolean()}", Type = "Boolean" },
-                Neo.VM.Types.Buffer buffer => ByteArrayContainer.Create(manager, buffer, name),
-                Neo.VM.Types.ByteString byteString => ByteArrayContainer.Create(manager, byteString, name),
-                Neo.VM.Types.Integer @int => new Variable { Name = name, Value = $"{@int.GetInteger()}", Type = "Boolean" },
-                Neo.VM.Types.InteropInterface _ => new Variable { Name = name, Value = "InteropInterface" },
-                Neo.VM.Types.Map map => NeoMapContainer.Create(manager, map, name),
-                Neo.VM.Types.Null _ => new Variable { Name = name, Value = "<null>", Type = "Null" },
-                Neo.VM.Types.Pointer _ => new Variable { Name = name, Value = "Pointer" },
-                _ => throw new NotSupportedException(),
-            };
+            throw new Exception(@this.Result);
+
+            // @this.PresentationHint = new VariablePresentationHint
+            // {
+            //     Attributes = VariablePresentationHint.AttributesValue.FailedEvaluation
+            // };
+            // return @this;
         }
+
+        public static ReadOnlyMemory<byte> AsMemory(this StackItem item)
+            => item.IsNull
+                ? default
+                : item is Neo.VM.Types.Buffer buffer
+                    ? buffer.InnerBuffer.AsMemory()
+                    : item is Neo.VM.Types.ByteString byteString
+                        ? byteString
+                        : item is Neo.VM.Types.PrimitiveType primitive
+                            ? primitive.GetSpan().ToArray()
+                            : throw new InvalidCastException($"Cannot get memory of {item.Type}");
+
+        public static ReadOnlySpan<byte> AsSpan(this StackItem item)
+            => item.IsNull
+                ? default
+                : item is Neo.VM.Types.PrimitiveType primitive
+                    ? primitive.GetSpan()
+                    : item is Neo.VM.Types.Buffer buffer
+                        ? buffer.InnerBuffer.AsSpan()
+                        : throw new InvalidCastException($"Cannot get span of {item.Type}");
+
+
     }
 }

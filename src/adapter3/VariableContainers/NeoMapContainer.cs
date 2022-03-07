@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
+using Neo.BlockchainToolkit.Models;
 
 namespace NeoDebug.Neo3
 {
@@ -9,7 +10,7 @@ namespace NeoDebug.Neo3
 
     class NeoMapContainer : IVariableContainer
     {
-        private readonly NeoMap map;
+        readonly NeoMap map;
 
         public NeoMapContainer(NeoMap map)
         {
@@ -40,7 +41,7 @@ namespace NeoDebug.Neo3
                     _ => throw new NotImplementedException($"Unknown primitive type {key.GetType()}"),
                 };
 
-                yield return map[key].ToVariable(manager, keyString);
+                yield return map[key].AsVariable(manager, keyString);
             }
         }
     }

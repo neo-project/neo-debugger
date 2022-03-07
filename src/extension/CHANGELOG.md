@@ -13,21 +13,34 @@ will not have contiguous patch numbers. Initial major and minor releases will be
 in this file without a patch number. Patch version will be included for bug fix releases, but
 may not exactly match a publicly released version.
 
+## [Unreleased]
+
+### Added
+* Storage Schema support. See [overview](/docs/storage-schema-overview.md) for details
+
+### Changed
+* Display full hex-encoded storage key for non-schematized storage
+  * Users can switch back to the hashed key non-schematized storage view via 
+    the `neo-debugger.storage-view` setting
+
 ## [3.2.28] - 2022-02-28
 
-## Changed
+### Changed
 
 * Only override CheckWitness when specified via `runtime.witnesses` launch config property. (#155)
 * Render method token information in Disassembly view (#156)
 
-## Fixed
+### Fixed
 
 * Respect DebugInfo.SlotVariable.Index (#155)
 
-## Engineering
+### Engineering
 
 * Adopting [VS Code recommendations](https://code.visualstudio.com/api/working-with-extensions/publishing-extension#prerelease-extensions)
   for version numbers to enable shipping pre-release versions of the debugger. 
+* Added push and pull request GitHub workflows scripts.
+* Updated release GitHub workflow to publish extension to VSCode marketplace
+* Removed Azure DevOps workflow. This repo is no longer using Azure DevOps for build/release services
 
 ## [3.1.23] - 2021-12-14
 

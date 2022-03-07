@@ -12,8 +12,8 @@ namespace NeoDebug.Neo3
 
     class ExecutionContextContainer : IVariableContainer
     {
-        private readonly IExecutionContext context;
-        private readonly DebugInfo? debugInfo;
+        readonly IExecutionContext context;
+        readonly DebugInfo? debugInfo;
 
         public ExecutionContextContainer(IExecutionContext context, DebugInfo? debugInfo)
         {
@@ -43,7 +43,7 @@ namespace NeoDebug.Neo3
                         ? _type
                         : ContractParameterType.Any;
                     var item = slotIndex < slot.Count ? slot[slotIndex] : StackItem.Null;
-                    var variable = item.ToVariable(manager, variableList[i].Name, type);
+                    var variable = item.AsVariable(manager, variableList[i].Name, type);
                     variable.EvaluateName = variable.Name;
                     yield return variable;
                 }

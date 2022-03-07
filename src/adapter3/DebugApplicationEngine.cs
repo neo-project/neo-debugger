@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Numerics;
 using Neo;
-using Neo.BlockchainToolkit.Persistence;
+using Neo.BlockchainToolkit.Models;
 using Neo.BlockchainToolkit.SmartContract;
 using Neo.Network.P2P.Payloads;
 using Neo.Persistence;
@@ -22,17 +22,33 @@ namespace NeoDebug.Neo3
         private readonly IReadOnlyStore checkpointStore;
         private readonly InvocationStackAdapter invocationStackAdapter;
         private readonly IDictionary<UInt160, UInt160> scriptIdMap = new Dictionary<UInt160, UInt160>();
+        private readonly IReadOnlyDictionary<UInt160, ContractStorageSchema> schemaMap;
 
         public event EventHandler<(UInt160 scriptHash, string scriptName, string eventName, NeoArray state)>? DebugNotify;
         public event EventHandler<(UInt160 scriptHash, string scriptName, string message)>? DebugLog;
 
-        public DebugApplicationEngine(IVerifiable container, IReadOnlyStore checkpointStore, ProtocolSettings settings, Block persistingBlock, Func<byte[], bool>? witnessChecker)
+        public DebugApplicationEngine(IVerifiable container, IReadOnlyStore checkpointStore, ImmutableDictionary<UInt160, ContractStorageSchema> schemaMap, ProtocolSettings settings, Block persistingBlock, Func<byte[], bool>? witnessChecker)
             : base(TriggerType.Application, container, new SnapshotCache(checkpointStore), persistingBlock, settings, TestModeGas, witnessChecker)
         {
             this.Log += OnLog;
             this.Notify += OnNotify;
             this.checkpointStore = checkpointStore;
             invocationStackAdapter = new InvocationStackAdapter(this);
+
+            foreach (var contract in NativeContract.ContractManagement.ListContracts(Snapshot))
+            {
+                if (schemaMap.ContainsKey(contract.Hash)) continue;
+
+                var schemaJson = contract.Manifest.Extra?["storage-schema"];
+                if (schemaJson is not null)
+                {
+                    var schema = ContractStorageSchema.Parse(schemaJson);
+                    schemaMap = schemaMap.Add(contract.Hash, schema);
+                }
+            }
+
+            this.schemaMap = schemaMap;
+
         }
 
         public override void Dispose()
@@ -98,8 +114,12 @@ namespace NeoDebug.Neo3
             return false;
         }
 
-        public StorageContainerBase GetStorageContainer(UInt160 scriptHash)
-            => new StorageContainer(scriptHash, Snapshot);
+        public StorageContainerBase GetStorageContainer(UInt160 scriptHash, StorageView storageView)
+        {
+            var storageDefs = schemaMap.TryGetValue(scriptHash, out var schema)
+                ? schema.StorageDefs : Array.Empty<StorageDef>();
+            return new StorageContainer(scriptHash, Snapshot, storageDefs, AddressVersion, storageView);
+        }
 
         IReadOnlyCollection<IExecutionContext> IApplicationEngine.InvocationStack => invocationStackAdapter;
 

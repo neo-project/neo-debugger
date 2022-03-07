@@ -7,6 +7,7 @@ using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
 using Neo.BlockchainToolkit.Models;
 using Neo.SmartContract;
+using Neo.SmartContract.Native;
 using Neo.VM;
 
 namespace NeoDebug.Neo3
@@ -26,19 +27,27 @@ namespace NeoDebug.Neo3
         private readonly IReadOnlyDictionary<UInt160, DebugInfo> debugInfoMap;
         private readonly Action<DebugEvent> sendEvent;
         private bool disassemblyView;
+        private readonly StorageView storageView;
         private readonly DisassemblyManager disassemblyManager;
         private readonly VariableManager variableManager = new VariableManager();
         private readonly BreakpointManager breakpointManager;
         private bool breakOnCaughtExceptions;
         private bool breakOnUncaughtExceptions = true;
+        
 
-        public DebugSession(IApplicationEngine engine, IReadOnlyList<DebugInfo> debugInfoList, IReadOnlyList<CastOperation> returnTypes, Action<DebugEvent> sendEvent, DebugView defaultDebugView)
+        public DebugSession(IApplicationEngine engine,
+                            IReadOnlyList<DebugInfo> debugInfoList,
+                            IReadOnlyList<CastOperation> returnTypes,
+                            Action<DebugEvent> sendEvent,
+                            DebugView defaultDebugView,
+                            StorageView storageView)
         {
             this.engine = engine;
             this.returnTypes = returnTypes;
             this.sendEvent = sendEvent;
             debugInfoMap = debugInfoList.ToDictionary(di => di.ScriptHash);
             disassemblyView = defaultDebugView == DebugView.Disassembly;
+            this.storageView = storageView;
             disassemblyManager = new DisassemblyManager(TryGetScript, debugInfoMap.TryGetValue);
             breakpointManager = new BreakpointManager(disassemblyManager, debugInfoList);
 
@@ -129,10 +138,17 @@ namespace NeoDebug.Neo3
                     method = debugInfo.GetMethod(context.InstructionPointer);
                 }
 
+                ContractState? contract = engine is DebugApplicationEngine debugEngine
+                    ? NativeContract.ContractManagement.GetContract(debugEngine.Snapshot, context.ScriptHash)
+                    : null;
+
+                var methodName = method?.Name ?? $"<frame {engine.InvocationStack.Count - index}>";
                 var frame = new StackFrame()
                 {
                     Id = index,
-                    Name = method?.Name ?? $"frame {engine.InvocationStack.Count - index}",
+                    Name = contract is not null 
+                        ? $"{methodName} ({contract.Manifest.Name})" 
+                        : methodName,
                 };
 
                 if (disassemblyView)
@@ -140,9 +156,8 @@ namespace NeoDebug.Neo3
                     var disassembly = disassemblyManager.GetDisassembly(context, debugInfo);
                     frame.Source = new Source()
                     {
-                        SourceReference = disassembly.SourceReference,
-                        Name = disassembly.Name,
-                        Path = disassembly.Name,
+                        Name = $"{context.ScriptHash}",
+                        SourceReference = disassembly.SourceReference
                     };
                     frame.Line = disassembly.AddressMap[context.InstructionPointer];
                     frame.Column = 1;
@@ -150,18 +165,19 @@ namespace NeoDebug.Neo3
                 else
                 {
                     var sequencePoint = method?.GetCurrentSequencePoint(context.InstructionPointer);
+                    var document = sequencePoint?.GetDocumentPath(debugInfo);
 
-                    if (sequencePoint != null)
+                    frame.Source = new Source()
                     {
-                        var document = sequencePoint.GetDocumentPath(debugInfo);
-                        if (document != null)
-                        {
-                            frame.Source = new Source()
-                            {
-                                Name = System.IO.Path.GetFileName(document),
-                                Path = document
-                            };
-                        }
+                        Name = document is not null
+                            ? System.IO.Path.GetFileName(document)
+                            : "<null>",
+                        Origin = $"ScriptHash: {context.ScriptHash}",
+                        Path = document ?? string.Empty,
+                    };
+
+                    if (sequencePoint is not null)
+                    {
                         frame.Line = sequencePoint.Start.line;
                         frame.Column = sequencePoint.Start.column;
 
@@ -187,7 +203,6 @@ namespace NeoDebug.Neo3
         public IEnumerable<Scope> GetScopes(ScopesArguments args)
         {
             var context = engine.InvocationStack.ElementAt(args.FrameId);
-            var scriptId = context.ScriptHash;
 
             if (disassemblyView)
             {
@@ -204,13 +219,13 @@ namespace NeoDebug.Neo3
                 yield return AddScope("Variables", container);
             }
 
-            yield return AddScope("Storage", engine.GetStorageContainer(scriptId));
-            yield return AddScope("Engine", new EngineContainer(engine));
+            yield return AddScope("Storage", engine.GetStorageContainer(context.ScriptHash, storageView), true);
+            yield return AddScope("Engine", new EngineContainer(engine, context));
 
-            Scope AddScope(string name, IVariableContainer container)
+            Scope AddScope(string name, IVariableContainer container, bool expensive = false)
             {
                 var reference = variableManager.Add(container);
-                return new Scope(name, reference, false);
+                return new Scope(name, reference, expensive);
             }
         }
 
@@ -237,243 +252,18 @@ namespace NeoDebug.Neo3
             throw new InvalidOperationException();
         }
 
-        private (StackItem? item, ContractParameterType type, ReadOnlyMemory<char> remaining) Evaluate(IExecutionContext context, ReadOnlyMemory<char> text)
-        {
-            if (text.StartsWith(STORAGE_PREFIX))
-            {
-                var container = engine.GetStorageContainer(context.ScriptHash);
-                var storage = container.Evaluate(text);
-                return (storage.item, ContractParameterType.Any, storage.remaining);
-            }
-
-            var (name, remaining) = ParseVariableName(text);
-
-            if (name.Length > 0 && name.Span[0] == '#')
-            {
-                StackItem? item;
-                if (TryEvaluateIndexedSlot(name, ARG_SLOTS_PREFIX, context.Arguments, out item)) return (item, ContractParameterType.Any, remaining);
-                if (TryEvaluateIndexedSlot(name, EVAL_STACK_PREFIX, context.EvaluationStack, out item)) return (item, ContractParameterType.Any, remaining);
-                if (TryEvaluateIndexedSlot(name, LOCAL_SLOTS_PREFIX, context.LocalVariables, out item)) return (item, ContractParameterType.Any, remaining);
-                if (TryEvaluateIndexedSlot(name, RESULT_STACK_PREFIX, engine.ResultStack, out item)) return (item, ContractParameterType.Any, remaining);
-                if (TryEvaluateIndexedSlot(name, STATIC_SLOTS_PREFIX, context.StaticFields, out item)) return (item, ContractParameterType.Any, remaining);
-            }
-
-            if (debugInfoMap.TryGetValue(context.ScriptIdentifier, out var debugInfo))
-            {
-                if (TryEvaluateNamedSlot(context.StaticFields, debugInfo.StaticVariables, name, out var result))
-                {
-                    return (result.item, result.type, remaining);
-                }
-
-                if (debugInfo.TryGetMethod(context.InstructionPointer, out var method))
-                {
-                    if (TryEvaluateNamedSlot(context.Arguments, method.Parameters, name, out result))
-                    {
-                        return (result.item, result.type, remaining);
-                    }
-
-                    if (TryEvaluateNamedSlot(context.LocalVariables, method.Variables, name, out result))
-                    {
-                        return (result.item, result.type, remaining);
-                    }
-                }
-            }
-
-            return default;
-
-            static bool TryEvaluateIndexedSlot(ReadOnlyMemory<char> name, string prefix, IReadOnlyList<StackItem> slot, [MaybeNullWhen(false)] out StackItem result)
-            {
-                if (name.Span.Length > prefix.Length
-                    && name.Span.Slice(0, prefix.Length).SequenceEqual(prefix))
-                {
-                    var index = int.TryParse(name.Span.Slice(prefix.Length), out int _index) ? _index : int.MaxValue;
-
-                    if (index < slot.Count)
-                    {
-                        result = slot[index];
-                        return true;
-                    }
-                }
-
-                result = default;
-                return false;
-            }
-
-            static bool TryEvaluateNamedSlot(IReadOnlyList<StackItem> slot, IReadOnlyList<DebugInfo.SlotVariable> variableList, ReadOnlyMemory<char> name, out (StackItem? item, ContractParameterType type) result)
-            {
-                for (int i = 0; i < variableList.Count; i++)
-                {
-                    if (name.Span.SequenceEqual(variableList[i].Name)
-                        && variableList[i].Index < slot.Count)
-                    {
-                        var type = Enum.TryParse<ContractParameterType>(variableList[i].Type, out var _type)
-                            ? _type
-                            : ContractParameterType.Any;
-                        result = (slot[variableList[i].Index], type);
-                        return true;
-                    }
-                }
-
-                result = default;
-                return false;
-            }
-        }
-
-        private static (StackItem? item, ContractParameterType type, ReadOnlyMemory<char> remaining) Evaluate(StackItem? item, ContractParameterType type, ReadOnlyMemory<char> remaining)
-        {
-            if (remaining.IsEmpty) throw new ArgumentException("", nameof(remaining));
-
-            if (remaining.Span[0] == '[')
-            {
-                var bracketIndex = remaining.Span.IndexOf(']');
-                if (bracketIndex >= 0
-                    && int.TryParse(remaining[1..bracketIndex].Span, out var index))
-                {
-                    var newItem = item switch
-                    {
-                        Neo.VM.Types.Buffer buffer => (int)buffer.InnerBuffer[index],
-                        Neo.VM.Types.ByteString byteString => (int)byteString.GetSpan()[index],
-                        Neo.VM.Types.Array array => array[index],
-                        _ => throw new InvalidOperationException(),
-                    };
-
-                    return (newItem, ContractParameterType.Any, remaining.Slice(bracketIndex + 1));
-                }
-            }
-            else if (remaining.Span[0] == '.')
-            {
-                throw new NotImplementedException();
-            }
-
-            throw new InvalidOperationException();
-        }
-
-        public static readonly IReadOnlyDictionary<string, CastOperation> CastOperations = new Dictionary<string, CastOperation>()
-            {
-                { "int", CastOperation.Integer },
-                { "integer", CastOperation.Integer },
-                { "bool", CastOperation.Boolean },
-                { "boolean", CastOperation.Boolean },
-                { "string", CastOperation.String },
-                { "str", CastOperation.String },
-                { "hex", CastOperation.HexString },
-                { "byte[]", CastOperation.ByteArray },
-                { "addr", CastOperation.Address },
-            }.ToImmutableDictionary();
-
-        static (CastOperation castOperation, ReadOnlyMemory<char> remaining) ParseCastOperation(string expression)
-        {
-            if (expression[0] == '(')
-            {
-                foreach (var kvp in CastOperations)
-                {
-                    if (expression.Length > kvp.Key.Length + 2
-                        && expression.AsSpan().Slice(1, kvp.Key.Length).SequenceEqual(kvp.Key)
-                        && expression[kvp.Key.Length + 1] == ')')
-                    {
-                        return (kvp.Value, expression.AsMemory().Slice(kvp.Key.Length + 2));
-                    }
-                }
-
-                throw new Exception("invalid cast operation");
-            }
-
-            return (CastOperation.None, expression.AsMemory());
-        }
-
-        static (ReadOnlyMemory<char> name, ReadOnlyMemory<char> remaining) ParseVariableName(ReadOnlyMemory<char> expression)
-        {
-            for (int i = 0; i < expression.Length; i++)
-            {
-                char c = expression.Span[i];
-                if (c == '.' || c == '[')
-                {
-                    return (expression.Slice(0, i), expression.Slice(i));
-                }
-            }
-
-            return (expression, default);
-        }
-
-        (string value, int variablesReference) EvaluateVariable(StackItem item, ContractParameterType parameterType, CastOperation castOperation)
-        {
-            var value = castOperation switch
-            {
-                CastOperation.Address => ToAddress(item, engine.AddressVersion),
-                CastOperation.HexString => ToHexString(item),
-                _ => null
-            };
-
-            if (value != null) return (value, 0);
-
-            var variable = castOperation switch
-            {
-                CastOperation.Boolean => item.ToVariable(variableManager, string.Empty, ContractParameterType.Boolean),
-                CastOperation.ByteArray => item.ToVariable(variableManager, string.Empty, ContractParameterType.ByteArray),
-                CastOperation.Integer => item.ToVariable(variableManager, string.Empty, ContractParameterType.Integer),
-                CastOperation.String => item.ToVariable(variableManager, string.Empty, ContractParameterType.String),
-                _ => null,
-            };
-
-            variable ??= item.ToVariable(variableManager, string.Empty, parameterType);
-            return (variable.Value, variable.VariablesReference);
-
-            static string? ToAddress(StackItem item, byte version)
-            {
-                try
-                {
-                    var span = item.GetSpan();
-                    if (span.Length == UInt160.Length)
-                    {
-                        var uint160 = new UInt160(span);
-                        return Neo.Wallets.Helper.ToAddress(uint160, version);
-                    }
-                }
-                catch { }
-
-                return null;
-            }
-
-            static string? ToHexString(StackItem item)
-            {
-                try
-                {
-                    return item.IsNull
-                        ? "<null>"
-                        : ((ByteString)item.ConvertTo(StackItemType.ByteString)).GetSpan().ToHexString();
-                }
-                catch { }
-
-                return null;
-            }
-        }
-
         public EvaluateResponse Evaluate(EvaluateArguments args)
         {
-            if (!args.FrameId.HasValue)
-                return DebugAdapter.FailedEvaluation;
-
-            try
+            if (args.FrameId.HasValue)
             {
-                var (castOperation, text) = ParseCastOperation(args.Expression);
-                var (item, type, remaining) = Evaluate(engine.InvocationStack.ElementAt(args.FrameId.Value), text);
-                while (!remaining.IsEmpty)
-                {
-                    (item, type, remaining) = Evaluate(item, type, remaining);
-                }
+                var context = engine.InvocationStack.ElementAt(args.FrameId.Value);
+                var debugInfo = debugInfoMap.TryGetValue(context.ScriptIdentifier, out var _debugInfo) ? _debugInfo : null;
+                var evaluator = new ExpressionEvaluator(engine, context, debugInfo, storageView);
 
-                if (item != null)
-                {
-                    var (result, variablesRef) = EvaluateVariable(item, type, castOperation);
-                    return new EvaluateResponse(result, variablesRef);
-                }
+                if (evaluator.TryEvaluate(variableManager, args, out var response)) return response;
+            }
 
-                return DebugAdapter.FailedEvaluation;
-            }
-            catch (Exception)
-            {
-                return DebugAdapter.FailedEvaluation;
-            }
+            return new EvaluateResponse("Evaluation failed", 0).AsFailedEval();
         }
 
         public IEnumerable<Breakpoint> SetBreakpoints(Source source, IReadOnlyList<SourceBreakpoint> sourceBreakpoints)
@@ -518,18 +308,18 @@ namespace NeoDebug.Neo3
 
         private int lastThrowAddress = -1;
 
-        string ToResult(int index)
-        {
-            if (index >= engine.ResultStack.Count) throw new ArgumentException("", nameof(index));
+        // string ToResult(int index)
+        // {
+        //     if (index >= engine.ResultStack.Count) throw new ArgumentException("", nameof(index));
 
-            var result = engine.ResultStack[index];
-            var returnType = index < returnTypes.Count ? returnTypes[index] : CastOperation.None;
-            var (value, variablesRef) = EvaluateVariable(result, ContractParameterType.Any, returnType);
+        //     var result = engine.ResultStack[index];
+        //     var returnType = index < returnTypes.Count ? returnTypes[index] : CastOperation.None;
+        //     var (value, variablesRef) = EvaluateVariable(result, ContractParameterType.Any, returnType);
 
-            return variablesRef == 0
-                ? value
-                : result.ToJson().ToString(Newtonsoft.Json.Formatting.Indented);
-        }
+        //     return variablesRef == 0
+        //         ? value
+        //         : result.ToJson().ToString(Newtonsoft.Json.Formatting.Indented);
+        // }
 
         private void Step(Func<int, bool> compareStepDepth, bool stepBack = false)
         {
@@ -571,11 +361,12 @@ namespace NeoDebug.Neo3
                 {
                     for (int index = 0; index < engine.ResultStack.Count; index++)
                     {
-                        var result = ToResult(index);
+                        // TODO: revert this commenting out
+                        // var result = ToResult(index);
                         sendEvent(new OutputEvent()
                         {
                             Category = OutputEvent.CategoryValue.Stdout,
-                            Output = $"Gas Consumed: {engine.GasConsumedAsBigDecimal}\nReturn: {result}\n",
+                            // Output = $"Gas Consumed: {engine.GasConsumedAsBigDecimal}\nReturn: {result}\n",
                         });
                     }
                     sendEvent(new ExitedEvent());

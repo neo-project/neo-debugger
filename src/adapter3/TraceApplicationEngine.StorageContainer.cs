@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Neo.BlockchainToolkit.Models;
 using Neo.SmartContract;
 
 namespace NeoDebug.Neo3
@@ -10,7 +11,8 @@ namespace NeoDebug.Neo3
         {
             public readonly IEnumerable<(ReadOnlyMemory<byte>, StorageItem)> storages;
 
-            public StorageContainer(IEnumerable<(ReadOnlyMemory<byte>, StorageItem)> storages)
+            public StorageContainer(IEnumerable<(ReadOnlyMemory<byte>, StorageItem)> storages, IReadOnlyList<StorageDef> storageDefs, byte addressVersion, StorageView storageView)
+                : base(storageDefs, addressVersion, storageView)
             {
                 this.storages = storages;
             }
