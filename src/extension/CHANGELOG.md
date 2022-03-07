@@ -38,6 +38,9 @@ may not exactly match a publicly released version.
 
 * Adopting [VS Code recommendations](https://code.visualstudio.com/api/working-with-extensions/publishing-extension#prerelease-extensions)
   for version numbers to enable shipping pre-release versions of the debugger. 
+* Added push and pull request GitHub workflows scripts.
+* Updated release GitHub workflow to publish extension to VSCode marketplace
+* Removed Azure DevOps workflow. This repo is no longer using Azure DevOps for build/release services
 
 ## [3.1.23] - 2021-12-14
 
