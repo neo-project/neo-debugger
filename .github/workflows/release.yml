@@ -14,105 +14,38 @@ on:
 
 jobs:
   build:
+    uses: ./.github/workflows/build-vscode.yml
+  publish:
     runs-on: ubuntu-latest
+    needs: build
     steps:
 
-    - uses: actions/checkout@v2
-      with:
-        fetch-depth: 0
-    - name: Setup .NET Core
-      uses: actions/setup-dotnet@v1
-      with:
-        dotnet-version: '6.0.x'
-    - name: Setup Node
-      uses: actions/setup-node@v2
-      with:
-        node-version: 'lts/*'
-    - id: nbgv
-      name: Setup Nerdbank.GitVersioning
-      uses: dotnet/nbgv@v0.4.0
-
-    # Production releases are published from release branches and have an *even* minor version number
-    # Preview releases are published from master branch and have an *odd* minor version number
-    #   Details: https://github.com/neo-project/neo-debugger#versioning-strategy
-    # relInfo step calculates release information for later use in the workflow
-    #   * preRelease is true for preview releases (odd minor version) and false for production
-    #     releases (even minor version)
-    #   * publish is true for master and release branches, false for all other branches
-    #      * script validates preRelease is true for master branch and false for release branches
-    #        Unpublished branches are not verified
-    #   * version is SimpleVersion (w/o prerelease string) when publish is true and
-    #     NpmPackageVersion (w/ prerelease string) when publish is false
-    - id: relInfo
-      name: Calculate Release Info
+    - name: Validate Release
       uses: actions/github-script@v6.0.0
       env:
-        NPM_VERSION: ${{ steps.nbgv.outputs.NpmPackageVersion }}
-        SIMPLE_VERSION: ${{ steps.nbgv.outputs.SimpleVersion }}
-        VERSION_MINOR: ${{ steps.nbgv.outputs.VersionMinor }}
+        PRERELEASE: ${{ needs.build.outputs.preRelease }}
       with:
         script: |
-          const { NPM_VERSION, SIMPLE_VERSION, VERSION_MINOR } = process.env;
 
-          const preRelease = (VERSION_MINOR | 0) % 2 !== 0;
           const onMasterBranch = context.ref === 'refs/heads/master';
           const onReleaseBranch = context.ref.startsWith('refs/heads/release/');
-          if (onMasterBranch && !preRelease) { 
-            core.setFailed('master branch releases must have odd minor version '); 
-          }
-          if (onReleaseBranch && preRelease) { 
-            core.setFailed('release branch releases must have even minor version '); 
-          }
-          const publish = onMasterBranch || onReleaseBranch;
-          const version = publish ? SIMPLE_VERSION : NPM_VERSION;
+          if (!onMasterBranch && !onReleaseBranch) { core.setFailed('Can only release from master or release branches'); }
 
-          // convert boolean values to integers for github expressions compat
-          core.setOutput('preRelease', +preRelease);
-          core.setOutput('publish', +publish);
-          core.setOutput('version', version);
+          // environment values are passed as strings, so first convert PRERELEASE to integer and then to boolean
+          const preRelease = !!(+process.env.PRERELEASE);
+          if (onMasterBranch && !preRelease) { core.setFailed('master branch releases must have odd minor version'); }
+          if (onReleaseBranch && preRelease) { core.setFailed('release branch releases must have even minor version'); }
 
-    - name: Install debug adapter dependencies
-      run: dotnet restore
-    - name: Build + Package debug adapters
-      run: dotnet pack --output ./adapters --configuration Release --no-restore --verbosity normal --include-symbols
-
-    - name: copy debug adapter packages into extension folder
-      run: cp adapters/*.nupkg src/extension/
-    - name: copy repo root readme into extension folder
-      run: cp readme.md src/extension/
-
-    - name: Install debug extension dependencies
-      run: npm ci
-      working-directory: './src/extension'
-    - name: Build + Package debug extension 
-      uses: actions/github-script@v6.0.0
-      env:
-        VERSION: ${{ steps.relInfo.outputs.version }}
-        PRERELEASE: ${{ steps.relInfo.outputs.preRelease }}
-      with:
-        script: |
-          const { PRERELEASE, VERSION } = process.env;
-          // environment values are passed as strings, so convert PRERELEASE to integer and then boolean
-          const preRelease = !!(+PRERELEASE);
-
-          const args = ["vsce", "package", "--no-git-tag-version"];
-          if (preRelease) { 
-            await exec.exec("node", ["./src/extension/scripts/update-vscode-engine.js"]);
-            args.push("--pre-release"); 
-          }
-          args.push(VERSION);
-          await exec.exec("npx", args, { cwd: './src/extension' });
-
-    - name: Upload debug adapter artifacts
-      uses: actions/upload-artifact@v2
+    - name: Download a Build Artifact
+      uses: actions/download-artifact@v2.1.0
       with:
         name: adapters
-        path: ./adapters/*
-    - name: Upload debug extension artifact
-      uses: actions/upload-artifact@v2
+        path: ./artifacts
+    - name: Download a Build Artifact
+      uses: actions/download-artifact@v2.1.0
       with:
-        name: extension
-        path: ./src/extension/*.vsix
+        name: vscode-extension
+        path: ./artifacts
 
     # for release branch builds, create a GitHub release and publish to VS code marketplace
     # NOTE: even though github/marketplaceRelease inputs are marked as type boolean, the value returned 
@@ -120,16 +53,15 @@ jobs:
     #       fragile, but if the github.event.inputs encoding changes at least it will most likely break
     #       such that the releases do not get published
     - name: Create GitHub release
-      if: ${{ steps.relInfo.outputs.publish && (github.event.inputs.githubRelease == 'true') }}
+      if: ${{ github.event.inputs.githubRelease == 'true' }}
       uses: marvinpinto/action-automatic-releases@v1.1.1
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        prerelease: ${{ steps.relInfo.outputs.preRelease == 1 }}
-        title: Release ${{ steps.nbgv.outputs.NuGetPackageVersion }}
-        automatic_release_tag: ${{ steps.nbgv.outputs.NuGetPackageVersion }}
+        prerelease: ${{ needs.build.outputs.preRelease == 1 }}
+        title: Release ${{ needs.build.outputs.releaseVersion }}
+        automatic_release_tag: ${{ needs.build.outputs.releaseVersion }}
         files: |
-          ./adapters/*
-          ./src/extension/*.vsix
+          ./artifacts/*
     - name: Publish debug extension to VSCode Marketplace
-      if: ${{ steps.relInfo.outputs.publish && (github.event.inputs.marketplaceRelease == 'true') }}
-      run: npx vsce publish -i ${{ format('./src/extension/neo-contract-debug-{0}.vsix', steps.relInfo.outputs.version) }} -p ${{ secrets.VSCODE_MARKETPLACE_TOKEN }}
+      if: ${{ github.event.inputs.marketplaceRelease == 'true' }}
+      run: npx vsce publish -i ${{ format('./artifacts/neo-contract-debug-{0}.vsix', needs.build.outputs.extensionVersion) }} -p ${{ secrets.VSCODE_MARKETPLACE_TOKEN }}

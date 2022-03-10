@@ -1,0 +1,117 @@
+name: Build VSCode Extension
+
+on:
+  pull_request:
+    branches:
+      - master
+      - 'release/*'
+  push:
+    branches:
+      - master
+      - 'release/**'
+    paths-ignore:
+      - 'readme.md'
+      - 'docs/**'
+  workflow_call:
+    outputs:
+      releaseVersion:
+        value:  ${{ jobs.build.outputs.releaseVersion }}
+      extensionVersion:
+        value:  ${{ jobs.build.outputs.extensionVersion }}
+      preRelease: 
+        value:  ${{ jobs.build.outputs.preRelease }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      releaseVersion:   ${{ steps.nbgv.outputs.CloudBuildNumber }}
+      extensionVersion: ${{ steps.relInfo.outputs.extensionVersion }}
+      preRelease:       ${{ steps.relInfo.outputs.preRelease }}
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: Setup .NET Core
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: '6.0.x'
+    - name: Setup Node
+      uses: actions/setup-node@v2
+      with:
+        node-version: 'lts/*'
+    - id: nbgv
+      name: Setup Nerdbank.GitVersioning
+      uses: dotnet/nbgv@v0.4.0
+
+    # Production releases are published from release branches and have an *even* minor version number
+    # Preview releases are published from master branch and have an *odd* minor version number
+    #   Details: https://github.com/neo-project/neo-debugger#versioning-strategy
+    # relInfo step calculates release information for later use in the workflow
+    #   * preRelease is true for preview releases (odd minor version) and false for production
+    #     releases (even minor version)
+    #   * version is SimpleVersion (w/o prerelease string) when publicationBranches (master + release) and
+    #     NpmPackageVersion (w/ prerelease string) when publicationBranch is false
+    - id: relInfo
+      name: Calculate Release Info
+      uses: actions/github-script@v6.0.0
+      env:
+        NPM_VERSION: ${{ steps.nbgv.outputs.NpmPackageVersion }}
+        SIMPLE_VERSION: ${{ steps.nbgv.outputs.SimpleVersion }}
+        VERSION_MINOR: ${{ steps.nbgv.outputs.VersionMinor }}
+      with:
+        script: |
+          const { NPM_VERSION, SIMPLE_VERSION, VERSION_MINOR } = process.env;
+
+          // convert VERSION_MINOR to integer via + operator before modulo operation
+          const preRelease = (+VERSION_MINOR) % 2 !== 0;
+          // convert boolean values to integers via + operator for github expressions compatibility
+          core.setOutput('preRelease', +preRelease);
+
+          // use simple version for master branch builds (w/o any prerelease string)
+          // so extension can be published on VSCode marketplace
+          const extensionVersion = context.ref === 'refs/heads/master' ? SIMPLE_VERSION : NPM_VERSION;
+          core.setOutput('extensionVersion', extensionVersion);
+
+    - name: Install debug adapter dependencies
+      run: dotnet restore
+    - name: Build + Package debug adapters
+      run: dotnet pack --output ./adapters --configuration Release --no-restore --verbosity normal --include-symbols
+
+    - name: copy debug adapter packages into extension folder
+      run: cp adapters/*.nupkg src/extension/
+    - name: copy repo root readme into extension folder
+      run: cp readme.md src/extension/
+
+    - name: Install debug extension dependencies
+      run: npm ci
+      working-directory: './src/extension'
+    - name: Build + Package debug extension 
+      uses: actions/github-script@v6.0.0
+      env:
+        EXTENSION_VERSION: ${{ steps.relInfo.outputs.extensionVersion }}
+        PRERELEASE: ${{ steps.relInfo.outputs.preRelease }}
+      with:
+        script: |
+          const { EXTENSION_VERSION, PRERELEASE } = process.env;
+          // environment values are passed as strings, so convert PRERELEASE to integer and then boolean
+          const preRelease = !!(+PRERELEASE);
+
+          const args = ["vsce", "package", "--no-git-tag-version"];
+          if (preRelease) { 
+            await exec.exec("node", ["./src/extension/scripts/update-vscode-engine.js"]);
+            args.push("--pre-release"); 
+          }
+          args.push(EXTENSION_VERSION);
+          await exec.exec("npx", args, { cwd: './src/extension' });
+
+    - name: Upload debug adapter artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: adapters
+        path: ./adapters/*
+    - name: Upload debug extension artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: vscode-extension
+        path: ./src/extension/*.vsix
