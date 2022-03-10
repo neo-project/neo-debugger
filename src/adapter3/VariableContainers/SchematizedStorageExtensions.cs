@@ -36,13 +36,13 @@ namespace NeoDebug.Neo3
                 _ => throw new ArgumentException(type.GetType().Name, nameof(type)),
             };
 
-        public static IEnumerable<KeySegment> AsKeySegments(this ReadOnlyMemory<byte> buffer, StorageDef storageDef)
+        public static IEnumerable<KeySegment> AsKeySegments(this ReadOnlyMemory<byte> buffer, StorageGroupDef storageGroupDef)
         {
-            buffer = buffer.Slice(storageDef.KeyPrefix.Length);
+            buffer = buffer.Slice(storageGroupDef.KeyPrefix.Length);
 
-            for (int i = 0; i < storageDef.KeySegments.Count; i++)
+            for (int i = 0; i < storageGroupDef.KeySegments.Count; i++)
             {
-                var segment = storageDef.KeySegments[i];
+                var segment = storageGroupDef.KeySegments[i];
 
                 object value;
                 switch (segment.Type)
@@ -65,7 +65,7 @@ namespace NeoDebug.Neo3
                     case PrimitiveType.ByteArray:
                         {
                             // byte array only supported for final key segment
-                            if (i != storageDef.KeySegments.Count - 1) throw new Exception();
+                            if (i != storageGroupDef.KeySegments.Count - 1) throw new Exception();
                             value = buffer.ToArray();
                             buffer = default;
                             break;
@@ -73,7 +73,7 @@ namespace NeoDebug.Neo3
                     case PrimitiveType.String:
                         {
                             // string only supported for final key segment
-                            if (i != storageDef.KeySegments.Count - 1) throw new Exception();
+                            if (i != storageGroupDef.KeySegments.Count - 1) throw new Exception();
                             value = Neo.Utility.StrictUTF8.GetString(buffer.Span);
                             buffer = default;
                             break;
@@ -81,7 +81,7 @@ namespace NeoDebug.Neo3
                     case PrimitiveType.Integer:
                         {
                             // Integer only supported for final key segment
-                            if (i != storageDef.KeySegments.Count - 1) throw new Exception();
+                            if (i != storageGroupDef.KeySegments.Count - 1) throw new Exception();
                             value = new BigInteger(buffer.Span);
                             buffer = default;
                             break;

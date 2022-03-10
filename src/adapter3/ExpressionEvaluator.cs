@@ -345,16 +345,16 @@ namespace NeoDebug.Neo3
 
             if (cast == "tx")
             {
-                response = item is NeoArray array && array.Count == NeoCoreTypes.Transaction.Fields.Count
-                    ? AsResponse(manager, item, NeoCoreTypes.Transaction)
+                response = item is NeoArray array && array.Count == NativeStructs.Transaction.Fields.Count
+                    ? AsResponse(manager, item, NativeStructs.Transaction)
                     : new EvaluateResponse($"'tx' cast failed", 0).AsFailedEval();
                 return true;
             }
 
             if (cast == "block")
             {
-                response = item is NeoArray array && array.Count == NeoCoreTypes.TrimmedBlock.Fields.Count
-                    ? AsResponse(manager, item, NeoCoreTypes.TrimmedBlock)
+                response = item is NeoArray array && array.Count == NativeStructs.Block.Fields.Count
+                    ? AsResponse(manager, item, NativeStructs.Block)
                     : new EvaluateResponse($"'block' cast failed", 0).AsFailedEval();
                 return true;
             }

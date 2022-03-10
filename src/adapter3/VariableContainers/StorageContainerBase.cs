@@ -17,13 +17,13 @@ namespace NeoDebug.Neo3
 
     internal abstract class StorageContainerBase : IVariableContainer
     {
-        readonly IReadOnlyList<StorageDef> storageDefs;
+        readonly IReadOnlyList<StorageGroupDef> storageGroups;
         readonly byte addressVersion;
         readonly StorageView storageView;
 
-        protected StorageContainerBase(IReadOnlyList<StorageDef> storageDefs, byte addressVersion, StorageView storageView)
+        protected StorageContainerBase(IReadOnlyList<StorageGroupDef> storageGroups, byte addressVersion, StorageView storageView)
         {
-            this.storageDefs = storageDefs;
+            this.storageGroups = storageGroups;
             this.addressVersion = addressVersion;
             this.storageView = storageView;
         }
@@ -32,11 +32,11 @@ namespace NeoDebug.Neo3
 
         public IEnumerable<Variable> Enumerate(IVariableManager manager)
         {
-            if (storageDefs.Count > 0)
+            if (storageGroups.Count > 0)
             {
                 var storages = GetStorages().ToArray();
-                return storageDefs
-                    .Select(storageDef => CreateStorageVariable(manager, storageDef, storages))
+                return storageGroups
+                    .Select(StorageGroupDef => CreateStorageVariable(manager, StorageGroupDef, storages))
                     .Append(new Variable()
                     {
                         Name = "#rawStorage",
@@ -64,13 +64,13 @@ namespace NeoDebug.Neo3
                     if (expression.Span[0] == '.')
                     {
                         expression = expression.Slice(1);
-                        for (int i = 0; i < storageDefs.Count; i++)
+                        for (int i = 0; i < storageGroups.Count; i++)
                         {
-                            if (expression.StartsWith(storageDefs[i].Name))
+                            if (expression.StartsWith(storageGroups[i].Name))
                             {
                                 return TryEvaluateSchemaStorage(
-                                    expression.Slice(storageDefs[i].Name.Length),
-                                    storageDefs[i],
+                                    expression.Slice(storageGroups[i].Name.Length),
+                                    storageGroups[i],
                                     out context);
                             }
                         }
@@ -98,11 +98,11 @@ namespace NeoDebug.Neo3
             return false;
         }
 
-        bool TryEvaluateSchemaStorage(ReadOnlyMemory<char> expression, StorageDef storageDef, [MaybeNullWhen(false)] out ExpressionEvalContext context)
+        bool TryEvaluateSchemaStorage(ReadOnlyMemory<char> expression, StorageGroupDef StorageGroupDef, [MaybeNullWhen(false)] out ExpressionEvalContext context)
         {
             var keyWriter = new ArrayBufferWriter<byte>();
-            keyWriter.Write(storageDef.KeyPrefix.Span);
-            foreach (var segment in storageDef.KeySegments)
+            keyWriter.Write(StorageGroupDef.KeyPrefix.Span);
+            foreach (var segment in StorageGroupDef.KeySegments)
             {
                 if (expression.IsEmpty || expression.Span[0] != '[') throw new InvalidOperationException($"Invalid storage expression {new string(expression.Span)}");
                 expression = expression.Slice(1);
@@ -129,14 +129,14 @@ namespace NeoDebug.Neo3
                 if (item is null)
                 {
                     var result = Neo.VM.Types.StackItem.Null;
-                    var resultType = storageDef.ValueType;
+                    var resultType = StorageGroupDef.ValueType;
                     context = new ExpressionEvalContext(remaining, result, resultType);
                     return true;
                 }
                 else
                 {
-                    var result = AsStackItem(item, storageDef.ValueType);
-                    var resultType = storageDef.ValueType;
+                    var result = AsStackItem(item, StorageGroupDef.ValueType);
+                    var resultType = StorageGroupDef.ValueType;
                     context = new ExpressionEvalContext(remaining, result, resultType);
                     return true;
                 }
@@ -253,40 +253,40 @@ namespace NeoDebug.Neo3
             };
         }
 
-        Variable CreateStorageVariable(IVariableManager manager, StorageDef storageDef, IEnumerable<(ReadOnlyMemory<byte> key, StorageItem item)> storages)
+        Variable CreateStorageVariable(IVariableManager manager, StorageGroupDef StorageGroupDef, IEnumerable<(ReadOnlyMemory<byte> key, StorageItem item)> storages)
         {
-            var evalName = $"{DebugSession.STORAGE_PREFIX}.{storageDef.Name}";
-            if (storageDef.KeySegments.Count == 0)
+            var evalName = $"{DebugSession.STORAGE_PREFIX}.{StorageGroupDef.Name}";
+            if (StorageGroupDef.KeySegments.Count == 0)
             {
-                var (_, item) = storages.SingleOrDefault(s => s.key.Span.SequenceEqual(storageDef.KeyPrefix.Span));
+                var (_, item) = storages.SingleOrDefault(s => s.key.Span.SequenceEqual(StorageGroupDef.KeyPrefix.Span));
                 if (item is null)
                 {
                     return new Variable
                     {
-                        Name = storageDef.Name,
-                        Type = storageDef.ValueType.AsTypeName(),
+                        Name = StorageGroupDef.Name,
+                        Type = StorageGroupDef.ValueType.AsTypeName(),
                         Value = "<null>",
                         EvaluateName = evalName + ".item",
                     };
                 }
                 else
                 {
-                    var variable = ToVariable(item, manager, storageDef, addressVersion);
-                    variable.Name = storageDef.Name;
-                    variable.Type = storageDef.ValueType.AsTypeName();
+                    var variable = ToVariable(item, manager, StorageGroupDef, addressVersion);
+                    variable.Name = StorageGroupDef.Name;
+                    variable.Type = StorageGroupDef.ValueType.AsTypeName();
                     variable.EvaluateName = evalName + ".item";
                     return variable;
                 }
             }
             else
             {
-                var storageItems = storages.Where(s => s.key.Span.StartsWith(storageDef.KeyPrefix.Span)).ToArray();
-                var container = new SchematizedStorageContainer(storageDef, addressVersion, evalName, storageItems);
-                var keyType = string.Join(", ", storageDef.KeySegments.Select(s => $"{s.Name}: {s.Type}"));
+                var storageItems = storages.Where(s => s.key.Span.StartsWith(StorageGroupDef.KeyPrefix.Span)).ToArray();
+                var container = new SchematizedStorageContainer(StorageGroupDef, addressVersion, evalName, storageItems);
+                var keyType = string.Join(", ", StorageGroupDef.KeySegments.Select(s => $"{s.Name}: {s.Type}"));
                 return new Variable()
                 {
-                    Name = storageDef.Name,
-                    Type = $"({keyType}) -> {storageDef.ValueType.AsTypeName()}[{storageItems.Length}]",
+                    Name = StorageGroupDef.Name,
+                    Type = $"({keyType}) -> {StorageGroupDef.ValueType.AsTypeName()}[{storageItems.Length}]",
                     Value = string.Empty,
                     VariablesReference = manager.Add(container),
                     IndexedVariables = storageItems.Length,
@@ -294,18 +294,18 @@ namespace NeoDebug.Neo3
             }
         }
 
-        static Variable ToVariable(StorageItem item, IVariableManager manager, StorageDef storageDef, byte addressVersion)
+        static Variable ToVariable(StorageItem item, IVariableManager manager, StorageGroupDef StorageGroupDef, byte addressVersion)
         {
-            if (storageDef.ValueType is PrimitiveContractType primitiveType)
+            if (StorageGroupDef.ValueType is PrimitiveContractType primitiveType)
             {
                 var memory = new ReadOnlyMemory<byte>(item.Value);
-                var variable = memory.AsVariable(manager, storageDef.Name, primitiveType, addressVersion);
+                var variable = memory.AsVariable(manager, StorageGroupDef.Name, primitiveType, addressVersion);
                 return variable;
             }
             else
             {
                 var stackItem = BinarySerializer.Deserialize(item.Value, Neo.VM.ExecutionEngineLimits.Default);
-                var variable = stackItem.AsVariable(manager, storageDef.Name, storageDef.ValueType, addressVersion);
+                var variable = stackItem.AsVariable(manager, StorageGroupDef.Name, StorageGroupDef.ValueType, addressVersion);
                 return variable;
             }
         }
@@ -419,14 +419,14 @@ namespace NeoDebug.Neo3
 
         class SchematizedStorageContainer : IVariableContainer
         {
-            readonly StorageDef storageDef;
+            readonly StorageGroupDef StorageGroupDef;
             readonly byte addressVersion;
             readonly string evalPrefix;
             readonly IReadOnlyList<(ReadOnlyMemory<byte> key, StorageItem item)> storages;
 
-            public SchematizedStorageContainer(StorageDef storageDef, byte addressVersion, string evalPrefix, IReadOnlyList<(ReadOnlyMemory<byte> key, StorageItem item)> storages)
+            public SchematizedStorageContainer(StorageGroupDef StorageGroupDef, byte addressVersion, string evalPrefix, IReadOnlyList<(ReadOnlyMemory<byte> key, StorageItem item)> storages)
             {
-                this.storageDef = storageDef;
+                this.StorageGroupDef = StorageGroupDef;
                 this.addressVersion = addressVersion;
                 this.evalPrefix = evalPrefix;
                 this.storages = storages;
@@ -437,18 +437,18 @@ namespace NeoDebug.Neo3
                 for (int i = 0; i < storages.Count; i++)
                 {
                     var (key, item) = storages[i];
-                    var segments = key.AsKeySegments(storageDef).ToArray();
+                    var segments = key.AsKeySegments(StorageGroupDef).ToArray();
                     if (segments.Length == 1)
                     {
-                        var variable = ToVariable(item, manager, storageDef, addressVersion);
+                        var variable = ToVariable(item, manager, StorageGroupDef, addressVersion);
                         variable.Name = segments[0].AsString(addressVersion);
-                        variable.Type = storageDef.ValueType.AsTypeName();
+                        variable.Type = StorageGroupDef.ValueType.AsTypeName();
                         variable.EvaluateName = $"{evalPrefix}[{variable.Name}].item";
                         yield return variable;
                     }
                     else
                     {
-                        var container = new KeyItemContainer(segments, item, storageDef, evalPrefix, addressVersion);
+                        var container = new KeyItemContainer(segments, item, StorageGroupDef, evalPrefix, addressVersion);
                         var variable = new Variable()
                         {
                             Name = $"{i}",
@@ -466,15 +466,15 @@ namespace NeoDebug.Neo3
         {
             readonly IReadOnlyList<KeySegment> keySegments;
             readonly StorageItem storageItem;
-            readonly StorageDef storageDef;
+            readonly StorageGroupDef StorageGroupDef;
             readonly string evalPrefix;
             readonly byte addressVersion;
 
-            public KeyItemContainer(IReadOnlyList<KeySegment> keySegments, StorageItem storageItem, StorageDef storageDef, string evalPrefix, byte addressVersion)
+            public KeyItemContainer(IReadOnlyList<KeySegment> keySegments, StorageItem storageItem, StorageGroupDef StorageGroupDef, string evalPrefix, byte addressVersion)
             {
                 this.keySegments = keySegments;
                 this.storageItem = storageItem;
-                this.storageDef = storageDef;
+                this.StorageGroupDef = StorageGroupDef;
                 this.evalPrefix = evalPrefix;
                 this.addressVersion = addressVersion;
             }
@@ -493,13 +493,13 @@ namespace NeoDebug.Neo3
                 {
                     Name = "key",
                     Value = " ",
-                    Type = string.Join(", ", storageDef.KeySegments.Select(s => $"{s.Name}: {s.Type}")),
+                    Type = string.Join(", ", StorageGroupDef.KeySegments.Select(s => $"{s.Name}: {s.Type}")),
                     VariablesReference = manager.Add(keyContainer),
                     NamedVariables = keySegments.Count,
                     EvaluateName = evalName + ".key",
                 };
 
-                var variable = ToVariable(storageItem, manager, storageDef, addressVersion);
+                var variable = ToVariable(storageItem, manager, StorageGroupDef, addressVersion);
                 variable.Name = "item";
                 variable.EvaluateName = evalName + ".item";
                 yield return variable;

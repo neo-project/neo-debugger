@@ -142,7 +142,7 @@ namespace NeoDebug.Neo3
             // TODO: Schema Support
             return new StorageContainer(
                 traceFile.FindStorage(scriptHash), 
-                Array.Empty<StorageDef>(), 
+                Array.Empty<StorageGroupDef>(), 
                 Neo.ProtocolSettings.Default.AddressVersion,
                 storageView);
         }
