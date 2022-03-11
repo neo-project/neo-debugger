@@ -18,21 +18,40 @@ may not exactly match a publicly released version.
   marketplace, but will not have the prerelease string in the version number. For more
   details, please see [Versioning Strategy](https://github.com/neo-project/neo-debugger#versioning-strategy)
 
+## [3.2.34] - 2022-03-11
+
+### Fixed
+
+* Fixed null reference exception when displaying Disassembly view (e5d22e179593a7c94598ef9d1bdd633dd0e3de50)
+
 ## [3.3.18-preview] - 2022-03-07
 
-## Changed
+### Added
+* Storage Schema support. See [overview](/docs/storage-schema-overview.md) for details
+
+### Changed
+* Display full hex-encoded storage key for non-schematized storage
+  * Users can switch back to the hashed key non-schematized storage view via 
+    the `neo-debugger.storage-view` setting
+
+## [3.2.28] - 2022-02-28
+
+### Changed
 
 * Only override CheckWitness when specified via `runtime.witnesses` launch config property. (#155)
 * Render method token information in Disassembly view (#156)
 
-## Fixed
+### Fixed
 
 * Respect DebugInfo.SlotVariable.Index (#155)
 
-## Engineering
+### Engineering
 
 * Adopting [VS Code recommendations](https://code.visualstudio.com/api/working-with-extensions/publishing-extension#prerelease-extensions)
   for version numbers to enable shipping pre-release versions of the debugger. 
+* Added push and pull request GitHub workflows scripts.
+* Updated release GitHub workflow to publish extension to VSCode marketplace
+* Removed Azure DevOps workflow. This repo is no longer using Azure DevOps for build/release services
 
 ## [3.1.23] - 2021-12-14
 
