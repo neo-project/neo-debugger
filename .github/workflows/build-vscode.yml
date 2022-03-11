@@ -11,6 +11,7 @@ on:
       - 'release/**'
     paths-ignore:
       - 'readme.md'
+      - 'src/extension/CHANGELOG.md'
       - 'docs/**'
   workflow_call:
     outputs:
