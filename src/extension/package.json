@@ -3,6 +3,7 @@
     "license": "MIT",
     "publisher": "ngd-seattle",
     "version": "0.0.0",
+    "preview": true,
     "displayName": "Neo Smart Contract Debugger",
     "description": "Debugger Extension for Neo Smart Contracts",
     "icon": "neo-logo-256.png",
