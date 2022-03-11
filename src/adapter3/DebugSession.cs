@@ -147,9 +147,7 @@ namespace NeoDebug.Neo3
                 var frame = new StackFrame()
                 {
                     Id = index,
-                    Name = contract is not null
-                        ? $"{methodName} ({contract.Manifest.Name})"
-                        : methodName,
+                    Name = methodName,
                 };
 
                 if (disassemblyView)
@@ -158,11 +156,14 @@ namespace NeoDebug.Neo3
                     frame.Source = new Source()
                     {
                         Name = string.IsNullOrEmpty(contract?.Manifest.Name)
-                            ? $"{disassembly.ScriptHash} (disassembly)"
-                            : $"{contract.Manifest.Name} (disassembly)",
+                            ? "Unknown Source"
+                            : $"{contract.Manifest.Name}",
                         SourceReference = disassembly.SourceReference,
                         AdapterData = disassembly.LineMap,
                         Origin = $"{disassembly.ScriptHash}",
+                        PresentationHint = string.IsNullOrEmpty(contract?.Manifest.Name)
+                            ? Source.PresentationHintValue.Deemphasize
+                            : Source.PresentationHintValue.Normal,
                     };
                     frame.Line = disassembly.AddressMap[context.InstructionPointer];
                     frame.Column = 1;
@@ -175,7 +176,9 @@ namespace NeoDebug.Neo3
                         frame.Source = new Source()
                         {
                             Name = System.IO.Path.GetFileName(docPath),
-                            Origin = $"ScriptHash: {context.ScriptHash}",
+                            Origin = string.IsNullOrEmpty(contract?.Manifest.Name)
+                                ? $"{context.ScriptHash}"
+                                : $"{contract.Manifest.Name} ({context.ScriptHash})",
                             Path = docPath,
                         };
 
