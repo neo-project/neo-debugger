@@ -147,41 +147,10 @@ namespace NeoDebug.Neo3
                 _ => throw new NotSupportedException($"{type.Type} primitive type"),
             };
 
-        public static Variable AsVariable(this StackItem item, IVariableManager manager, string name, ContractParameterType parameterType)
-        {
-            if (item.IsNull) return new Variable { Name = name, Value = "<null>", Type = $"{parameterType}" };
-
-            return parameterType switch
-            {
-                ContractParameterType.Any => item.AsVariable(manager, name),
-                ContractParameterType.Array => ConvertArray(item, manager, name),
-                ContractParameterType.Boolean => new Variable(name, $"{item.GetBoolean()}", 0) { Type = $"{parameterType}" },
-                ContractParameterType.ByteArray => ByteArrayContainer.Create(manager, item, name),
-                ContractParameterType.Hash160 => new Variable(name, $"{new UInt160(item.GetSpan())}", 0) { Type = $"{parameterType}" },
-                ContractParameterType.Hash256 => new Variable(name, $"{new UInt256(item.GetSpan())}", 0) { Type = $"{parameterType}" },
-                ContractParameterType.Integer => new Variable(name, $"{item.GetInteger()}", 0) { Type = $"{parameterType}" },
-                ContractParameterType.InteropInterface => ((Neo.VM.Types.InteropInterface)item).TryGetInteropType(out var interopType)
-                    ? new Variable(name, $"InteropInterface<{interopType.Name}>", 0)
-                    : new Variable(name, $"InteropInterface", 0),
-                ContractParameterType.Map => NeoMapContainer.Create(manager, (NeoMap)item, name),
-                ContractParameterType.PublicKey => new Variable(name, $"{ECPoint.DecodePoint(item.GetSpan(), ECCurve.Secp256r1)}", 0) { Type = $"{parameterType}" },
-                ContractParameterType.Signature => ByteArrayContainer.Create(manager, item, name),
-                ContractParameterType.String => new Variable(name, item.GetString(), 0) { Type = $"{parameterType}" },
-                // ContractParameterType.Void
-                _ => throw new NotSupportedException($"AsVariable {parameterType} not supported"),
-            };
-
-            static Variable ConvertArray(StackItem item, IVariableManager manager, string name)
-            {
-                if (item is NeoArray array) return NeoArrayContainer.Create(manager, array, name);
-                if (ByteArrayContainer.TryCreate(manager, item, name, out var variable)) return variable;
-                throw new NotSupportedException($"Cannot convert {item.Type} to array variable");
-            }
-        }
-
         public static Variable AsVariable(this ReadOnlyMemory<byte> @this, IVariableManager manager, string name, PrimitiveContractType type, byte addressVersion)
         {
-            if (type.Type == PrimitiveType.ByteArray)
+            if (type.Type == PrimitiveType.ByteArray
+                || type.Type == PrimitiveType.Signature)
             {
                 var variable = ByteArrayContainer.Create(manager, @this, name);
                 return variable;
@@ -201,8 +170,8 @@ namespace NeoDebug.Neo3
         {
             if (type is UnspecifiedContractType) return AsVariable(@this, manager, name);
 
-            if (type is PrimitiveContractType primitive
-                && @this is Neo.VM.Types.PrimitiveType)
+            if (@this is Neo.VM.Types.PrimitiveType
+                && type is PrimitiveContractType primitive)
             {
                 if (primitive.Type == PrimitiveType.ByteArray
                     || primitive.Type == PrimitiveType.Signature)
@@ -234,32 +203,48 @@ namespace NeoDebug.Neo3
                 };
             }
 
-            if (type is InteropContractType interopType
-                && @this is Neo.VM.Types.InteropInterface)
+            if (@this is Neo.VM.Types.Buffer buffer
+                && type is PrimitiveContractType primitive2)
+            {
+                // TODO handle
+
+            }
+
+            if (@this is Neo.VM.Types.InteropInterface
+                && type is InteropContractType interopType)
             {
                 return new Variable
                 {
                     Name = name,
-                    Value = (string?)type.AsTypeName()
+                    Value = type.AsTypeName()
                 };
             }
 
-            if (@this is NeoArray array
-                && type is StructContractType structType
-                && array.Count == structType.Fields.Count)
+            if (@this is NeoArray array)
             {
-                var variable = NeoArrayContainer.Create(manager, array, name, structType, addressVersion);
-                variable.Type = type.AsTypeName();
-                return variable;
+                if (type is StructContractType structType
+                    && array.Count == structType.Fields.Count)
+                {
+                    var variable = NeoArrayContainer.Create(manager, array, name, structType, addressVersion);
+                    variable.Type = type.AsTypeName();
+                    return variable;
+                }
+
+                if (type is ArrayContractType arrayType)
+                {
+                    // todo: handle homogeneous array
+                }
             }
 
-            // if (@this is NeoMap map
-            //     && type is MapContractType mapType)
-            // {
-            //     var variable = NeoMapContainer.Create(manager, map, name, mapType);
-            //     variable.Type = type.AsTypeName();
-            //     return variable;
-            // }
+            if (@this is NeoMap map
+                && type is MapContractType mapType)
+            {
+                // TODO: handle map
+
+                // var variable = NeoMapContainer.Create(manager, map, name, mapType);
+                // variable.Type = type.AsTypeName();
+                // return variable;
+            }
 
             {
                 var variable = @this.AsVariable(manager, name);
