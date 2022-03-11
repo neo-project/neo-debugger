@@ -47,7 +47,7 @@ namespace NeoDebug.Neo3
         {
             this.context = context;
             this.resultStack = engine.ResultStack;
-            this.storageContainer = engine.GetStorageContainer(context.ScriptHash, storageView);
+            this.storageContainer = engine.GetStorageContainer(context.ScriptHash, debugInfo?.StorageGroups, storageView);
             this.debugInfo = debugInfo;
             this.addressVersion = engine.AddressVersion;
         }
@@ -132,7 +132,7 @@ namespace NeoDebug.Neo3
                 for (int i = 0; i < structType.Fields.Count; i++)
                 {
                     var field = structType.Fields[i];
-                    if (expr.StartsWith(field.Name))
+                    if (expr.Span.StartsWith(field.Name))
                     {
                         expr = expr.Slice(field.Name.Length);
                         evalContext = new ExpressionEvalContext(expr, array[i], field.Type);
@@ -146,7 +146,7 @@ namespace NeoDebug.Neo3
 
         bool TryInitialEvaluate(ReadOnlyMemory<char> expression, [MaybeNullWhen(false)] out ExpressionEvalContext evalContext)
         {
-            if (expression.StartsWith("#"))
+            if (expression.Span.StartsWith("#"))
             {
                 if (storageContainer.TryEvaluate(expression, out evalContext)) return true;
                 if (TryEvaluateIndexedSlot(expression, ARG_SLOTS_PREFIX, context.Arguments, out evalContext)) return true;
@@ -174,7 +174,7 @@ namespace NeoDebug.Neo3
 
         static bool TryEvaluateIndexedSlot(ReadOnlyMemory<char> expression, string prefix, IReadOnlyList<StackItem> slot, [MaybeNullWhen(false)] out ExpressionEvalContext context)
         {
-            if (expression.StartsWith(prefix))
+            if (expression.Span.StartsWith(prefix))
             {
                 expression = expression.Slice(prefix.Length);
 
@@ -210,7 +210,7 @@ namespace NeoDebug.Neo3
             for (int i = 0; i < variables.Count; i++)
             {
                 var variable = variables[i];
-                if (expression.StartsWith(variable.Name) && variable.Index < slot.Count)
+                if (expression.Span.StartsWith(variable.Name) && variable.Index < slot.Count)
                 {
                     var remaining = expression.Slice(variable.Name.Length);
                     if (IsValidRemaining(remaining))

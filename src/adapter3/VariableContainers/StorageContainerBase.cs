@@ -21,9 +21,9 @@ namespace NeoDebug.Neo3
         readonly byte addressVersion;
         readonly StorageView storageView;
 
-        protected StorageContainerBase(IReadOnlyList<StorageGroupDef> storageGroups, byte addressVersion, StorageView storageView)
+        protected StorageContainerBase(IReadOnlyList<StorageGroupDef>? storageGroups, byte addressVersion, StorageView storageView)
         {
-            this.storageGroups = storageGroups;
+            this.storageGroups = storageGroups ?? Array.Empty<StorageGroupDef>();
             this.addressVersion = addressVersion;
             this.storageView = storageView;
         }
@@ -52,7 +52,7 @@ namespace NeoDebug.Neo3
 
         public bool TryEvaluate(ReadOnlyMemory<char> expression, [MaybeNullWhen(false)] out ExpressionEvalContext context)
         {
-            if (expression.StartsWith(DebugSession.STORAGE_PREFIX))
+            if (expression.Span.StartsWith(DebugSession.STORAGE_PREFIX))
             {
                 expression = expression.Slice(DebugSession.STORAGE_PREFIX.Length);
                 if (expression.IsEmpty)
@@ -66,7 +66,7 @@ namespace NeoDebug.Neo3
                         expression = expression.Slice(1);
                         for (int i = 0; i < storageGroups.Count; i++)
                         {
-                            if (expression.StartsWith(storageGroups[i].Name))
+                            if (expression.Span.StartsWith(storageGroups[i].Name))
                             {
                                 return TryEvaluateSchemaStorage(
                                     expression.Slice(storageGroups[i].Name.Length),
@@ -112,7 +112,7 @@ namespace NeoDebug.Neo3
                 expression = expression.Slice(bracketIndex + 1);
             }
 
-            if (expression.StartsWith(".key"))
+            if (expression.Span.StartsWith(".key"))
             {
                 var result = new Neo.VM.Types.ByteString(keyWriter.WrittenMemory);
                 var resultType = new PrimitiveContractType(PrimitiveType.ByteArray);
@@ -121,7 +121,7 @@ namespace NeoDebug.Neo3
                 return true;
             }
 
-            if (expression.StartsWith(".item"))
+            if (expression.Span.StartsWith(".item"))
             {
                 var (_, item) = GetStorages().SingleOrDefault(kvp => kvp.key.Span.SequenceEqual(keyWriter.WrittenSpan));
                 var remaining = expression.Slice(5);
@@ -158,10 +158,10 @@ namespace NeoDebug.Neo3
 
         bool TryEvaluateRawStorageFullKey(ReadOnlyMemory<char> expression, ReadOnlyMemory<char> keyBuffer, [MaybeNullWhen(false)] out ExpressionEvalContext context)
         {
-            if (keyBuffer.StartsWith("0x")) { keyBuffer = keyBuffer.Slice(2); }
+            if (keyBuffer.Span.StartsWith("0x")) { keyBuffer = keyBuffer.Slice(2); }
             var key = Convert.FromHexString(keyBuffer.Span);
 
-            if (expression.StartsWith(".key"))
+            if (expression.Span.StartsWith(".key"))
             {
                 var result = new Neo.VM.Types.ByteString(key);
                 var remaining = expression.Slice(4);
@@ -169,7 +169,7 @@ namespace NeoDebug.Neo3
                 return true;
             }
 
-            if (expression.StartsWith(".item"))
+            if (expression.Span.StartsWith(".item"))
             {
                 var storage = GetStorages().SingleOrDefault(kvp => kvp.key.Span.SequenceEqual(key));
                 var result = storage.item is null
@@ -193,7 +193,7 @@ namespace NeoDebug.Neo3
                     var storageKeyHash = GetSequenceHashCode(key.Span);
                     if (storageKeyHash == keyHash)
                     {
-                        if (expression.StartsWith(".key"))
+                        if (expression.Span.StartsWith(".key"))
                         {
                             var result = new Neo.VM.Types.ByteString(key);
                             var remaining = expression.Slice(4);
@@ -201,7 +201,7 @@ namespace NeoDebug.Neo3
                             return true;
                         }
 
-                        if (expression.StartsWith(".item"))
+                        if (expression.Span.StartsWith(".item"))
                         {
 
                             var result = item is null

@@ -167,71 +167,10 @@ namespace NeoDebug.Neo3
             if (tx.Signers.Length == 0) throw new InvalidOperationException("Debug transaction signers length zero");
             if (launchContractHash == UInt160.Zero) throw new InvalidOperationException("Debug contract hash could not determined");
 
-            // TODO: load other contracts
-            //          Not sure supporting other contracts is a good idea anymore. Since there's no way to calculate the 
-            //          contract id hash prior to deployment in Neo 3, I'm thinking the better approach would be to simply
-            //          deploy whatever contracts you want and take a snapshot rather than deploying multiple contracts 
-            //          during launch configuration.
-
-            var schemaMap = ImmutableDictionary<UInt160, ContractStorageSchema>.Empty;
-            var storageSchema = await LoadStorageSchemaAsync(config);
-            if (storageSchema.TryPickT0(out var schema, out _))
-            {
-                schemaMap = schemaMap.Add(launchContractHash, schema);
-            }
-            
             var block = CreateDummyBlock(store, tx);
-            var engine = new DebugApplicationEngine(tx, store, schemaMap, checkpoint.Settings, block, witnessChecker);
+            var engine = new DebugApplicationEngine(tx, store, checkpoint.Settings, block, witnessChecker);
             engine.LoadScript(tx.Script);
             return engine;
-        }
-
-        static async Task<OneOf<ContractStorageSchema, NotFound>> LoadStorageSchemaAsync(ConfigProps config)
-        {
-            // if (config.TryGetValue("storage-schema", out var schemaToken))
-            // {
-            //     if (schemaToken.Type == JTokenType.Object)
-            //     {
-            //         return ContractStorageSchema.Parse(schemaToken);
-            //     }
-            // }
-
-            var comparison = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                ? StringComparison.InvariantCultureIgnoreCase
-                : StringComparison.InvariantCulture;
-
-            var program = ParseProgram(config);
-            var dir = Path.GetDirectoryName(program);
-            while (dir is not null)
-            {
-                var schemaResult = await TryGetSchema(dir);
-                if (schemaResult.IsT0) return schemaResult.AsT0;
-                if (Environment.CurrentDirectory.Equals(dir, comparison)) break;
-                dir = Path.GetDirectoryName(dir);
-            }
-
-            // if (config.TryGetValue("neo-express", out var neoExpressPath))
-            // {
-            //     return await TryGetSchema(Path.GetDirectoryName(neoExpressPath.Value<string>()));
-            // }
-
-            return default(NotFound);
-
-            static async Task<OneOf<ContractStorageSchema, NotFound>> TryGetSchema(string? folderPath)
-            {
-                if (folderPath is not null)
-                {
-                    var path = Path.Combine(folderPath, "storage-schema.json");
-                    if (File.Exists(path))
-                    {
-                        var text = await File.ReadAllTextAsync(path);
-                        var json = JObject.Parse(text);
-                        return ContractStorageSchema.Parse(json);
-                    }
-                }
-
-                return default(NotFound);
-            }
         }
 
         static NefFile LoadNefFile(string path)

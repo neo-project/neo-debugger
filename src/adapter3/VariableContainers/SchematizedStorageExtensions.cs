@@ -128,7 +128,7 @@ namespace NeoDebug.Neo3
 
         public static ReadOnlyMemory<byte> FromHexString(this ReadOnlyMemory<char> @this)
         {
-            if (@this.StartsWith("0x")) @this = @this.Slice(2);
+            if (@this.Span.StartsWith("0x")) @this = @this.Slice(2);
             return Convert.FromHexString(@this.Span);
         }
 
