@@ -18,6 +18,12 @@ may not exactly match a publicly released version.
   marketplace, but will not have the prerelease string in the version number. For more
   details, please see [Versioning Strategy](https://github.com/neo-project/neo-debugger#versioning-strategy)
 
+## [3.2.34] - 2022-03-11
+
+### Fixed
+
+* Fixed null reference exception when displaying Disassembly view (e5d22e179593a7c94598ef9d1bdd633dd0e3de50)
+
 ## [3.3.18-preview] - 2022-03-07
 
 ### Added
