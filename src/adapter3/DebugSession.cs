@@ -33,7 +33,7 @@ namespace NeoDebug.Neo3
         private readonly BreakpointManager breakpointManager;
         private bool breakOnCaughtExceptions;
         private bool breakOnUncaughtExceptions = true;
-        
+
 
         public DebugSession(IApplicationEngine engine,
                             IReadOnlyList<DebugInfo> debugInfoList,
@@ -147,8 +147,8 @@ namespace NeoDebug.Neo3
                 var frame = new StackFrame()
                 {
                     Id = index,
-                    Name = contract is not null 
-                        ? $"{methodName} ({contract.Manifest.Name})" 
+                    Name = contract is not null
+                        ? $"{methodName} ({contract.Manifest.Name})"
                         : methodName,
                 };
 
@@ -157,29 +157,27 @@ namespace NeoDebug.Neo3
                     var disassembly = disassemblyManager.GetOrAdd(context, debugInfo);
                     frame.Source = new Source()
                     {
-                        Name = $"{context.ScriptHash}",
+                        Name = string.IsNullOrEmpty(contract?.Manifest.Name)
+                            ? $"{disassembly.ScriptHash} (disassembly)"
+                            : $"{contract.Manifest.Name} (disassembly)",
                         SourceReference = disassembly.SourceReference,
-                        AdapterData = $"{disassembly.ScriptHash}",
+                        AdapterData = disassembly.LineMap,
+                        Origin = $"{disassembly.ScriptHash}",
                     };
                     frame.Line = disassembly.AddressMap[context.InstructionPointer];
                     frame.Column = 1;
                 }
                 else
                 {
-                    frame.Source = new Source()
+                    if (method.TryGetSequencePoint(context.InstructionPointer, out var point) 
+                        && point.TryGetDocumentPath(debugInfo, out var docPath))
                     {
-                        Name = "<null>",
-                        Origin = $"ScriptHash: {context.ScriptHash}",
-                        Path = string.Empty,
-                    };
-
-                    if (method.TryGetSequencePoint(context.InstructionPointer, out var point))
-                    {
-                        if (point.TryGetDocumentPath(debugInfo, out var docPath))
+                        frame.Source = new Source()
                         {
-                            frame.Source.Name = System.IO.Path.GetFileName(docPath);
-                            frame.Source.Path = docPath;
-                        }
+                            Name = System.IO.Path.GetFileName(docPath),
+                            Origin = $"ScriptHash: {context.ScriptHash}",
+                            Path = docPath,
+                        };
 
                         frame.Line = point.Start.line;
                         frame.Column = point.Start.column;
