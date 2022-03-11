@@ -132,17 +132,18 @@ namespace NeoDebug.Neo3
             foreach (var (context, index) in engine.InvocationStack.Select((c, i) => (c, i)))
             {
                 var scriptId = context.ScriptHash;
-                DebugInfo.Method? method = null;
-                if (debugInfoMap.TryGetValue(context.ScriptIdentifier, out var debugInfo))
-                {
-                    method = debugInfo.GetMethod(context.InstructionPointer);
-                }
+                var debugInfo = debugInfoMap.TryGetValue(context.ScriptIdentifier, out var _debugInfo) ? _debugInfo : null;
 
-                ContractState? contract = engine is DebugApplicationEngine debugEngine
+                DebugInfo.Method method = default;
+                debugInfo?.TryGetMethod(context.InstructionPointer, out method);
+                var methodName = string.IsNullOrEmpty(method.Name)
+                     ? $"<frame {engine.InvocationStack.Count - index}>"
+                     : method.Name;
+
+                var contract = engine is DebugApplicationEngine debugEngine
                     ? NativeContract.ContractManagement.GetContract(debugEngine.Snapshot, context.ScriptHash)
                     : null;
 
-                var methodName = method?.Name ?? $"<frame {engine.InvocationStack.Count - index}>";
                 var frame = new StackFrame()
                 {
                     Id = index,
@@ -164,27 +165,28 @@ namespace NeoDebug.Neo3
                 }
                 else
                 {
-                    var sequencePoint = method?.GetCurrentSequencePoint(context.InstructionPointer);
-                    var document = sequencePoint?.GetDocumentPath(debugInfo);
-
                     frame.Source = new Source()
                     {
-                        Name = document is not null
-                            ? System.IO.Path.GetFileName(document)
-                            : "<null>",
+                        Name = "<null>",
                         Origin = $"ScriptHash: {context.ScriptHash}",
-                        Path = document ?? string.Empty,
+                        Path = string.Empty,
                     };
 
-                    if (sequencePoint is not null)
+                    if (method.TryGetSequencePoint(context.InstructionPointer, out var point))
                     {
-                        frame.Line = sequencePoint.Start.line;
-                        frame.Column = sequencePoint.Start.column;
-
-                        if (sequencePoint.Start != sequencePoint.End)
+                        if (point.TryGetDocumentPath(debugInfo, out var docPath))
                         {
-                            frame.EndLine = sequencePoint.End.line;
-                            frame.EndColumn = sequencePoint.End.column;
+                            frame.Source.Name = System.IO.Path.GetFileName(docPath);
+                            frame.Source.Path = docPath;
+                        }
+
+                        frame.Line = point.Start.line;
+                        frame.Column = point.Start.column;
+
+                        if (point.Start != point.End)
+                        {
+                            frame.EndLine = point.End.line;
+                            frame.EndColumn = point.End.column;
                         }
                     }
                 }
@@ -203,6 +205,7 @@ namespace NeoDebug.Neo3
         public IEnumerable<Scope> GetScopes(ScopesArguments args)
         {
             var context = engine.InvocationStack.ElementAt(args.FrameId);
+            var debugInfo = debugInfoMap.TryGetValue(context.ScriptIdentifier, out var _debugInfo) ? _debugInfo : null;
 
             if (disassemblyView)
             {
@@ -214,12 +217,11 @@ namespace NeoDebug.Neo3
             }
             else
             {
-                var debugInfo = debugInfoMap.TryGetValue(context.ScriptIdentifier, out var _debugInfo) ? _debugInfo : null;
                 var container = new ExecutionContextContainer(context, debugInfo);
                 yield return AddScope("Variables", container);
             }
 
-            yield return AddScope("Storage", engine.GetStorageContainer(context.ScriptHash, storageView), true);
+            yield return AddScope("Storage", engine.GetStorageContainer(context.ScriptHash, debugInfo?.StorageGroups, storageView), true);
             yield return AddScope("Engine", new EngineContainer(engine, context));
 
             Scope AddScope(string name, IVariableContainer container, bool expensive = false)
