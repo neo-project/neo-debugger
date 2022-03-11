@@ -28,11 +28,12 @@ namespace NeoDebug.Neo3
         public static string AsTypeName(this ContractType type)
             => type switch
             {
+                ArrayContractType arrayType => $"Array<{arrayType.AsTypeName()}>",
+                InteropContractType interopType => $"Interop<{interopType.Type}>",
+                MapContractType mapType => $"Map<{mapType.KeyType}, {mapType.ValueType.AsTypeName()}>",
                 PrimitiveContractType primitiveType => $"#{primitiveType.Type}",
                 StructContractType structType => structType.Name,
                 UnspecifiedContractType => "<unspecified>",
-                MapContractType mapType => $"Map<{mapType.KeyType}, {mapType.ValueType.AsTypeName()}>",
-                ArrayContractType arrayType => $"Array<{arrayType.AsTypeName()}>",
                 _ => throw new ArgumentException(type.GetType().Name, nameof(type)),
             };
 
@@ -161,9 +162,9 @@ namespace NeoDebug.Neo3
                 ContractParameterType.Integer => new Variable(name, $"{item.GetInteger()}", 0) { Type = $"{parameterType}" },
                 ContractParameterType.InteropInterface => ((Neo.VM.Types.InteropInterface)item).TryGetInteropType(out var interopType)
                     ? new Variable(name, $"InteropInterface<{interopType.Name}>", 0)
-                    : new Variable(name, $"InteropInterface", 0),                
+                    : new Variable(name, $"InteropInterface", 0),
                 ContractParameterType.Map => NeoMapContainer.Create(manager, (NeoMap)item, name),
-                ContractParameterType.PublicKey => new Variable(name,$"{ECPoint.DecodePoint(item.GetSpan(), ECCurve.Secp256r1)}", 0) { Type = $"{parameterType}" },
+                ContractParameterType.PublicKey => new Variable(name, $"{ECPoint.DecodePoint(item.GetSpan(), ECCurve.Secp256r1)}", 0) { Type = $"{parameterType}" },
                 ContractParameterType.Signature => ByteArrayContainer.Create(manager, item, name),
                 ContractParameterType.String => new Variable(name, item.GetString(), 0) { Type = $"{parameterType}" },
                 // ContractParameterType.Void
@@ -233,6 +234,16 @@ namespace NeoDebug.Neo3
                 };
             }
 
+            if (type is InteropContractType interopType
+                && @this is Neo.VM.Types.InteropInterface)
+            {
+                return new Variable
+                {
+                    Name = name,
+                    Value = (string?)type.AsTypeName()
+                };
+            }
+
             if (@this is NeoArray array
                 && type is StructContractType structType
                 && array.Count == structType.Fields.Count)
@@ -262,16 +273,27 @@ namespace NeoDebug.Neo3
             switch (@this)
             {
                 // case Neo.VM.Types.Struct: break;
-                case Neo.VM.Types.Array array: return NeoArrayContainer.Create(manager, array, name);
-                case Neo.VM.Types.Boolean: return new Variable { Name = name, Value = $"{@this.GetBoolean()}", Type = "Boolean" }; ;
-                case Neo.VM.Types.Buffer buffer: return ByteArrayContainer.Create(manager, buffer.InnerBuffer, name);
-                case Neo.VM.Types.ByteString byteString: return ByteArrayContainer.Create(manager, byteString, name);
-                case Neo.VM.Types.Integer: return new Variable { Name = name, Value = $"{@this.GetInteger()}", Type = "Integer" }; ;
-                // case Neo.VM.Types.InteropInterface: break;
-                case Neo.VM.Types.Map map: return NeoMapContainer.Create(manager, map, name);
-                case Neo.VM.Types.Null: return new Variable { Name = name, Value = "<null>" };
-                // case Neo.VM.Types.Pointer: break;
-                default: throw new NotSupportedException($"StackItem {@this.Type}");
+                case Neo.VM.Types.Array array:
+                    return NeoArrayContainer.Create(manager, array, name);
+                case Neo.VM.Types.Boolean:
+                    return new Variable { Name = name, Value = $"{@this.GetBoolean()}", Type = "Boolean" }; ;
+                case Neo.VM.Types.Buffer buffer:
+                    return ByteArrayContainer.Create(manager, buffer.InnerBuffer, name);
+                case Neo.VM.Types.ByteString byteString:
+                    return ByteArrayContainer.Create(manager, byteString, name);
+                case Neo.VM.Types.Integer:
+                    return new Variable { Name = name, Value = $"{@this.GetInteger()}", Type = "Integer" }; ;
+                case Neo.VM.Types.InteropInterface:
+                    return new Variable { Name = name, Value = "Interop<unspecified>" }; ;
+                case Neo.VM.Types.Map map:
+                    return NeoMapContainer.Create(manager, map, name);
+                case Neo.VM.Types.Null:
+                    return new Variable { Name = name, Value = "<null>" };
+                case Neo.VM.Types.Pointer pointer:
+                    // TODO: decode the pointer.Script value
+                    return new Variable { Name = name, Value = $"Pointer<{pointer.Position}>", Type = "Pointer" }; ;
+                default: 
+                    throw new NotSupportedException($"StackItem {@this.Type}");
             }
             throw new Exception();
 

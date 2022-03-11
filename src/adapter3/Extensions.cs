@@ -49,11 +49,11 @@ namespace NeoDebug.Neo3
         {
             var points = method.SequencePoints ?? Array.Empty<DebugInfo.SequencePoint>();
 
-            foreach (var sp in points.Skip(1).Reverse())
+            for (int i = points.Count - 1; i >= 0; i--)
             {
-                if (instructionPointer > sp.Address)
+                if (instructionPointer >= points[i].Address)
                 {
-                    sequencePoint = sp;
+                    sequencePoint = points[i];
                     return true;
                 }
             }
@@ -81,16 +81,6 @@ namespace NeoDebug.Neo3
             return false;
         }
 
-        // public static bool PathEquals(this DebugInfo.SequencePoint @this, DebugInfo? debugInfo, string path)
-        // {
-        //     return string.Equals(@this.GetDocumentPath(debugInfo), path, StringComparison.OrdinalIgnoreCase);
-        // }
-
-
-        // public static bool PathEquals(this DebugInfo.SequencePoint? @this, DebugInfo? debugInfo, string path)
-        // {
-        //     return string.Equals(@this.GetDocumentPath(debugInfo), path, StringComparison.OrdinalIgnoreCase);
-        // }
         public static JToken ToJson(this StackItem item)
         {
             return item switch

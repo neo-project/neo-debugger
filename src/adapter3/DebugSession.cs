@@ -154,11 +154,12 @@ namespace NeoDebug.Neo3
 
                 if (disassemblyView)
                 {
-                    var disassembly = disassemblyManager.GetDisassembly(context, debugInfo);
+                    var disassembly = disassemblyManager.GetOrAdd(context, debugInfo);
                     frame.Source = new Source()
                     {
                         Name = $"{context.ScriptHash}",
-                        SourceReference = disassembly.SourceReference
+                        SourceReference = disassembly.SourceReference,
+                        AdapterData = $"{disassembly.ScriptHash}",
                     };
                     frame.Line = disassembly.AddressMap[context.InstructionPointer];
                     frame.Column = 1;
@@ -217,7 +218,7 @@ namespace NeoDebug.Neo3
             }
             else
             {
-                var container = new ExecutionContextContainer(context, debugInfo);
+                var container = new ExecutionContextContainer(context, debugInfo, engine.AddressVersion);
                 yield return AddScope("Variables", container);
             }
 
@@ -243,7 +244,8 @@ namespace NeoDebug.Neo3
 
         public SourceResponse GetSource(SourceArguments arguments)
         {
-            if (disassemblyManager.TryGetDisassembly(arguments.SourceReference, out var disassembly))
+            if (arguments.Source.SourceReference.HasValue
+                && disassemblyManager.TryGet(arguments.Source.SourceReference.Value, out var disassembly))
             {
                 return new SourceResponse(disassembly.Source)
                 {
@@ -411,7 +413,7 @@ namespace NeoDebug.Neo3
                     }
                 }
 
-                if (breakpointManager.CheckBreakpoint(engine.CurrentContext?.ScriptHash ?? UInt160.Zero, engine.CurrentContext?.InstructionPointer))
+                if (breakpointManager.CheckBreakpoint(engine.CurrentContext))
                 {
                     FireStoppedEvent(StoppedEvent.ReasonValue.Breakpoint);
                     break;
