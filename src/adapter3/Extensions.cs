@@ -20,6 +20,12 @@ namespace NeoDebug.Neo3
 
     internal static class Extensions
     {
+        public static IReadOnlyList<T> AsReadOnly<T>(this T[] @this)
+            => @this;
+
+        public static IReadOnlyDictionary<TKey, TSource> AsReadOnly<TKey, TSource>(this IDictionary<TKey, TSource> source)
+            => (IReadOnlyDictionary<TKey, TSource>)source;
+
         public static ReadOnlyMemory<byte> AsReadOnlyMemory(this StackItem item)
         {
             if (item is Neo.VM.Types.Buffer buffer) return buffer.InnerBuffer;

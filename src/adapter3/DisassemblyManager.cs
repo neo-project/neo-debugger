@@ -56,20 +56,27 @@ namespace NeoDebug.Neo3
         {
             var padString = context.Script.GetInstructionAddressPadding();
             var sourceBuilder = new StringBuilder();
-            var addressMapBuilder = ImmutableDictionary.CreateBuilder<int, int>();
-            var lineMapBuilder = ImmutableDictionary.CreateBuilder<int, int>();
+            Dictionary<int, int> addressMap = new();
+            Dictionary<int, int> lineMap = new();
 
-            var documents = debugInfo?.Documents
-                .Select(path => (fileName: Path.GetFileName(path), lines: File.Exists(path) ? File.ReadAllLines(path) : Array.Empty<string>()))
-                .ToImmutableList() ?? ImmutableList<(string, string[])>.Empty;
-            var methodStarts = debugInfo?.Methods.ToImmutableDictionary(m => m.Range.Start)
-                ?? ImmutableDictionary<int, DebugInfo.Method>.Empty;
-            var methodEnds = debugInfo?.Methods.ToImmutableDictionary(m => m.Range.End)
-                ?? ImmutableDictionary<int, DebugInfo.Method>.Empty;
-            var sequencePoints = debugInfo?.Methods.SelectMany(m => m.SequencePoints).ToImmutableDictionary(s => s.Address)
-                ?? ImmutableDictionary<int, DebugInfo.SequencePoint>.Empty;
+            var documents = (debugInfo?.Documents ?? Array.Empty<string>())
+                .Select(path => 
+                {
+                    var fileName = Path.GetFileName(path);
+                    var lines = File.Exists(path) 
+                        ? File.ReadAllLines(path) 
+                        : Array.Empty<string>();
+                    return (fileName, lines);
+                })
+                .ToArray().AsReadOnly();
+            var methods = debugInfo?.Methods ?? Enumerable.Empty<DebugInfo.Method>();
+            var methodStarts = methods.ToDictionary(m => m.Range.Start).AsReadOnly();
+            var methodEnds = methods.ToDictionary(m => m.Range.End).AsReadOnly();
+            var sequencePoints = methods.SelectMany(m => m.SequencePoints)
+                .ToDictionary(s => s.Address).AsReadOnly();
 
-            var instructions = context.Script.EnumerateInstructions().ToList();
+            var instructions = context.Script.EnumerateInstructions()
+                .ToArray().AsReadOnly();
 
             var line = 1;
             for (int i = 0; i < instructions.Count; i++)
@@ -102,8 +109,8 @@ namespace NeoDebug.Neo3
                 }
 
                 AddSource(sourceBuilder, instructions[i].address, instructions[i].instruction, padString, (MethodToken[]?)context.Tokens);
-                addressMapBuilder.Add(instructions[i].address, line);
-                lineMapBuilder.Add(line, instructions[i].address);
+                addressMap.Add(instructions[i].address, line);
+                lineMap.Add(line, instructions[i].address);
                 line++;
 
                 if (methodEnds.TryGetValue(instructions[i].address, out var methodEnd))
@@ -118,8 +125,8 @@ namespace NeoDebug.Neo3
                 ScriptHash = context.ScriptIdentifier,
                 Source = sourceBuilder.ToString(),
                 SourceReference = sourceRef,
-                AddressMap = addressMapBuilder.ToImmutable(),
-                LineMap = lineMapBuilder.ToImmutable()
+                AddressMap = addressMap,
+                LineMap = lineMap
             };
 
             static void AddSource(StringBuilder sourceBuilder, int address, Instruction instruction, string padString, MethodToken[]? tokens)
