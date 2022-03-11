@@ -12,8 +12,8 @@ namespace NeoDebug.Neo3
     {
         private readonly DisassemblyManager disassemblyManager;
         private readonly IReadOnlyList<DebugInfo> debugInfoList;
-        private readonly Dictionary<UInt160, ImmutableHashSet<int>> breakpointCache = new Dictionary<UInt160, ImmutableHashSet<int>>();
-        private readonly Dictionary<string, IReadOnlyList<SourceBreakpoint>> sourceBreakpointMap = new Dictionary<string, IReadOnlyList<SourceBreakpoint>>();
+        // private readonly Dictionary<UInt160, ImmutableHashSet<int>> breakpointCache = new Dictionary<UInt160, ImmutableHashSet<int>>();
+        // private readonly Dictionary<string, IReadOnlyList<SourceBreakpoint>> sourceBreakpointMap = new Dictionary<string, IReadOnlyList<SourceBreakpoint>>();
 
         public BreakpointManager(DisassemblyManager disassemblyManager, IReadOnlyList<DebugInfo> debugInfoList)
         {
@@ -21,118 +21,117 @@ namespace NeoDebug.Neo3
             this.debugInfoList = debugInfoList;
         }
 
+        readonly Dictionary<string, IReadOnlySet<(UInt160 hash, int position)>> sourceBreakpoints = new();
+        readonly Dictionary<UInt160, IReadOnlySet<int>> breakpointCache = new();
+
         public IEnumerable<Breakpoint> SetBreakpoints(Source source, IReadOnlyList<SourceBreakpoint> sourceBreakpoints)
         {
-            // TODO: actually implement
-            foreach (var sbp in sourceBreakpoints)
+            if (source.SourceReference.HasValue)
             {
-                yield return new Breakpoint(false)
-                {
-                    Column = sbp.Column,
-                    Line = sbp.Line,
-                    Source = source
-                };
+                // TODO: disassembly breakpoint support
+                // if (disassemblyManager.TryGet(source.SourceReference.Value, out var disassembly))
+                // {
+                    foreach (var sbp in sourceBreakpoints)
+                    {
+                        var validated = false; // disassembly.LineMap.TryGetValue(sbp.Line, out var address);
+
+                        // store breakpoint address info
+
+                        yield return new Breakpoint(validated)
+                        {
+                            Column = sbp.Column,
+                            Line = sbp.Line,
+                            Source = source
+                        };
+                    }
+                // }
+                // else
+                // {
+                //     // disassembly not yet generated for source.SourceReference
+                // }
             }
-            // breakpointCache.Clear();
-            // this.sourceBreakpointMap[source.Path] = sourceBreakpoints;
+            else
+            {
+                var sbpValidated = new bool[sourceBreakpoints.Count];
+                HashSet<(UInt160, int)> breakpoints = new();
 
-            // if (UInt160.TryParse(source.Name, out var scriptHash))
-            // {
-            //     var lineMap = disassemblyManager.TryGetDisassembly(scriptHash, out var disassembly)
-            //         ? disassembly.LineMap : ImmutableDictionary<int, int>.Empty;
+                for (int i = 0; i < debugInfoList.Count; i++)
+                {
+                    var debugInfo = debugInfoList[i];
 
-            //     foreach (var sbp in sourceBreakpoints)
-            //     {
-            //         yield return new Breakpoint()
-            //         {
-            //             Verified = lineMap.TryGetValue(sbp.Line, out var _) ? true : false,
-            //             Column = sbp.Column,
-            //             Line = sbp.Line,
-            //             Source = source
-            //         };
-            //     }
-            // }
-            // else
-            // {
-            //     var sequencePoints = debugInfoList
-            //         .SelectMany(d => d.Methods.SelectMany(m => m.SequencePoints).Select(sp => (d, sp)))
-            //         .Where(t => t.sp.PathEquals(t.d, source.Path))
-            //         .Select(t => t.sp)
-            //         .ToImmutableList();
+                    if (!TryFindDocumentIndex(debugInfo.Documents, source.Path, out var index)) continue;
 
-            //     foreach (var sbp in sourceBreakpoints)
-            //     {
-            //         yield return new Breakpoint()
-            //         {
-            //             Verified = sequencePoints.Any(sp => sp.Start.line == sbp.Line),
-            //             Column = sbp.Column,
-            //             Line = sbp.Line,
-            //             Source = source
-            //         };
-            //     }
-            // }
-        }
+                    // TODO: Cache this?
+                    var pointLookup = debugInfo.Methods
+                        .SelectMany(m => m.SequencePoints)
+                        .Where(sp => sp.Document == index)
+                        .ToLookup(sp => sp.Start.line);
 
-        private ImmutableHashSet<int> GetBreakpoints(UInt160 scriptHash)
-        {
-            return ImmutableHashSet<int>.Empty;
-            // if (!breakpointCache.TryGetValue(scriptHash, out var breakpoints))
-            // {
-            //     var builder = ImmutableHashSet.CreateBuilder<int>();
+                    for (int j = 0; j < sourceBreakpoints.Count; j++)
+                    {
+                        SourceBreakpoint? sbp = sourceBreakpoints[j];
+                        var validated = pointLookup.TryLookup(sbp.Line, out var points);
 
-            //     foreach (var kvp in sourceBreakpointMap)
-            //     {
-            //         if (UInt160.TryParse(kvp.Key, out var sourceScriptHash))
-            //         {
-            //             if (sourceScriptHash == scriptHash)
-            //             {
-            //                 var lineMap = disassemblyManager.TryGetDisassembly(scriptHash, out var disassembly)
-            //                     ? disassembly.LineMap : ImmutableDictionary<int, int>.Empty;
+                        if (validated)
+                        {
+                            sbpValidated[j] = true;
+                            breakpoints.Add((debugInfo.ScriptHash, points.First().Address));
+                        }
+                    }
+                }
 
-            //                 foreach (var sbp in kvp.Value)
-            //                 {
-            //                     if (lineMap.TryGetValue(sbp.Line, out var address))
-            //                     {
-            //                         builder.Add(address);
-            //                     }
-            //                 }
-            //             }
-            //         }
-            //         else
-            //         {
-            //             foreach (var debugInfo in debugInfoList)
-            //             {
-            //                 var sequencePoints = debugInfo.Methods
-            //                     .SelectMany(m => m.SequencePoints)
-            //                     .Where(sp => sp.PathEquals(debugInfo, kvp.Key))
-            //                     .ToImmutableList();
+                this.sourceBreakpoints[source.Path] = breakpoints;
 
-            //                 foreach (var sbp in kvp.Value)
-            //                 {
-            //                     var foundSP = sequencePoints.Find(sp => sp.Start.line == sbp.Line);
+                for (int i = 0; i < sourceBreakpoints.Count; i++)
+                {
+                    var sbp = sourceBreakpoints[i];
+                    yield return new Breakpoint(sbpValidated[i])
+                    {
+                        Column = sbp.Column,
+                        Line = sbp.Line,
+                        Source = source
+                    };
+                }
+            }
 
-            //                     if (foundSP != null)
-            //                     {
-            //                         builder.Add(foundSP.Address);
-            //                     }
-            //                 }
-            //             }
-            //         }
-            //     }
+            this.breakpointCache.Clear();
 
-            //     breakpoints = builder.ToImmutable();
-            //     breakpointCache[scriptHash] = breakpoints;
-            // }
+            var sob = this.sourceBreakpoints
+                .SelectMany(kvp => kvp.Value)
+                .GroupBy(t => t.hash);
 
-            // return breakpoints;
+            foreach (var g in sob)
+            {
+                this.breakpointCache[g.Key] = g.Select(t => t.position).Distinct().ToHashSet();
+            }
+
+            static bool TryFindDocumentIndex(IReadOnlyList<string> documents, string path, out int index)
+            {
+                for (int i = 0; i < documents.Count; i++)
+                {
+                    if (documents[i].Equals(path, StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        index = i;
+                        return true;
+                    }
+                }
+
+                index = 0;
+                return false;
+            }
         }
 
         public bool CheckBreakpoint(IExecutionContext? context)
         {
-            return context is not null
-                ? GetBreakpoints(context.ScriptHash)
-                    .Contains(context.InstructionPointer)
-                : false;
+            if (context is null) return false;
+
+            if (breakpointCache.TryGetValue(context.ScriptIdentifier, out var set)
+                && set.Contains(context.InstructionPointer))
+            {
+                return true;
+            }
+
+            return false;
         }
 
     }

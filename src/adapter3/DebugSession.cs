@@ -153,15 +153,19 @@ namespace NeoDebug.Neo3
                 if (disassemblyView)
                 {
                     var disassembly = disassemblyManager.GetOrAdd(context, debugInfo);
+                    var name = string.IsNullOrEmpty(contract?.Manifest.Name)
+                        ? null : contract.Manifest.Name;
+                    var shortHash = context.ScriptHash.ToString().Substring(0, 8) + "...";
                     frame.Source = new Source()
                     {
-                        Name = string.IsNullOrEmpty(contract?.Manifest.Name)
-                            ? "Unknown Source"
-                            : $"{contract.Manifest.Name}",
+                        // As per DAP docs, Path *should* be optional when specifying SourceReference.
+                        // However, in practice VSCode 1.65 doesn't render bound disassembly breakpoints
+                        // correctly when Path is not set and Name appears to be ignored
+                        Path = $"{name ?? shortHash} disassembly",
                         SourceReference = disassembly.SourceReference,
-                        AdapterData = disassembly.LineMap,
+                        // AdapterData = disassembly.LineMap,
                         Origin = $"{disassembly.ScriptHash}",
-                        PresentationHint = string.IsNullOrEmpty(contract?.Manifest.Name)
+                        PresentationHint = name is null
                             ? Source.PresentationHintValue.Deemphasize
                             : Source.PresentationHintValue.Normal,
                     };

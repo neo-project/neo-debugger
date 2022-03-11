@@ -35,6 +35,18 @@ namespace NeoDebug.Neo3
             throw new InvalidOperationException($"{item.Type} not accessable as ReadOnlyMemory<byte>");
         }
 
+        public static bool TryLookup<TKey, TElement>(this ILookup<TKey, TElement> @this, TKey key, out IEnumerable<TElement> elements)
+        {
+            if (@this.Contains(key))
+            {
+                elements = @this[key];
+                return true;
+            }
+
+            elements = Enumerable.Empty<TElement>();
+            return false;
+        }
+
         public static bool TryGetMethod(this DebugInfo debugInfo, int instructionPointer, out DebugInfo.Method method)
         {
             for (int i = 0; i < debugInfo.Methods.Count; i++)

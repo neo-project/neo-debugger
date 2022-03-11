@@ -28,7 +28,7 @@ namespace NeoDebug.Neo3
         public static string AsTypeName(this ContractType type)
             => type switch
             {
-                ArrayContractType arrayType => $"Array<{arrayType.AsTypeName()}>",
+                ArrayContractType arrayType => $"Array<{arrayType.Type.AsTypeName()}>",
                 InteropContractType interopType => $"Interop<{interopType.Type}>",
                 MapContractType mapType => $"Map<{mapType.KeyType}, {mapType.ValueType.AsTypeName()}>",
                 PrimitiveContractType primitiveType => $"#{primitiveType.Type}",
