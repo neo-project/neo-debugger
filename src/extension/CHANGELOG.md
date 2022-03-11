@@ -13,7 +13,12 @@ will not have contiguous patch numbers. Initial major and minor releases will be
 in this file without a patch number. Patch version will be included for bug fix releases, but
 may not exactly match a publicly released version.
 
-## [Unreleased]
+> Note, starting with v3.2, production releases have an even minor version number and 
+  preview releases have an odd minor version number. Preview releases are available in the
+  marketplace, but will not have the prerelease string in the version number. For more
+  details, please see [Versioning Strategy](https://github.com/neo-project/neo-debugger#versioning-strategy)
+
+## [3.3.18-preview] - 2022-03-07
 
 ### Added
 * Storage Schema support. See [overview](/docs/storage-schema-overview.md) for details
