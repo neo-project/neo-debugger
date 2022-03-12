@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.BlockchainToolkit.Models;
+using OneOf;
+using None = OneOf.Types.None;
 
 namespace NeoDebug.Neo3
 {
@@ -11,20 +13,15 @@ namespace NeoDebug.Neo3
     class NeoArrayContainer : IVariableContainer
     {
         readonly NeoArray array;
-        readonly StructContractType? type;
+        readonly OneOf<StructContractType, ArrayContractType, None> type;
         readonly byte addressVersion;
 
-        public NeoArrayContainer(NeoArray array)
+        public NeoArrayContainer(NeoArray array, OneOf<StructContractType, ArrayContractType, None> type, byte addressVersion)
         {
-            this.array = array;
-            this.type = null;
-        }
-
-        public NeoArrayContainer(NeoArray array, StructContractType type, byte addressVersion)
-        {
-            if (type is not null && type.Fields.Count != array.Count)
+            if (type.TryPickT0(out var structType, out _)
+                && structType.Fields.Count != array.Count)
             {
-                throw new ArgumentException($"Expected {type.Fields.Count} array fields, received {array.Count}");
+                throw new ArgumentException($"Expected {structType.Fields.Count} array fields, received {array.Count}");
             }
 
             this.array = array;
@@ -32,27 +29,37 @@ namespace NeoDebug.Neo3
             this.addressVersion = addressVersion;
         }
 
-
         public static Variable Create(IVariableManager manager, NeoArray array, string name, StructContractType type, byte addressVersion)
         {
             var container = new NeoArrayContainer(array, type, addressVersion);
             return new Variable()
             {
                 Name = name,
-                Value = type.AsTypeName(),
+                Value = type.ShortName,
                 VariablesReference = manager.Add(container),
                 NamedVariables = array.Count,
             };
         }
 
-        public static Variable Create(IVariableManager manager, NeoArray array, string name)
+        public static Variable Create(IVariableManager manager, NeoArray array, string name, ArrayContractType type, byte addressVersion)
         {
-            var typeName = array is NeoStruct ? "Struct" : "Array";
-            var container = new NeoArrayContainer(array);
+            var container = new NeoArrayContainer(array, type, addressVersion);
             return new Variable()
             {
                 Name = name,
-                Value = $"{typeName}[{array.Count}]",
+                Value = $"Array<{type.Type.AsTypeName()}>[{array.Count}]",
+                VariablesReference = manager.Add(container),
+                IndexedVariables = array.Count,
+            };
+        }
+
+        public static Variable Create(IVariableManager manager, NeoArray array, string name)
+        {
+            var container = new NeoArrayContainer(array, default(None), 0);
+            return new Variable()
+            {
+                Name = name,
+                Value = $"{(array is NeoStruct ? "Struct" : "Array<>")}[{array.Count}]",
                 VariablesReference = manager.Add(container),
                 IndexedVariables = array.Count,
             };
@@ -63,10 +70,16 @@ namespace NeoDebug.Neo3
             for (int i = 0; i < array.Count; i++)
             {
                 var fieldValue = array[i];
-                var variable = type is null
-                    ? fieldValue.AsVariable(manager, $"{i}")
-                    : fieldValue.AsVariable(manager, type.Fields[i].Name, type.Fields[i].Type, addressVersion);
-                yield return variable;
+                var fieldType = type.Match<ContractType>(
+                    s => s.Fields[i].Type,
+                    a => a.Type,
+                    _ => ContractType.Unspecified);
+                var fieldName = type.Match<string>(
+                    s => s.Fields[i].Name,
+                    a => $"{i}",
+                    _ => $"{i}");
+
+                yield return fieldValue.AsVariable(manager, fieldName, fieldType, addressVersion);
             }
         }
     }

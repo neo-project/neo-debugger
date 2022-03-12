@@ -32,7 +32,7 @@ namespace NeoDebug.Neo3
                 InteropContractType interopType => $"Interop<{interopType.Type}>",
                 MapContractType mapType => $"Map<{mapType.KeyType}, {mapType.ValueType.AsTypeName()}>",
                 PrimitiveContractType primitiveType => $"#{primitiveType.Type}",
-                StructContractType structType => structType.Name,
+                StructContractType structType => structType.ShortName,
                 UnspecifiedContractType => "<unspecified>",
                 _ => throw new ArgumentException(type.GetType().Name, nameof(type)),
             };
@@ -225,25 +225,19 @@ namespace NeoDebug.Neo3
                 if (type is StructContractType structType
                     && array.Count == structType.Fields.Count)
                 {
-                    var variable = NeoArrayContainer.Create(manager, array, name, structType, addressVersion);
-                    variable.Type = type.AsTypeName();
-                    return variable;
+                    return NeoArrayContainer.Create(manager, array, name, structType, addressVersion);
                 }
 
                 if (type is ArrayContractType arrayType)
                 {
-                    // todo: handle homogeneous array
+                    return NeoArrayContainer.Create(manager, array, name, arrayType, addressVersion);
                 }
             }
 
             if (@this is NeoMap map
                 && type is MapContractType mapType)
             {
-                // TODO: handle map
-
-                // var variable = NeoMapContainer.Create(manager, map, name, mapType);
-                // variable.Type = type.AsTypeName();
-                // return variable;
+                return NeoMapContainer.Create(manager, map, name, mapType, addressVersion);
             }
 
             {
