@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
+using Neo.BlockchainToolkit;
 using Neo.BlockchainToolkit.Models;
 using Neo.SmartContract.Native;
 using Neo.VM;
@@ -19,7 +20,10 @@ namespace NeoDebug.Neo3
 
         private readonly IApplicationEngine engine;
         private readonly IReadOnlyList<CastOperation> returnTypes;
-        private readonly IReadOnlyDictionary<UInt160, DebugInfo> debugInfoMap;
+        
+        private readonly IReadOnlyList<DebugInfo> debugInfoList;
+        private readonly Dictionary<UInt160, DebugInfo> debugInfoMap = new();
+        private readonly Dictionary<UInt160, string> contractNameMap = new();
         private readonly Action<DebugEvent> sendEvent;
         private bool disassemblyView;
         private readonly StorageView storageView;
@@ -28,7 +32,6 @@ namespace NeoDebug.Neo3
         private readonly BreakpointManager breakpointManager;
         private bool breakOnCaughtExceptions;
         private bool breakOnUncaughtExceptions = true;
-
 
         public DebugSession(IApplicationEngine engine,
                             IReadOnlyList<DebugInfo> debugInfoList,
@@ -40,11 +43,11 @@ namespace NeoDebug.Neo3
             this.engine = engine;
             this.returnTypes = returnTypes;
             this.sendEvent = sendEvent;
-            debugInfoMap = debugInfoList.ToDictionary(info => info.ScriptHash);
+            this.debugInfoList = debugInfoList;
             disassemblyView = defaultDebugView == DebugView.Disassembly;
             this.storageView = storageView;
-            disassemblyManager = new DisassemblyManager(TryGetScript, debugInfoMap.TryGetValue);
-            breakpointManager = new BreakpointManager(disassemblyManager, debugInfoList);
+            disassemblyManager = new DisassemblyManager();
+            breakpointManager = new BreakpointManager(disassemblyManager, () => debugInfoMap);
 
             this.engine.DebugNotify += OnNotify;
             this.engine.DebugLog += OnLog;
@@ -55,6 +58,29 @@ namespace NeoDebug.Neo3
                 {
                     Capabilities = new Capabilities { SupportsStepBack = true }
                 });
+            }
+
+            // TODO: implement for Trace Engine
+            if (engine is DebugApplicationEngine debugEngine)
+            {
+                foreach (var contract in NativeContract.ContractManagement.ListContracts(debugEngine.Snapshot))
+                {
+                    contractNameMap.Add(contract.Hash, contract.Manifest.Name);
+
+                    if (contract.Id < 0) continue;
+
+                    var scriptId = Neo.SmartContract.Helper.ToScriptHash(contract.Nef.Script);
+
+                    if (debugInfoList.TryFind(di => di.ScriptHash == scriptId, out var debugInfo))
+                    {
+                        debugInfoMap.Add(contract.Hash, debugInfo);
+                        disassemblyManager.GetOrAdd(contract, debugInfo);
+                    }
+                    else
+                    {
+                        disassemblyManager.GetOrAdd(contract, null);
+                    }
+                }
             }
         }
 
@@ -80,24 +106,14 @@ namespace NeoDebug.Neo3
             engine.Dispose();
         }
 
-        private bool TryGetScript(UInt160 scriptHash, [MaybeNullWhen(false)] out Neo.VM.Script script)
+        private bool TryGetDebugInfo(IExecutionContext context, [MaybeNullWhen(false)] out DebugInfo info)
         {
-            if (engine.TryGetContract(scriptHash, out var contractScript))
+            if (debugInfoMap.TryGetValue(context.ScriptHash, out info))
             {
-                script = contractScript;
                 return true;
             }
 
-            foreach (var context in engine.InvocationStack)
-            {
-                if (scriptHash == context.ScriptIdentifier)
-                {
-                    script = context.Script;
-                    return true;
-                }
-            }
-
-            script = null;
+            info = default;
             return false;
         }
 
@@ -127,7 +143,7 @@ namespace NeoDebug.Neo3
             foreach (var (context, index) in engine.InvocationStack.Select((c, i) => (c, i)))
             {
                 var scriptId = context.ScriptHash;
-                var debugInfo = debugInfoMap.TryGetValue(context.ScriptIdentifier, out var _debugInfo) ? _debugInfo : null;
+                var debugInfo = TryGetDebugInfo(context, out var _debugInfo) ? _debugInfo : null;
 
                 DebugInfo.Method method = default;
                 debugInfo?.TryGetMethod(context.InstructionPointer, out method);
@@ -135,10 +151,9 @@ namespace NeoDebug.Neo3
                      ? $"<frame {engine.InvocationStack.Count - index}>"
                      : method.Name;
 
-                var contract = engine is DebugApplicationEngine debugEngine
-                    ? NativeContract.ContractManagement.GetContract(debugEngine.Snapshot, context.ScriptHash)
-                    : null;
-
+                var contractName = contractNameMap.TryGetValue(context.ScriptHash, out var _name)
+                    ? _name : null;
+                
                 var frame = new StackFrame()
                 {
                     Id = index,
@@ -148,19 +163,17 @@ namespace NeoDebug.Neo3
                 if (disassemblyView)
                 {
                     var disassembly = disassemblyManager.GetOrAdd(context, debugInfo);
-                    var name = string.IsNullOrEmpty(contract?.Manifest.Name)
-                        ? null : contract.Manifest.Name;
                     var shortHash = context.ScriptHash.ToString().Substring(0, 8) + "...";
                     frame.Source = new Source()
                     {
                         // As per DAP docs, Path *should* be optional when specifying SourceReference.
                         // However, in practice VSCode 1.65 doesn't render bound disassembly breakpoints
                         // correctly when Path is not set and Name appears to be ignored
-                        Path = $"{name ?? shortHash} disassembly",
+                        Path = $"{contractName ?? shortHash} disassembly",
                         SourceReference = disassembly.SourceReference,
                         // AdapterData = disassembly.LineMap,
                         Origin = $"{disassembly.ScriptHash}",
-                        PresentationHint = name is null
+                        PresentationHint = contractName is null
                             ? Source.PresentationHintValue.Deemphasize
                             : Source.PresentationHintValue.Normal,
                     };
@@ -175,9 +188,9 @@ namespace NeoDebug.Neo3
                         frame.Source = new Source()
                         {
                             Name = System.IO.Path.GetFileName(docPath),
-                            Origin = string.IsNullOrEmpty(contract?.Manifest.Name)
+                            Origin = string.IsNullOrEmpty(contractName)
                                 ? $"{context.ScriptHash}"
-                                : $"{contract.Manifest.Name} ({context.ScriptHash})",
+                                : $"{contractName} ({context.ScriptHash})",
                             Path = docPath,
                         };
 
@@ -206,7 +219,7 @@ namespace NeoDebug.Neo3
         public IEnumerable<Scope> GetScopes(ScopesArguments args)
         {
             var context = engine.InvocationStack.ElementAt(args.FrameId);
-            var debugInfo = debugInfoMap.TryGetValue(context.ScriptIdentifier, out var _debugInfo) ? _debugInfo : null;
+            var debugInfo = TryGetDebugInfo(context, out var _debugInfo) ? _debugInfo : null;
 
             if (disassemblyView)
             {
@@ -261,7 +274,7 @@ namespace NeoDebug.Neo3
             if (args.FrameId.HasValue)
             {
                 var context = engine.InvocationStack.ElementAt(args.FrameId.Value);
-                var debugInfo = debugInfoMap.TryGetValue(context.ScriptIdentifier, out var _debugInfo) ? _debugInfo : null;
+                var debugInfo = TryGetDebugInfo(context, out var _debugInfo) ? _debugInfo : null;
                 var evaluator = new ExpressionEvaluator(engine, context, debugInfo, storageView);
 
                 if (evaluator.TryEvaluate(variableManager, args, out var response)) return response;
@@ -431,7 +444,7 @@ namespace NeoDebug.Neo3
                 if (engine.CurrentContext != null)
                 {
                     var ip = engine.CurrentContext.InstructionPointer;
-                    if (debugInfoMap.TryGetValue(engine.CurrentContext.ScriptIdentifier, out var info))
+                    if (TryGetDebugInfo(engine.CurrentContext, out var info))
                     {
                         var methods = info.Methods;
                         for (int i = 0; i < methods.Count; i++)

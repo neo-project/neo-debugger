@@ -692,21 +692,26 @@ namespace NeoDebug.Neo3
 
         static async IAsyncEnumerable<DebugInfo> LoadStoredContractsDebugInfoAsync(ConfigProps config, IReadOnlyDictionary<string, string> sourceFileMap)
         {
+            var program = ParseProgram(config);
+            var debugInfo = (await DebugInfo.LoadAsync(program, sourceFileMap).ConfigureAwait(false))
+                .Match(di => di, _ => throw new FileNotFoundException(program));
+            yield return debugInfo;
+
             if (config.TryGetValue("stored-contracts", out var storedContracts))
             {
                 foreach (var storedContract in storedContracts)
                 {
                     if (storedContract.Type == JTokenType.String)
                     {
-                        var program = storedContract.Value<string>() ?? throw new JsonException("invalid stored-contracts item");
+                        program = storedContract.Value<string>() ?? throw new JsonException("invalid stored-contracts item");
                         var loadResult = (await DebugInfo.LoadAsync(program, sourceFileMap).ConfigureAwait(false));
-                        if (loadResult.TryPickT0(out var debugInfo, out _)) yield return debugInfo;
+                        if (loadResult.TryPickT0(out debugInfo, out _)) yield return debugInfo;
                     }
                     else if (storedContract.Type == JTokenType.Object)
                     {
-                        var program = storedContract.Value<string>("program") ?? throw new JsonException("missing program property");
+                        program = storedContract.Value<string>("program") ?? throw new JsonException("missing program property");
                         var loadResult = (await DebugInfo.LoadAsync(program, sourceFileMap).ConfigureAwait(false));
-                        if (loadResult.TryPickT0(out var debugInfo, out _)) yield return debugInfo;
+                        if (loadResult.TryPickT0(out debugInfo, out _)) yield return debugInfo;
                     }
                     else
                     {

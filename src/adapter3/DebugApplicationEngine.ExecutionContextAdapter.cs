@@ -16,17 +16,17 @@ namespace NeoDebug.Neo3
             public ExecutionContextAdapter(ExecutionContext context, IDictionary<UInt160, UInt160> scriptIdMap)
             {
                 this.context = context;
-                this.ScriptHash = context.GetScriptHash();
+                // this.ScriptHash = context.GetScriptHash();
 
-                if (scriptIdMap.TryGetValue(this.ScriptHash, out var scriptHash))
-                {
-                    this.ScriptIdentifier = scriptHash;
-                }
-                else
-                {
-                    this.ScriptIdentifier = Neo.SmartContract.Helper.ToScriptHash(context.Script);
-                    scriptIdMap[this.ScriptHash] = this.ScriptIdentifier;
-                }
+                // if (scriptIdMap.TryGetValue(context.GetScriptHash(), out var scriptHash))
+                // {
+                //     this.ScriptIdentifier = scriptHash;
+                // }
+                // else
+                // {
+                //     this.ScriptIdentifier = Neo.SmartContract.Helper.ToScriptHash(context.Script);
+                //     scriptIdMap[this.ScriptHash] = this.ScriptIdentifier;
+                // }
             }
 
             public Instruction CurrentInstruction => context.CurrentInstruction;
@@ -42,11 +42,13 @@ namespace NeoDebug.Neo3
             public IReadOnlyList<StackItem> Arguments => Coalese(context.Arguments);
 
             public Script Script => context.Script;
-            public MethodToken[] Tokens => context.GetState<ExecutionContextState>()?.Contract?.Nef.Tokens
+            public IReadOnlyList<MethodToken> Tokens => context.GetState<ExecutionContextState>()?.Contract?.Nef.Tokens
                 ?? Array.Empty<MethodToken>();
 
-            public UInt160 ScriptHash { get; }
-            public UInt160 ScriptIdentifier { get; }
+            public uint? NefChecksum => context.GetState<ExecutionContextState>()?.Contract?.Nef.CheckSum;
+
+            public UInt160 ScriptHash => context.GetScriptHash();
+            // public UInt160 ScriptIdentifier { get; }
 
             static IReadOnlyList<StackItem> Coalese(Neo.VM.Slot? slot) => (slot == null) ? Array.Empty<StackItem>() : slot;
         }

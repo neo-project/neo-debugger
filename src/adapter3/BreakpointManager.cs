@@ -11,31 +11,32 @@ namespace NeoDebug.Neo3
     class BreakpointManager
     {
         private readonly DisassemblyManager disassemblyManager;
-        private readonly IReadOnlyList<DebugInfo> debugInfoList;
+        private readonly Func<IEnumerable<KeyValuePair<UInt160, DebugInfo>>> getDebugInfos;
         // private readonly Dictionary<UInt160, ImmutableHashSet<int>> breakpointCache = new Dictionary<UInt160, ImmutableHashSet<int>>();
         // private readonly Dictionary<string, IReadOnlyList<SourceBreakpoint>> sourceBreakpointMap = new Dictionary<string, IReadOnlyList<SourceBreakpoint>>();
 
-        public BreakpointManager(DisassemblyManager disassemblyManager, IReadOnlyList<DebugInfo> debugInfoList)
+        public BreakpointManager(DisassemblyManager disassemblyManager, Func<IEnumerable<KeyValuePair<UInt160, DebugInfo>>> getDebugInfos)
         {
             this.disassemblyManager = disassemblyManager;
-            this.debugInfoList = debugInfoList;
+            this.getDebugInfos = getDebugInfos;
         }
 
         readonly Dictionary<string, IReadOnlySet<(UInt160 hash, int position)>> sourceBreakpoints = new();
+        readonly Dictionary<UInt160, IReadOnlySet<int>> disassemblyBreakpoints = new(); 
         readonly Dictionary<UInt160, IReadOnlySet<int>> breakpointCache = new();
 
         public IEnumerable<Breakpoint> SetBreakpoints(Source source, IReadOnlyList<SourceBreakpoint> sourceBreakpoints)
         {
             if (source.SourceReference.HasValue)
             {
-                // TODO: disassembly breakpoint support
-                // if (disassemblyManager.TryGet(source.SourceReference.Value, out var disassembly))
-                // {
+                if (disassemblyManager.TryGet(source.SourceReference.Value, out var disassembly))
+                {
+                    HashSet<int> breakpoints = new();
                     foreach (var sbp in sourceBreakpoints)
                     {
-                        var validated = false; // disassembly.LineMap.TryGetValue(sbp.Line, out var address);
+                        var validated = disassembly.LineMap.TryGetValue(sbp.Line, out var address);
 
-                        // store breakpoint address info
+                        breakpoints.Add(address);
 
                         yield return new Breakpoint(validated)
                         {
@@ -44,20 +45,28 @@ namespace NeoDebug.Neo3
                             Source = source
                         };
                     }
-                // }
-                // else
-                // {
-                //     // disassembly not yet generated for source.SourceReference
-                // }
+                    disassemblyBreakpoints[disassembly.ScriptHash] = breakpoints;
+                }
+                else
+                {
+                    foreach (var sbp in sourceBreakpoints)
+                    {
+                        yield return new Breakpoint(false)
+                        {
+                            Column = sbp.Column,
+                            Line = sbp.Line,
+                            Source = source
+                        };
+                    }
+                }
             }
             else
             {
                 var sbpValidated = new bool[sourceBreakpoints.Count];
                 HashSet<(UInt160, int)> breakpoints = new();
 
-                for (int i = 0; i < debugInfoList.Count; i++)
+                foreach (var (scriptHash, debugInfo) in getDebugInfos())
                 {
-                    var debugInfo = debugInfoList[i];
 
                     if (!TryFindDocumentIndex(debugInfo.Documents, source.Path, out var index)) continue;
 
@@ -75,7 +84,7 @@ namespace NeoDebug.Neo3
                         if (validated)
                         {
                             sbpValidated[j] = true;
-                            breakpoints.Add((debugInfo.ScriptHash, points.First().Address));
+                            breakpoints.Add((scriptHash, points.First().Address));
                         }
                     }
                 }
@@ -96,13 +105,15 @@ namespace NeoDebug.Neo3
 
             this.breakpointCache.Clear();
 
-            var sob = this.sourceBreakpoints
-                .SelectMany(kvp => kvp.Value)
-                .GroupBy(t => t.hash);
+            var srcBPs = this.sourceBreakpoints.SelectMany(kvp => kvp.Value);
+            var dsmBPs = this.disassemblyBreakpoints.SelectMany(bp => bp.Value.Select(p => (hash: bp.Key, position: p)));
 
-            foreach (var g in sob)
+            var groupedBPs = srcBPs.Concat(dsmBPs).GroupBy(bp => bp.hash);
+            foreach (var contractBPs in groupedBPs)
             {
-                this.breakpointCache[g.Key] = g.Select(t => t.position).Distinct().ToHashSet();
+                this.breakpointCache[contractBPs.Key] = contractBPs.Select(t => t.position)
+                    .Distinct()
+                    .ToHashSet();
             }
 
             static bool TryFindDocumentIndex(IReadOnlyList<string> documents, string path, out int index)
@@ -125,7 +136,7 @@ namespace NeoDebug.Neo3
         {
             if (context is null) return false;
 
-            if (breakpointCache.TryGetValue(context.ScriptIdentifier, out var set)
+            if (breakpointCache.TryGetValue(context.ScriptHash, out var set)
                 && set.Contains(context.InstructionPointer))
             {
                 return true;
@@ -133,6 +144,5 @@ namespace NeoDebug.Neo3
 
             return false;
         }
-
     }
 }

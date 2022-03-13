@@ -13,9 +13,11 @@ namespace NeoDebug.Neo3
         Instruction CurrentInstruction { get; }
         int InstructionPointer { get; }
         UInt160 ScriptHash { get; }
-        UInt160 ScriptIdentifier { get; }
+        // UInt160 ScriptIdentifier { get; }
         Script Script { get; }
-        MethodToken[] Tokens { get; }
+        IReadOnlyList<MethodToken> Tokens { get; }
+        uint? NefChecksum { get; }
+
         IReadOnlyList<StackItem> EvaluationStack { get; }
         IReadOnlyList<StackItem> LocalVariables { get; }
         IReadOnlyList<StackItem> StaticFields { get; }

@@ -16,8 +16,8 @@ namespace NeoDebug.Neo3
 {
     class DisassemblyManager
     {
-        public delegate bool TryGetScript(UInt160 scriptHash, [MaybeNullWhen(false)] out Script script);
-        public delegate bool TryGetDebugInfo(UInt160 scriptHash, [MaybeNullWhen(false)] out DebugInfo debugInfo);
+        public delegate bool TryGetScript(IExecutionContext scriptHash, [MaybeNullWhen(false)] out Script script);
+        public delegate bool TryGetDebugInfo(IExecutionContext scriptHash, [MaybeNullWhen(false)] out DebugInfo debugInfo);
 
         static readonly ImmutableDictionary<uint, string> sysCallNames;
 
@@ -37,24 +37,19 @@ namespace NeoDebug.Neo3
         }
 
         readonly ConcurrentDictionary<int, Disassembly> disassemblies = new ConcurrentDictionary<int, Disassembly>();
-        readonly TryGetScript tryGetScript;
-        readonly TryGetDebugInfo tryGetDebugInfo;
-
-        public DisassemblyManager(TryGetScript tryGetScript, TryGetDebugInfo tryGetDebugInfo)
-        {
-            this.tryGetScript = tryGetScript;
-            this.tryGetDebugInfo = tryGetDebugInfo;
-        }
 
         public Disassembly GetOrAdd(IExecutionContext context, DebugInfo? debugInfo)
-            => disassemblies.GetOrAdd(context.ScriptIdentifier.GetHashCode(), sourceRef => ToDisassembly(sourceRef, context, debugInfo));
+            => disassemblies.GetOrAdd(context.ScriptHash.GetHashCode(), sourceRef => ToDisassembly(sourceRef, context.ScriptHash, context.Script, context.Tokens, debugInfo));
+
+        public Disassembly GetOrAdd(ContractState contract, DebugInfo? debugInfo)
+            => disassemblies.GetOrAdd(contract.Hash.GetHashCode(), sourceRef => ToDisassembly(sourceRef, contract.Hash, contract.Nef.Script, contract.Nef.Tokens, debugInfo));
 
         public bool TryGet(int sourceRef, out Disassembly disassembly)
             => disassemblies.TryGetValue(sourceRef, out disassembly);
 
-        static Disassembly ToDisassembly(int sourceRef, IExecutionContext context, DebugInfo? debugInfo)
+        static Disassembly ToDisassembly(int sourceRef, UInt160 scriptHash, Script script, IReadOnlyList<MethodToken> tokens, DebugInfo? debugInfo)
         {
-            var padString = context.Script.GetInstructionAddressPadding();
+            var padString = script.GetInstructionAddressPadding();
             var sourceBuilder = new StringBuilder();
             Dictionary<int, int> addressMap = new();
             Dictionary<int, int> lineMap = new();
@@ -75,7 +70,7 @@ namespace NeoDebug.Neo3
             var sequencePoints = methods.SelectMany(m => m.SequencePoints)
                 .ToDictionary(s => s.Address).AsReadOnly();
 
-            var instructions = context.Script.EnumerateInstructions()
+            var instructions = script.EnumerateInstructions()
                 .ToArray().AsReadOnly();
 
             var line = 1;
@@ -108,7 +103,7 @@ namespace NeoDebug.Neo3
                     }
                 }
 
-                AddSource(sourceBuilder, instructions[i].address, instructions[i].instruction, padString, (MethodToken[]?)context.Tokens);
+                AddSource(sourceBuilder, instructions[i].address, instructions[i].instruction, padString, tokens);
                 addressMap.Add(instructions[i].address, line);
                 lineMap.Add(line, instructions[i].address);
                 line++;
@@ -122,14 +117,14 @@ namespace NeoDebug.Neo3
 
             return new Disassembly
             {
-                ScriptHash = context.ScriptIdentifier,
+                ScriptHash = scriptHash,
                 Source = sourceBuilder.ToString(),
                 SourceReference = sourceRef,
                 AddressMap = addressMap,
                 LineMap = lineMap
             };
 
-            static void AddSource(StringBuilder sourceBuilder, int address, Instruction instruction, string padString, MethodToken[]? tokens)
+            static void AddSource(StringBuilder sourceBuilder, int address, Instruction instruction, string padString, IReadOnlyList<MethodToken> tokens)
             {
                 sourceBuilder.Append($"{address.ToString(padString)} {instruction.OpCode}");
                 if (!instruction.Operand.IsEmpty)
