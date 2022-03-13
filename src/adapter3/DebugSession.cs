@@ -1,21 +1,16 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
 using Neo.BlockchainToolkit.Models;
-using Neo.SmartContract;
 using Neo.SmartContract.Native;
 using Neo.VM;
 
 namespace NeoDebug.Neo3
 {
-    using ByteString = Neo.VM.Types.ByteString;
     using NeoArray = Neo.VM.Types.Array;
-    using StackItem = Neo.VM.Types.StackItem;
-    using StackItemType = Neo.VM.Types.StackItemType;
 
     internal class DebugSession : IDebugSession, IDisposable
     {
@@ -45,7 +40,7 @@ namespace NeoDebug.Neo3
             this.engine = engine;
             this.returnTypes = returnTypes;
             this.sendEvent = sendEvent;
-            debugInfoMap = debugInfoList.ToDictionary(di => di.ScriptHash);
+            debugInfoMap = debugInfoList.ToDictionary(info => info.ScriptHash);
             disassemblyView = defaultDebugView == DebugView.Disassembly;
             this.storageView = storageView;
             disassemblyManager = new DisassemblyManager(TryGetScript, debugInfoMap.TryGetValue);
@@ -317,18 +312,18 @@ namespace NeoDebug.Neo3
 
         private int lastThrowAddress = -1;
 
-        // string ToResult(int index)
-        // {
-        //     if (index >= engine.ResultStack.Count) throw new ArgumentException("", nameof(index));
+        string ToResult(int index)
+        {
+            if (index >= engine.ResultStack.Count) throw new ArgumentException("", nameof(index));
 
-        //     var result = engine.ResultStack[index];
-        //     var returnType = index < returnTypes.Count ? returnTypes[index] : CastOperation.None;
-        //     var (value, variablesRef) = EvaluateVariable(result, ContractParameterType.Any, returnType);
+            var result = engine.ResultStack[index];
+            var returnType = index < returnTypes.Count ? returnTypes[index] : CastOperation.None;
 
-        //     return variablesRef == 0
-        //         ? value
-        //         : result.ToJson().ToString(Newtonsoft.Json.Formatting.Indented);
-        // }
+            // TODO: use manifest/debug info to automatically determine result type
+            // var (value, variablesRef) = EvaluateVariable(result, ContractParameterType.Any, returnType);
+
+            return result.ToJson().ToString(Newtonsoft.Json.Formatting.Indented);
+        }
 
         private void Step(Func<int, bool> compareStepDepth, bool stepBack = false)
         {
@@ -370,12 +365,11 @@ namespace NeoDebug.Neo3
                 {
                     for (int index = 0; index < engine.ResultStack.Count; index++)
                     {
-                        // TODO: revert this commenting out
-                        // var result = ToResult(index);
+                        var result = ToResult(index);
                         sendEvent(new OutputEvent()
                         {
                             Category = OutputEvent.CategoryValue.Stdout,
-                            // Output = $"Gas Consumed: {engine.GasConsumedAsBigDecimal}\nReturn: {result}\n",
+                            Output = $"Gas Consumed: {engine.GasConsumedAsBigDecimal}\nReturn: {result}\n",
                         });
                     }
                     sendEvent(new ExitedEvent());
