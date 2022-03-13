@@ -50,7 +50,8 @@ namespace NeoDebug.Neo3
                     kvp => kvp.Value?.Value<string>() ?? string.Empty);
             }
 
-            var returnTypes = ImmutableList<CastOperation>.Empty;
+            // TODO parse return types via Contract Type model
+            // var returnTypes = ImmutableList<CastOperation>.Empty;
             // if (launchArguments.ConfigurationProperties.TryGetValue("return-types", out var jsonReturnTypes))
             // {
             //     var builder = ImmutableList.CreateBuilder<CastOperation>();
@@ -64,7 +65,7 @@ namespace NeoDebug.Neo3
 
             var debugInfoList = await LoadStoredContractsDebugInfoAsync(launchArguments.ConfigurationProperties, sourceFileMap).ToListAsync().ConfigureAwait(false);
             var engine = await CreateEngineAsync(launchArguments.ConfigurationProperties, sourceFileMap).ConfigureAwait(false);
-            return new DebugSession(engine, debugInfoList, returnTypes, sendEvent, defaultDebugView, storageView);
+            return new DebugSession(engine, debugInfoList, Array.Empty<CastOperation>(), sendEvent, defaultDebugView, storageView);
         }
 
         static string ParseProgram(ConfigProps config) => config["program"].Value<string>() ?? throw new JsonException("missing program property");
