@@ -10,20 +10,17 @@ namespace NeoDebug.Neo3
 {
     class BreakpointManager
     {
-        private readonly DisassemblyManager disassemblyManager;
-        private readonly Func<IEnumerable<KeyValuePair<UInt160, DebugInfo>>> getDebugInfos;
-        // private readonly Dictionary<UInt160, ImmutableHashSet<int>> breakpointCache = new Dictionary<UInt160, ImmutableHashSet<int>>();
-        // private readonly Dictionary<string, IReadOnlyList<SourceBreakpoint>> sourceBreakpointMap = new Dictionary<string, IReadOnlyList<SourceBreakpoint>>();
+        readonly DisassemblyManager disassemblyManager;
+        readonly Func<IEnumerable<KeyValuePair<UInt160, DebugInfo>>> getDebugInfos;
+        readonly Dictionary<string, IReadOnlySet<(UInt160 hash, int position)>> sourceBreakpoints = new();
+        readonly Dictionary<UInt160, IReadOnlySet<int>> disassemblyBreakpoints = new(); 
+        readonly Dictionary<UInt160, IReadOnlySet<int>> breakpointCache = new();
 
         public BreakpointManager(DisassemblyManager disassemblyManager, Func<IEnumerable<KeyValuePair<UInt160, DebugInfo>>> getDebugInfos)
         {
             this.disassemblyManager = disassemblyManager;
             this.getDebugInfos = getDebugInfos;
         }
-
-        readonly Dictionary<string, IReadOnlySet<(UInt160 hash, int position)>> sourceBreakpoints = new();
-        readonly Dictionary<UInt160, IReadOnlySet<int>> disassemblyBreakpoints = new(); 
-        readonly Dictionary<UInt160, IReadOnlySet<int>> breakpointCache = new();
 
         public IEnumerable<Breakpoint> SetBreakpoints(Source source, IReadOnlyList<SourceBreakpoint> sourceBreakpoints)
         {
