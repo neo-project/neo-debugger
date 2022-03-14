@@ -64,7 +64,7 @@ nuget.config file is available in the [official docs](https://docs.microsoft.com
 To distinguish the Storage Schema Preview versions from production, the compiler and framework
 NuGet packages have a patch version number over 1000 and the prerelease tag `storage-schema-preview`.
 For example, the initial Storage Schema preview release version of the compiler and framework is
-`3.1.1034-storage-schema-preview`. The patch version has a base value of 1000 then adds the number
+`3.1.1035-storage-schema-preview`. The patch version has a base value of 1000 then adds the number
 of git commits since the branch forked from master. If there is a new production release of the
 compiler and framework ship during the Storage Schema preview, the preview version number will
 be updated to track the production version
