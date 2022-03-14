@@ -120,7 +120,7 @@ namespace NeoDebug.Neo3
             {
                 for (int i = 0; i < documents.Count; i++)
                 {
-                    if (documents[i].Equals(path, StringComparison.InvariantCultureIgnoreCase))
+                    if (documents[i].Equals(path, StringComparison.OrdinalIgnoreCase))
                     {
                         index = i;
                         return true;

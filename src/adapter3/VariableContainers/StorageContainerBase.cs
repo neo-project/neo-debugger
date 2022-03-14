@@ -312,7 +312,8 @@ namespace NeoDebug.Neo3
 
         static IEnumerable<Variable> EnumerateRawStorage(IVariableManager manager, IEnumerable<(ReadOnlyMemory<byte> key, StorageItem item)> storages, StorageView storageView)
         {
-            var hashedKeyView = storageView switch { 
+            var hashedKeyView = storageView switch
+            {
                 StorageView.HashedKey => true,
                 StorageView.FullKey => false,
                 _ => throw new Exception($"Invalid StorageView {storageView}")
@@ -320,9 +321,9 @@ namespace NeoDebug.Neo3
 
             foreach (var (key, item) in storages)
             {
-                var keyHashCode = hashedKeyView ? GetSequenceHashCode(key.Span).ToString("x8")  : string.Empty;
-                IVariableContainer container = hashedKeyView 
-                    ? new HashedKeyItemContainer(key, item, keyHashCode) 
+                var keyHashCode = hashedKeyView ? GetSequenceHashCode(key.Span).ToString("x8") : string.Empty;
+                IVariableContainer container = hashedKeyView
+                    ? new HashedKeyItemContainer(key, item, keyHashCode)
                     : new FullKeyItemContainer(key, item);
 
                 yield return new Variable()
