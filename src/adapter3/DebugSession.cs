@@ -1,21 +1,17 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
+using Neo.BlockchainToolkit;
 using Neo.BlockchainToolkit.Models;
-using Neo.SmartContract;
 using Neo.SmartContract.Native;
 using Neo.VM;
 
 namespace NeoDebug.Neo3
 {
-    using ByteString = Neo.VM.Types.ByteString;
     using NeoArray = Neo.VM.Types.Array;
-    using StackItem = Neo.VM.Types.StackItem;
-    using StackItemType = Neo.VM.Types.StackItemType;
 
     internal class DebugSession : IDebugSession, IDisposable
     {
@@ -24,7 +20,10 @@ namespace NeoDebug.Neo3
 
         private readonly IApplicationEngine engine;
         private readonly IReadOnlyList<CastOperation> returnTypes;
-        private readonly IReadOnlyDictionary<UInt160, DebugInfo> debugInfoMap;
+        
+        private readonly IReadOnlyList<DebugInfo> debugInfoList;
+        private readonly Dictionary<UInt160, DebugInfo> debugInfoMap = new();
+        private readonly Dictionary<UInt160, string> contractNameMap = new();
         private readonly Action<DebugEvent> sendEvent;
         private bool disassemblyView;
         private readonly StorageView storageView;
@@ -33,7 +32,6 @@ namespace NeoDebug.Neo3
         private readonly BreakpointManager breakpointManager;
         private bool breakOnCaughtExceptions;
         private bool breakOnUncaughtExceptions = true;
-        
 
         public DebugSession(IApplicationEngine engine,
                             IReadOnlyList<DebugInfo> debugInfoList,
@@ -45,11 +43,11 @@ namespace NeoDebug.Neo3
             this.engine = engine;
             this.returnTypes = returnTypes;
             this.sendEvent = sendEvent;
-            debugInfoMap = debugInfoList.ToDictionary(di => di.ScriptHash);
+            this.debugInfoList = debugInfoList;
             disassemblyView = defaultDebugView == DebugView.Disassembly;
             this.storageView = storageView;
-            disassemblyManager = new DisassemblyManager(TryGetScript, debugInfoMap.TryGetValue);
-            breakpointManager = new BreakpointManager(disassemblyManager, debugInfoList);
+            disassemblyManager = new DisassemblyManager();
+            breakpointManager = new BreakpointManager(disassemblyManager, () => debugInfoMap);
 
             this.engine.DebugNotify += OnNotify;
             this.engine.DebugLog += OnLog;
@@ -60,6 +58,29 @@ namespace NeoDebug.Neo3
                 {
                     Capabilities = new Capabilities { SupportsStepBack = true }
                 });
+            }
+
+            // TODO: implement for Trace Engine
+            if (engine is DebugApplicationEngine debugEngine)
+            {
+                foreach (var contract in NativeContract.ContractManagement.ListContracts(debugEngine.Snapshot))
+                {
+                    contractNameMap.Add(contract.Hash, contract.Manifest.Name);
+
+                    if (contract.Id < 0) continue;
+
+                    var scriptId = Neo.SmartContract.Helper.ToScriptHash(contract.Nef.Script);
+
+                    if (debugInfoList.TryFind(di => di.ScriptHash == scriptId, out var debugInfo))
+                    {
+                        debugInfoMap.Add(contract.Hash, debugInfo);
+                        disassemblyManager.GetOrAdd(contract, debugInfo);
+                    }
+                    else
+                    {
+                        disassemblyManager.GetOrAdd(contract, null);
+                    }
+                }
             }
         }
 
@@ -85,24 +106,14 @@ namespace NeoDebug.Neo3
             engine.Dispose();
         }
 
-        private bool TryGetScript(UInt160 scriptHash, [MaybeNullWhen(false)] out Neo.VM.Script script)
+        private bool TryGetDebugInfo(IExecutionContext context, [MaybeNullWhen(false)] out DebugInfo info)
         {
-            if (engine.TryGetContract(scriptHash, out var contractScript))
+            if (debugInfoMap.TryGetValue(context.ScriptHash, out info))
             {
-                script = contractScript;
                 return true;
             }
 
-            foreach (var context in engine.InvocationStack)
-            {
-                if (scriptHash == context.ScriptIdentifier)
-                {
-                    script = context.Script;
-                    return true;
-                }
-            }
-
-            script = null;
+            info = default;
             return false;
         }
 
@@ -132,59 +143,64 @@ namespace NeoDebug.Neo3
             foreach (var (context, index) in engine.InvocationStack.Select((c, i) => (c, i)))
             {
                 var scriptId = context.ScriptHash;
-                DebugInfo.Method? method = null;
-                if (debugInfoMap.TryGetValue(context.ScriptIdentifier, out var debugInfo))
-                {
-                    method = debugInfo.GetMethod(context.InstructionPointer);
-                }
+                var debugInfo = TryGetDebugInfo(context, out var _debugInfo) ? _debugInfo : null;
 
-                ContractState? contract = engine is DebugApplicationEngine debugEngine
-                    ? NativeContract.ContractManagement.GetContract(debugEngine.Snapshot, context.ScriptHash)
-                    : null;
+                DebugInfo.Method method = default;
+                debugInfo?.TryGetMethod(context.InstructionPointer, out method);
+                var methodName = string.IsNullOrEmpty(method.Name)
+                     ? $"<frame {engine.InvocationStack.Count - index}>"
+                     : method.Name;
 
-                var methodName = method?.Name ?? $"<frame {engine.InvocationStack.Count - index}>";
+                var contractName = contractNameMap.TryGetValue(context.ScriptHash, out var _name)
+                    ? _name : null;
+                
                 var frame = new StackFrame()
                 {
                     Id = index,
-                    Name = contract is not null 
-                        ? $"{methodName} ({contract.Manifest.Name})" 
-                        : methodName,
+                    Name = methodName,
                 };
 
                 if (disassemblyView)
                 {
-                    var disassembly = disassemblyManager.GetDisassembly(context, debugInfo);
+                    var disassembly = disassemblyManager.GetOrAdd(context, debugInfo);
+                    var shortHash = context.ScriptHash.ToString().Substring(0, 8) + "...";
                     frame.Source = new Source()
                     {
-                        Name = $"{context.ScriptHash}",
-                        SourceReference = disassembly.SourceReference
+                        // As per DAP docs, Path *should* be optional when specifying SourceReference.
+                        // However, in practice VSCode 1.65 doesn't render bound disassembly breakpoints
+                        // correctly when Path is not set and Name appears to be ignored
+                        Path = $"{contractName ?? shortHash} disassembly",
+                        SourceReference = disassembly.SourceReference,
+                        // AdapterData = disassembly.LineMap,
+                        Origin = $"{disassembly.ScriptHash}",
+                        PresentationHint = contractName is null
+                            ? Source.PresentationHintValue.Deemphasize
+                            : Source.PresentationHintValue.Normal,
                     };
                     frame.Line = disassembly.AddressMap[context.InstructionPointer];
                     frame.Column = 1;
                 }
                 else
                 {
-                    var sequencePoint = method?.GetCurrentSequencePoint(context.InstructionPointer);
-                    var document = sequencePoint?.GetDocumentPath(debugInfo);
-
-                    frame.Source = new Source()
+                    if (method.TryGetSequencePoint(context.InstructionPointer, out var point) 
+                        && point.TryGetDocumentPath(debugInfo, out var docPath))
                     {
-                        Name = document is not null
-                            ? System.IO.Path.GetFileName(document)
-                            : "<null>",
-                        Origin = $"ScriptHash: {context.ScriptHash}",
-                        Path = document ?? string.Empty,
-                    };
-
-                    if (sequencePoint is not null)
-                    {
-                        frame.Line = sequencePoint.Start.line;
-                        frame.Column = sequencePoint.Start.column;
-
-                        if (sequencePoint.Start != sequencePoint.End)
+                        frame.Source = new Source()
                         {
-                            frame.EndLine = sequencePoint.End.line;
-                            frame.EndColumn = sequencePoint.End.column;
+                            Name = System.IO.Path.GetFileName(docPath),
+                            Origin = string.IsNullOrEmpty(contractName)
+                                ? $"{context.ScriptHash}"
+                                : $"{contractName} ({context.ScriptHash})",
+                            Path = docPath,
+                        };
+
+                        frame.Line = point.Start.line;
+                        frame.Column = point.Start.column;
+
+                        if (point.Start != point.End)
+                        {
+                            frame.EndLine = point.End.line;
+                            frame.EndColumn = point.End.column;
                         }
                     }
                 }
@@ -203,6 +219,7 @@ namespace NeoDebug.Neo3
         public IEnumerable<Scope> GetScopes(ScopesArguments args)
         {
             var context = engine.InvocationStack.ElementAt(args.FrameId);
+            var debugInfo = TryGetDebugInfo(context, out var _debugInfo) ? _debugInfo : null;
 
             if (disassemblyView)
             {
@@ -214,12 +231,11 @@ namespace NeoDebug.Neo3
             }
             else
             {
-                var debugInfo = debugInfoMap.TryGetValue(context.ScriptIdentifier, out var _debugInfo) ? _debugInfo : null;
-                var container = new ExecutionContextContainer(context, debugInfo);
+                var container = new ExecutionContextContainer(context, debugInfo, engine.AddressVersion);
                 yield return AddScope("Variables", container);
             }
 
-            yield return AddScope("Storage", engine.GetStorageContainer(context.ScriptHash, storageView), true);
+            yield return AddScope("Storage", engine.GetStorageContainer(context.ScriptHash, debugInfo?.StorageGroups, storageView), true);
             yield return AddScope("Engine", new EngineContainer(engine, context));
 
             Scope AddScope(string name, IVariableContainer container, bool expensive = false)
@@ -241,7 +257,8 @@ namespace NeoDebug.Neo3
 
         public SourceResponse GetSource(SourceArguments arguments)
         {
-            if (disassemblyManager.TryGetDisassembly(arguments.SourceReference, out var disassembly))
+            if (arguments.Source.SourceReference.HasValue
+                && disassemblyManager.TryGet(arguments.Source.SourceReference.Value, out var disassembly))
             {
                 return new SourceResponse(disassembly.Source)
                 {
@@ -257,7 +274,7 @@ namespace NeoDebug.Neo3
             if (args.FrameId.HasValue)
             {
                 var context = engine.InvocationStack.ElementAt(args.FrameId.Value);
-                var debugInfo = debugInfoMap.TryGetValue(context.ScriptIdentifier, out var _debugInfo) ? _debugInfo : null;
+                var debugInfo = TryGetDebugInfo(context, out var _debugInfo) ? _debugInfo : null;
                 var evaluator = new ExpressionEvaluator(engine, context, debugInfo, storageView);
 
                 if (evaluator.TryEvaluate(variableManager, args, out var response)) return response;
@@ -308,18 +325,18 @@ namespace NeoDebug.Neo3
 
         private int lastThrowAddress = -1;
 
-        // string ToResult(int index)
-        // {
-        //     if (index >= engine.ResultStack.Count) throw new ArgumentException("", nameof(index));
+        string ToResult(int index)
+        {
+            if (index >= engine.ResultStack.Count) throw new ArgumentException("", nameof(index));
 
-        //     var result = engine.ResultStack[index];
-        //     var returnType = index < returnTypes.Count ? returnTypes[index] : CastOperation.None;
-        //     var (value, variablesRef) = EvaluateVariable(result, ContractParameterType.Any, returnType);
+            var result = engine.ResultStack[index];
+            var returnType = index < returnTypes.Count ? returnTypes[index] : CastOperation.None;
 
-        //     return variablesRef == 0
-        //         ? value
-        //         : result.ToJson().ToString(Newtonsoft.Json.Formatting.Indented);
-        // }
+            // TODO: use manifest/debug info to automatically determine result type
+            // var (value, variablesRef) = EvaluateVariable(result, ContractParameterType.Any, returnType);
+
+            return result.ToJson().ToString(Newtonsoft.Json.Formatting.Indented);
+        }
 
         private void Step(Func<int, bool> compareStepDepth, bool stepBack = false)
         {
@@ -361,12 +378,11 @@ namespace NeoDebug.Neo3
                 {
                     for (int index = 0; index < engine.ResultStack.Count; index++)
                     {
-                        // TODO: revert this commenting out
-                        // var result = ToResult(index);
+                        var result = ToResult(index);
                         sendEvent(new OutputEvent()
                         {
                             Category = OutputEvent.CategoryValue.Stdout,
-                            // Output = $"Gas Consumed: {engine.GasConsumedAsBigDecimal}\nReturn: {result}\n",
+                            Output = $"Gas Consumed: {engine.GasConsumedAsBigDecimal}\nReturn: {result}\n",
                         });
                     }
                     sendEvent(new ExitedEvent());
@@ -409,7 +425,7 @@ namespace NeoDebug.Neo3
                     }
                 }
 
-                if (breakpointManager.CheckBreakpoint(engine.CurrentContext?.ScriptHash ?? UInt160.Zero, engine.CurrentContext?.InstructionPointer))
+                if (breakpointManager.CheckBreakpoint(engine.CurrentContext))
                 {
                     FireStoppedEvent(StoppedEvent.ReasonValue.Breakpoint);
                     break;
@@ -428,7 +444,7 @@ namespace NeoDebug.Neo3
                 if (engine.CurrentContext != null)
                 {
                     var ip = engine.CurrentContext.InstructionPointer;
-                    if (debugInfoMap.TryGetValue(engine.CurrentContext.ScriptIdentifier, out var info))
+                    if (TryGetDebugInfo(engine.CurrentContext, out var info))
                     {
                         var methods = info.Methods;
                         for (int i = 0; i < methods.Count; i++)

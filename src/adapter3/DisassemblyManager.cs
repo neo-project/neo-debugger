@@ -5,23 +5,21 @@ using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using System.Numerics;
 using System.Text;
 using Neo;
 using Neo.BlockchainToolkit;
 using Neo.BlockchainToolkit.Models;
 using Neo.SmartContract;
 using Neo.VM;
-using Helper = Neo.SmartContract.Helper;
 
 namespace NeoDebug.Neo3
 {
     class DisassemblyManager
     {
-        public delegate bool TryGetScript(UInt160 scriptHash, [MaybeNullWhen(false)] out Script script);
-        public delegate bool TryGetDebugInfo(UInt160 scriptHash, [MaybeNullWhen(false)] out DebugInfo debugInfo);
+        public delegate bool TryGetScript(IExecutionContext scriptHash, [MaybeNullWhen(false)] out Script script);
+        public delegate bool TryGetDebugInfo(IExecutionContext scriptHash, [MaybeNullWhen(false)] out DebugInfo debugInfo);
 
-        private static readonly ImmutableDictionary<uint, string> sysCallNames;
+        static readonly ImmutableDictionary<uint, string> sysCallNames;
 
         static DisassemblyManager()
         {
@@ -29,74 +27,51 @@ namespace NeoDebug.Neo3
                 .ToImmutableDictionary(kvp => kvp.Value.Hash, kvp => kvp.Value.Name);
         }
 
-        public readonly struct Disassembly
+        public readonly record struct Disassembly
         {
-            public readonly string Name;
-            public readonly string Source;
-            public readonly int SourceReference;
-            public readonly ImmutableDictionary<int, int> AddressMap;
-            public readonly ImmutableDictionary<int, int> LineMap;
-
-            public Disassembly(string name, string source, int sourceReference, ImmutableDictionary<int, int> addressMap, ImmutableDictionary<int, int> lineMap)
-            {
-                this.Name = name;
-                this.Source = source;
-                this.SourceReference = sourceReference;
-                this.AddressMap = addressMap;
-                this.LineMap = lineMap;
-            }
+            public readonly UInt160 ScriptHash { get; init; }
+            public readonly string Source { get; init; }
+            public readonly int SourceReference { get; init; }
+            public readonly IReadOnlyDictionary<int, int> AddressMap { get; init; }
+            public readonly IReadOnlyDictionary<int, int> LineMap { get; init; }
         }
 
-        private readonly ConcurrentDictionary<int, Disassembly> disassemblies = new ConcurrentDictionary<int, Disassembly>();
-        private readonly TryGetScript tryGetScript;
-        private readonly TryGetDebugInfo tryGetDebugInfo;
+        readonly ConcurrentDictionary<int, Disassembly> disassemblies = new ConcurrentDictionary<int, Disassembly>();
 
-        public DisassemblyManager(TryGetScript tryGetScript, TryGetDebugInfo tryGetDebugInfo)
-        {
-            this.tryGetScript = tryGetScript;
-            this.tryGetDebugInfo = tryGetDebugInfo;
-        }
+        public Disassembly GetOrAdd(IExecutionContext context, DebugInfo? debugInfo)
+            => disassemblies.GetOrAdd(context.ScriptHash.GetHashCode(), sourceRef => ToDisassembly(sourceRef, context.ScriptHash, context.Script, context.Tokens, debugInfo));
 
-        public Disassembly GetDisassembly(IExecutionContext context, DebugInfo? debugInfo)
-            => GetDisassembly(context.ScriptIdentifier, context.Script, debugInfo, context.Tokens);
+        public Disassembly GetOrAdd(ContractState contract, DebugInfo? debugInfo)
+            => disassemblies.GetOrAdd(contract.Hash.GetHashCode(), sourceRef => ToDisassembly(sourceRef, contract.Hash, contract.Nef.Script, contract.Nef.Tokens, debugInfo));
 
-        Disassembly GetDisassembly(UInt160 scriptHash, Script script, DebugInfo? debugInfo, MethodToken[] tokens)
-            => disassemblies.GetOrAdd(scriptHash.GetHashCode(), sourceRef => ToDisassembly(sourceRef, scriptHash, script, debugInfo, tokens));
-
-        public bool TryGetDisassembly(UInt160 scriptHash, out Disassembly disassembly)
-        {
-            if (tryGetScript(scriptHash, out var script))
-            {
-                var debugInfo = tryGetDebugInfo(scriptHash, out var _debugInfo) ? _debugInfo : null;
-                disassembly = GetDisassembly(scriptHash, script, debugInfo, Array.Empty<MethodToken>());
-                return true;
-            }
-
-            disassembly = default;
-            return false;
-        }
-
-        public bool TryGetDisassembly(int sourceRef, out Disassembly disassembly)
+        public bool TryGet(int sourceRef, out Disassembly disassembly)
             => disassemblies.TryGetValue(sourceRef, out disassembly);
 
-        static Disassembly ToDisassembly(int sourceRef, UInt160 scriptHash, Script script, DebugInfo? debugInfo, MethodToken[] tokens)
+        static Disassembly ToDisassembly(int sourceRef, UInt160 scriptHash, Script script, IReadOnlyList<MethodToken> tokens, DebugInfo? debugInfo)
         {
             var padString = script.GetInstructionAddressPadding();
             var sourceBuilder = new StringBuilder();
-            var addressMapBuilder = ImmutableDictionary.CreateBuilder<int, int>();
-            var lineMapBuilder = ImmutableDictionary.CreateBuilder<int, int>();
+            Dictionary<int, int> addressMap = new();
+            Dictionary<int, int> lineMap = new();
 
-            var documents = debugInfo?.Documents
-                .Select(path => (fileName: Path.GetFileName(path), lines: File.Exists(path) ? File.ReadAllLines(path) : Array.Empty<string>()))
-                .ToImmutableList() ?? ImmutableList<(string, string[])>.Empty;
-            var methodStarts = debugInfo?.Methods.ToImmutableDictionary(m => m.Range.Start)
-                ?? ImmutableDictionary<int, DebugInfo.Method>.Empty;
-            var methodEnds = debugInfo?.Methods.ToImmutableDictionary(m => m.Range.End)
-                ?? ImmutableDictionary<int, DebugInfo.Method>.Empty;
-            var sequencePoints = debugInfo?.Methods.SelectMany(m => m.SequencePoints).ToImmutableDictionary(s => s.Address)
-                ?? ImmutableDictionary<int, DebugInfo.SequencePoint>.Empty;
+            var documents = (debugInfo?.Documents ?? Array.Empty<string>())
+                .Select(path => 
+                {
+                    var fileName = Path.GetFileName(path);
+                    var lines = File.Exists(path) 
+                        ? File.ReadAllLines(path) 
+                        : Array.Empty<string>();
+                    return (fileName, lines);
+                })
+                .ToArray().AsReadOnly();
+            var methods = debugInfo?.Methods ?? Enumerable.Empty<DebugInfo.Method>();
+            var methodStarts = methods.ToDictionary(m => m.Range.Start).AsReadOnly();
+            var methodEnds = methods.ToDictionary(m => m.Range.End).AsReadOnly();
+            var sequencePoints = methods.SelectMany(m => m.SequencePoints)
+                .ToDictionary(s => s.Address).AsReadOnly();
 
-            var instructions = script.EnumerateInstructions().ToList();
+            var instructions = script.EnumerateInstructions()
+                .ToArray().AsReadOnly();
 
             var line = 1;
             for (int i = 0; i < instructions.Count; i++)
@@ -129,8 +104,8 @@ namespace NeoDebug.Neo3
                 }
 
                 AddSource(sourceBuilder, instructions[i].address, instructions[i].instruction, padString, tokens);
-                addressMapBuilder.Add(instructions[i].address, line);
-                lineMapBuilder.Add(line, instructions[i].address);
+                addressMap.Add(instructions[i].address, line);
+                lineMap.Add(line, instructions[i].address);
                 line++;
 
                 if (methodEnds.TryGetValue(instructions[i].address, out var methodEnd))
@@ -140,14 +115,16 @@ namespace NeoDebug.Neo3
                 }
             }
 
-            return new Disassembly(
-                scriptHash.ToString(),
-                sourceBuilder.ToString(),
-                sourceRef,
-                addressMapBuilder.ToImmutable(),
-                lineMapBuilder.ToImmutable());
+            return new Disassembly
+            {
+                ScriptHash = scriptHash,
+                Source = sourceBuilder.ToString(),
+                SourceReference = sourceRef,
+                AddressMap = addressMap,
+                LineMap = lineMap
+            };
 
-            static void AddSource(StringBuilder sourceBuilder, int address, Instruction instruction, string padString, MethodToken[]? tokens)
+            static void AddSource(StringBuilder sourceBuilder, int address, Instruction instruction, string padString, IReadOnlyList<MethodToken> tokens)
             {
                 sourceBuilder.Append($"{address.ToString(padString)} {instruction.OpCode}");
                 if (!instruction.Operand.IsEmpty)

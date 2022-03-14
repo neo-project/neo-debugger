@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
@@ -28,8 +27,6 @@ using Newtonsoft.Json.Linq;
 using OneOf;
 using Script = Neo.VM.Script;
 using StackItem = Neo.VM.Types.StackItem;
-using NotFound = OneOf.Types.NotFound;
-using System.Runtime.InteropServices;
 
 namespace NeoDebug.Neo3
 {
@@ -53,26 +50,27 @@ namespace NeoDebug.Neo3
                     kvp => kvp.Value?.Value<string>() ?? string.Empty);
             }
 
-            var returnTypes = ImmutableList<CastOperation>.Empty;
-            if (launchArguments.ConfigurationProperties.TryGetValue("return-types", out var jsonReturnTypes))
-            {
-                var builder = ImmutableList.CreateBuilder<CastOperation>();
-                foreach (var returnType in jsonReturnTypes)
-                {
-                    // TODO: revert this commenting out
-                    // builder.Add(DebugSession.CastOperations[returnType.Value<string>() ?? ""]);
-                }
-                returnTypes = builder.ToImmutable();
-            }
+            // TODO parse return types via Contract Type model
+            // var returnTypes = ImmutableList<CastOperation>.Empty;
+            // if (launchArguments.ConfigurationProperties.TryGetValue("return-types", out var jsonReturnTypes))
+            // {
+            //     var builder = ImmutableList.CreateBuilder<CastOperation>();
+            //     foreach (var returnType in jsonReturnTypes)
+            //     {
+            //         // TODO: revert this commenting out
+            //         // builder.Add(DebugSession.CastOperations[returnType.Value<string>() ?? ""]);
+            //     }
+            //     returnTypes = builder.ToImmutable();
+            // }
 
-            var debugInfoList = await LoadDebugInfosAsync(launchArguments.ConfigurationProperties, sourceFileMap).ToListAsync().ConfigureAwait(false);
-            var engine = await CreateEngineAsync(launchArguments.ConfigurationProperties).ConfigureAwait(false);
-            return new DebugSession(engine, debugInfoList, returnTypes, sendEvent, defaultDebugView, storageView);
+            var debugInfoList = await LoadStoredContractsDebugInfoAsync(launchArguments.ConfigurationProperties, sourceFileMap).ToListAsync().ConfigureAwait(false);
+            var engine = await CreateEngineAsync(launchArguments.ConfigurationProperties, sourceFileMap).ConfigureAwait(false);
+            return new DebugSession(engine, debugInfoList, Array.Empty<CastOperation>(), sendEvent, defaultDebugView, storageView);
         }
 
         static string ParseProgram(ConfigProps config) => config["program"].Value<string>() ?? throw new JsonException("missing program property");
 
-        static async Task<IApplicationEngine> CreateEngineAsync(ConfigProps config)
+        static async Task<IApplicationEngine> CreateEngineAsync(ConfigProps config, IReadOnlyDictionary<string, string> sourceFileMap)
         {
             if (!config.TryGetValue("invocation", out var jsonInvocation))
             {
@@ -84,12 +82,9 @@ namespace NeoDebug.Neo3
             if (traceFile != null)
             {
                 var program = ParseProgram(config);
-                var launchContract = LoadNefFile(program);
-                var contracts = new List<NefFile> { launchContract };
+                var programNef = LoadNefFile(program);
 
-                // TODO: load other contracts?
-                // TODO: Storage Schema 
-
+                var contracts = new List<NefFile> { programNef };
                 return new TraceApplicationEngine(traceFile, contracts);
             }
 
@@ -99,8 +94,10 @@ namespace NeoDebug.Neo3
         static async Task<IApplicationEngine> CreateDebugEngineAsync(ConfigProps config, JToken jsonInvocation)
         {
             var program = ParseProgram(config);
-            var launchNefFile = LoadNefFile(program);
-            var launchManifest = await LoadContractManifestAsync(program).ConfigureAwait(false);
+            var programNef = LoadNefFile(program);
+            var programManifest = await LoadContractManifestAsync(program).ConfigureAwait(false);
+            var programDebugInfo = await DebugInfo.LoadAsync(program).ConfigureAwait(false);
+            
             var chain = LoadNeoExpress(config);
             var invocation = ParseInvocation(jsonInvocation);
 
@@ -136,10 +133,10 @@ namespace NeoDebug.Neo3
                         : new[] { new Signer { Account = UInt160.Zero } };
                 }
 
-                launchContractHash = Neo.SmartContract.Helper.GetContractHash(tx.Sender, launchNefFile.CheckSum, launchManifest.Name);
+                launchContractHash = Neo.SmartContract.Helper.GetContractHash(tx.Sender, programNef.CheckSum, programManifest.Name);
 
                 using var builder = new ScriptBuilder();
-                builder.EmitDynamicCall(NativeContract.ContractManagement.Hash, "deploy", launchNefFile.ToArray(), launchManifest.ToJson().ToString());
+                builder.EmitDynamicCall(NativeContract.ContractManagement.Hash, "deploy", programNef.ToArray(), programManifest.ToJson().ToString());
                 tx.Script = builder.ToArray();
             }
             else
@@ -151,7 +148,7 @@ namespace NeoDebug.Neo3
 
                 var deploymentSigner = TryGetDeploymentSigner(config, chain, checkpoint.Settings, out var _deploymentSigner)
                     ? _deploymentSigner : new Signer { Account = UInt160.Zero };
-                launchContractHash = EnsureContractDeployed(store, launchNefFile, launchManifest, deploymentSigner, checkpoint.Settings);
+                launchContractHash = EnsureContractDeployed(store, programNef, programManifest, deploymentSigner, checkpoint.Settings);
 
                 var paramParser = CreateContractParameterParser(checkpoint.Settings.AddressVersion, store, chain);
                 UpdateContractStorage(store, launchContractHash, ParseStorage(config, paramParser));
@@ -167,71 +164,10 @@ namespace NeoDebug.Neo3
             if (tx.Signers.Length == 0) throw new InvalidOperationException("Debug transaction signers length zero");
             if (launchContractHash == UInt160.Zero) throw new InvalidOperationException("Debug contract hash could not determined");
 
-            // TODO: load other contracts
-            //          Not sure supporting other contracts is a good idea anymore. Since there's no way to calculate the 
-            //          contract id hash prior to deployment in Neo 3, I'm thinking the better approach would be to simply
-            //          deploy whatever contracts you want and take a snapshot rather than deploying multiple contracts 
-            //          during launch configuration.
-
-            var schemaMap = ImmutableDictionary<UInt160, ContractStorageSchema>.Empty;
-            var storageSchema = await LoadStorageSchemaAsync(config);
-            if (storageSchema.TryPickT0(out var schema, out _))
-            {
-                schemaMap = schemaMap.Add(launchContractHash, schema);
-            }
-            
             var block = CreateDummyBlock(store, tx);
-            var engine = new DebugApplicationEngine(tx, store, schemaMap, checkpoint.Settings, block, witnessChecker);
+            var engine = new DebugApplicationEngine(tx, store, checkpoint.Settings, block, witnessChecker);
             engine.LoadScript(tx.Script);
             return engine;
-        }
-
-        static async Task<OneOf<ContractStorageSchema, NotFound>> LoadStorageSchemaAsync(ConfigProps config)
-        {
-            // if (config.TryGetValue("storage-schema", out var schemaToken))
-            // {
-            //     if (schemaToken.Type == JTokenType.Object)
-            //     {
-            //         return ContractStorageSchema.Parse(schemaToken);
-            //     }
-            // }
-
-            var comparison = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                ? StringComparison.InvariantCultureIgnoreCase
-                : StringComparison.InvariantCulture;
-
-            var program = ParseProgram(config);
-            var dir = Path.GetDirectoryName(program);
-            while (dir is not null)
-            {
-                var schemaResult = await TryGetSchema(dir);
-                if (schemaResult.IsT0) return schemaResult.AsT0;
-                if (Environment.CurrentDirectory.Equals(dir, comparison)) break;
-                dir = Path.GetDirectoryName(dir);
-            }
-
-            // if (config.TryGetValue("neo-express", out var neoExpressPath))
-            // {
-            //     return await TryGetSchema(Path.GetDirectoryName(neoExpressPath.Value<string>()));
-            // }
-
-            return default(NotFound);
-
-            static async Task<OneOf<ContractStorageSchema, NotFound>> TryGetSchema(string? folderPath)
-            {
-                if (folderPath is not null)
-                {
-                    var path = Path.Combine(folderPath, "storage-schema.json");
-                    if (File.Exists(path))
-                    {
-                        var text = await File.ReadAllTextAsync(path);
-                        var json = JObject.Parse(text);
-                        return ContractStorageSchema.Parse(json);
-                    }
-                }
-
-                return default(NotFound);
-            }
         }
 
         static NefFile LoadNefFile(string path)
@@ -754,7 +690,7 @@ namespace NeoDebug.Neo3
             }
         }
 
-        static async IAsyncEnumerable<DebugInfo> LoadDebugInfosAsync(ConfigProps config, IReadOnlyDictionary<string, string> sourceFileMap)
+        static async IAsyncEnumerable<DebugInfo> LoadStoredContractsDebugInfoAsync(ConfigProps config, IReadOnlyDictionary<string, string> sourceFileMap)
         {
             var program = ParseProgram(config);
             var debugInfo = (await DebugInfo.LoadAsync(program, sourceFileMap).ConfigureAwait(false))
@@ -768,16 +704,14 @@ namespace NeoDebug.Neo3
                     if (storedContract.Type == JTokenType.String)
                     {
                         program = storedContract.Value<string>() ?? throw new JsonException("invalid stored-contracts item");
-                        debugInfo = (await DebugInfo.LoadAsync(program, sourceFileMap).ConfigureAwait(false))
-                            .Match(di => di, _ => throw new FileNotFoundException(program));
-                        yield return debugInfo;
+                        var loadResult = (await DebugInfo.LoadAsync(program, sourceFileMap).ConfigureAwait(false));
+                        if (loadResult.TryPickT0(out debugInfo, out _)) yield return debugInfo;
                     }
                     else if (storedContract.Type == JTokenType.Object)
                     {
                         program = storedContract.Value<string>("program") ?? throw new JsonException("missing program property");
-                        debugInfo = (await DebugInfo.LoadAsync(program, sourceFileMap).ConfigureAwait(false))
-                            .Match(di => di, _ => throw new FileNotFoundException(program));
-                        yield return debugInfo;
+                        var loadResult = (await DebugInfo.LoadAsync(program, sourceFileMap).ConfigureAwait(false));
+                        if (loadResult.TryPickT0(out debugInfo, out _)) yield return debugInfo;
                     }
                     else
                     {

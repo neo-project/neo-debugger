@@ -6,6 +6,7 @@ using NeoArray = Neo.VM.Types.Array;
 using Neo;
 using Neo.VM;
 using System.Diagnostics.CodeAnalysis;
+using Neo.BlockchainToolkit.Models;
 
 namespace NeoDebug.Neo3
 {
@@ -19,7 +20,7 @@ namespace NeoDebug.Neo3
         bool ExecuteNextInstruction();
         bool ExecutePrevInstruction();
         bool TryGetContract(UInt160 scriptHash, [MaybeNullWhen(false)] out Script script);
-        StorageContainerBase GetStorageContainer(UInt160 scriptHash, StorageView storageView);
+        StorageContainerBase GetStorageContainer(UInt160 scriptHash, IReadOnlyList<StorageGroupDef>? storageGroups, StorageView storageView);
 
         bool SupportsStepBack { get; }
         byte AddressVersion { get; }

@@ -20,6 +20,12 @@ namespace NeoDebug.Neo3
 
     internal static class Extensions
     {
+        public static IReadOnlyList<T> AsReadOnly<T>(this T[] @this)
+            => @this;
+
+        public static IReadOnlyDictionary<TKey, TSource> AsReadOnly<TKey, TSource>(this IDictionary<TKey, TSource> source)
+            => (IReadOnlyDictionary<TKey, TSource>)source;
+
         public static ReadOnlyMemory<byte> AsReadOnlyMemory(this StackItem item)
         {
             if (item is Neo.VM.Types.Buffer buffer) return buffer.InnerBuffer;
@@ -29,57 +35,68 @@ namespace NeoDebug.Neo3
             throw new InvalidOperationException($"{item.Type} not accessable as ReadOnlyMemory<byte>");
         }
 
-
-        public static bool StartsWith<T>(this ReadOnlyMemory<T> @this, ReadOnlySpan<T> value)
-            where T : IEquatable<T>
+        public static bool TryLookup<TKey, TElement>(this ILookup<TKey, TElement> @this, TKey key, out IEnumerable<TElement> elements)
         {
-            return @this.Span.StartsWith(value);
-        }
-
-        public static DebugInfo.Method? GetMethod(this DebugInfo debugInfo, int instructionPointer)
-        {
-            return debugInfo.Methods
-                .SingleOrDefault(m => m.Range.Start <= instructionPointer && instructionPointer <= m.Range.End);
-        }
-
-        public static bool TryGetMethod(this DebugInfo debugInfo, int instructionPointer, [MaybeNullWhen(false)] out DebugInfo.Method method)
-        {
-            method = debugInfo.GetMethod(instructionPointer);
-            return method != null;
-        }
-
-        public static string? GetDocumentPath(this DebugInfo.SequencePoint? @this, DebugInfo? debugInfo)
-        {
-            if (@this != null && debugInfo != null
-                && @this.Document >= 0
-                && @this.Document < debugInfo.Documents.Count)
+            if (@this.Contains(key))
             {
-                return debugInfo.Documents[@this.Document];
+                elements = @this[key];
+                return true;
             }
 
-            return null;
+            elements = Enumerable.Empty<TElement>();
+            return false;
         }
 
-        public static bool PathEquals(this DebugInfo.SequencePoint? @this, DebugInfo? debugInfo, string path)
+        public static bool TryGetMethod(this DebugInfo debugInfo, int instructionPointer, out DebugInfo.Method method)
         {
-            return string.Equals(@this.GetDocumentPath(debugInfo), path, StringComparison.OrdinalIgnoreCase);
+            for (int i = 0; i < debugInfo.Methods.Count; i++)
+            {
+                var range = debugInfo.Methods[i].Range;
+                if (range.Start <= instructionPointer && instructionPointer <= range.End)
+                {
+                    method = debugInfo.Methods[i];
+                    return true;
+                }
+            }
+
+            method = default;
+            return false;
         }
 
-        public static DebugInfo.SequencePoint GetCurrentSequencePoint(this DebugInfo.Method method, int instructionPointer)
+        public static bool TryGetSequencePoint(this DebugInfo.Method method, int instructionPointer, out DebugInfo.SequencePoint sequencePoint)
         {
-            var sequencePoints = method.SequencePoints;
-            if (sequencePoints.Count == 0)
+            var points = method.SequencePoints ?? Array.Empty<DebugInfo.SequencePoint>();
+
+            for (int i = points.Count - 1; i >= 0; i--)
             {
-                throw new InvalidOperationException($"{method.Name} has no sequence points");
+                if (instructionPointer >= points[i].Address)
+                {
+                    sequencePoint = points[i];
+                    return true;
+                }
             }
 
-            for (int i = sequencePoints.Count - 1; i >= 0; i--)
+            if (points.Count > 0)
             {
-                if (instructionPointer >= sequencePoints[i].Address)
-                    return sequencePoints[i];
+                sequencePoint = points[0];
+                return true;
             }
 
-            return sequencePoints[0];
+            sequencePoint = default;
+            return false;
+        }
+
+        public static bool TryGetDocumentPath(this DebugInfo.SequencePoint @this, DebugInfo? debugInfo, out string path)
+        {
+            var docs = debugInfo?.Documents ?? Array.Empty<string>();
+            if (@this.Document >= 0 && @this.Document < docs.Count)
+            {
+                path = docs[@this.Document];
+                return true;
+            }
+
+            path = string.Empty;
+            return false;
         }
 
         public static JToken ToJson(this StackItem item)

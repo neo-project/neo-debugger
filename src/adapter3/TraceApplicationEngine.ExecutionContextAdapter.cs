@@ -55,7 +55,8 @@ namespace NeoDebug.Neo3
             public UInt160 ScriptIdentifier => frame.ScriptIdentifier;
 
             public Script Script { get; }
-            public MethodToken[] Tokens => Array.Empty<MethodToken>();
+            public IReadOnlyList<MethodToken> Tokens => Array.Empty<MethodToken>();
+            public uint? NefChecksum => null;
 
 
             public IReadOnlyList<StackItem> EvaluationStack => frame.EvaluationStack;
