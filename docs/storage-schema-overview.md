@@ -51,7 +51,7 @@ please see the [VSCode Release Notes](https://code.visualstudio.com/updates/v1_6
 ### Neo C# Compiler + Smart Contract Framework Preview
 
 A preview version of the Neo C# Compiler and Smart Contract Framework are available from the
-[ngd Enterprise]() nuget server. 
+[ngd Enterprise](https://ngdentnuget.blob.core.windows.net/packages/index.json) nuget server. 
 The easiest way to access the preview compiler and framework is to use a nuget.config file. The
 NFT sample repo includes a
 [nuget.config file](https://github.com/ngdenterprise/neo-contrib-token/blob/storage-schema-preview/nuget.config)
@@ -61,7 +61,7 @@ nuget.config file is available in the [official docs](https://docs.microsoft.com
 > Note, if you don't already have a nuget.config file in your project directory, you can simply
   download the one from the NFT sample repo and use it as is.
 
-To distinguish the Storage Schema Preview versions from production, the compiler and framework
+To distinguish the Storage Schema Preview versions from production, the preview compiler and framework
 NuGet packages have a patch version number over 1000 and the prerelease tag `storage-schema-preview`.
 For example, the initial Storage Schema preview release version of the compiler and framework is
 `3.1.1035-storage-schema-preview`. The patch version has a base value of 1000 then adds the number
