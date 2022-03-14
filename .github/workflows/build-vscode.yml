@@ -11,7 +11,7 @@ on:
       - 'release/**'
     paths-ignore:
       - 'readme.md'
-      - 'src/extension/CHANGELOG.md'
+      - 'CHANGELOG.md'
       - 'docs/**'
   workflow_call:
     outputs:
@@ -81,8 +81,10 @@ jobs:
 
     - name: copy debug adapter packages into extension folder
       run: cp adapters/*.nupkg src/extension/
-    - name: copy repo root readme into extension folder
-      run: cp readme.md src/extension/
+    - name: copy repo root readme + changelog into extension folder
+      run: |
+        cp readme.md src/extension/
+        cp CHANGELOG.md src/extension/
 
     - name: Install debug extension dependencies
       run: npm ci
