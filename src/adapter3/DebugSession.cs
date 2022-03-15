@@ -39,17 +39,16 @@ namespace NeoDebug.Neo3
         }
 
         readonly IApplicationEngine engine;
-        readonly IReadOnlyList<CastOperation> returnTypes;
-        readonly Dictionary<UInt160, DebugInfo> debugInfoMap = new();
-        readonly Dictionary<UInt160, string> contractNameMap = new();
         readonly Action<DebugEvent> sendEvent;
         readonly StorageView storageView;
         readonly VariableManager variableManager = new VariableManager();
+        readonly Dictionary<UInt160, DebugInfo> debugInfoMap = new();
+        readonly Dictionary<UInt160, string> contractNameMap = new();
         readonly Dictionary<int, Disassembly> disassemblyMap = new();
-
         readonly Dictionary<string, IReadOnlySet<(UInt160 hash, int position)>> sourceBreakpoints = new();
         readonly Dictionary<UInt160, IReadOnlySet<int>> disassemblyBreakpoints = new();
         readonly Dictionary<UInt160, IReadOnlySet<int>> breakpointCache = new();
+        readonly IReadOnlyList<CastOperation> returnTypes;
 
         bool disassemblyView;
         bool breakOnCaughtExceptions;
@@ -100,11 +99,11 @@ namespace NeoDebug.Neo3
                     {
                         debugInfo = null;
                     }
-
                 }
             }
         }
 
+        // TODO: Debug info decoding of state values
         private void OnNotify(object? sender, (UInt160 scriptHash, string scriptName, string eventName, NeoArray state) args)
         {
             var state = args.state.ToJson().ToString(Newtonsoft.Json.Formatting.Indented);
@@ -231,6 +230,7 @@ namespace NeoDebug.Neo3
             }
         }
 
+        // TODO: use consts from expr eval
         const string EVAL_STACK_PREFIX = "#eval";
         const string RESULT_STACK_PREFIX = "#result";
         public const string STORAGE_PREFIX = "#storage";
