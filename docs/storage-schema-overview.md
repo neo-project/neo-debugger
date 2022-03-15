@@ -132,7 +132,7 @@ your project doesn't already have one, you can create a tool manifest via the `d
 command. To install or update the preview compiler, run this command:
 
 ``` shell
-> dotnet tool update -g Neo.Compiler.CSharp --prerelease
+> dotnet tool update Neo.Compiler.CSharp --prerelease
 ```
 
 To install the compiler as a global tool run the following command from the folder where you created
