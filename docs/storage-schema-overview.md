@@ -6,7 +6,7 @@ is happening inside their contracts.
 
 You can see an example of how schematized storage looks in the debugger via this screenshot:
 
-![Storage Schema Screenshot](StorageSchemaScreenshot.png)
+![Storage Schema Screenshot](images/StorageSchemaScreenshot.png)
 
 This screenshot comes from the [Neo Contributor NFT sample](https://github.com/ngdenterprise/neo-contrib-token)
 which has been updated to enable Storage Schema. In particular, note the following:
@@ -34,58 +34,170 @@ which has been updated to enable Storage Schema. In particular, note the followi
 
 ## Getting Started
 
-The easiest way to get started is to clone the [`neo-contrib-token` repo](https://github.com/ngdenterprise/neo-contrib-token)
-and check out the [`storage-schema-preview` branch](https://github.com/ngdenterprise/neo-contrib-token/tree/storage-schema-preview).
-That repo/branch has been updated to support Storage Schema and includes
-[instructions](https://github.com/ngdenterprise/neo-contrib-token/tree/storage-schema-preview#storage-schema-preview)
-for installing the Debugger preview and compiling the sample contracts.
+To get the new Storage Schema experience, you need the pre-release versions of the Neo Smart Contract
+Debugger and the Neo C# compiler. You also need to update your smart contract project to reference the
+pre-release version of the Neo Smart Contract Framework.
 
-### Neo Smart Contract Debugger Preview
+> Note, at this time only pre-release Neo C# compiler has been updated to generate the debug information
+  needed for the Storage Schema experience. Other Neo compilers - including the current production
+  release version of the Neo C# compiler - do not support the new experience yet. The debugger team
+  is reaching out to help the other Neo compiler teams update their tools to support the new format. The
+  goal is for all Neo developers - regardless of their language of choice - to get the full Storage
+  Schema experience. It's just going to take time to update all the various tools.
 
-The Neo Smart Contract Debugger is available from the [VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=ngd-seattle.neo-contract-debug).
-As of v3.2, production releases have even numbered minor version numbers while preview releases have
-odd minor version numbers. v3.3 of the Neo Smart Contract Debugger includes Storage Schema support.
-For more details on installing preview extensions or VSCode pre-release extension support in general,
-please see the [VSCode Release Notes](https://code.visualstudio.com/updates/v1_63#_pre-release-extensions).
+If you want to try out the new experience before writing any code, the 
+[`neo-contrib-token` NFT sample](https://github.com/ngdenterprise/neo-contrib-token) has been updated
+to support the Storage Schema preview. To test drive the Storage Schema experience with the
+NFT sample:
 
-### Neo C# Compiler + Smart Contract Framework Preview
+* Install Neo Smart Contract Debugger Pre-Release Extension (described below)
+* Clone the [`neo-contrib-token` repo](https://github.com/ngdenterprise/neo-contrib-token)
+* Open the repo in VSCode
+* Check out the [`storage-schema-preview` branch](https://github.com/ngdenterprise/neo-contrib-token/tree/storage-schema-preview)
+* Run the `reset neo express` build task. This task will install the right tools,
+  compile the contracts in the repo and create the Neo-Express checkpoints needed
+  for the debug launch configurations. Build tasks can be accessed via the VSCode
+  `Terminal` menu.
+* Switch to the Run and Debug view, select `mint (succeed)` launch configuration and Start Debugging
 
-A preview version of the Neo C# Compiler and Smart Contract Framework are available from the
-[ngd Enterprise](https://ngdentnuget.blob.core.windows.net/packages/index.json) nuget server. 
-The easiest way to access the preview compiler and framework is to use a nuget.config file. The
-NFT sample repo includes a
-[nuget.config file](https://github.com/ngdenterprise/neo-contrib-token/blob/storage-schema-preview/nuget.config)
-that pulls the preview compiler and framework from the ngd Enterprise nuget server. More information about the
-nuget.config file is available in the [official docs](https://docs.microsoft.com/en-us/nuget/reference/nuget-config-file).
+### Install Neo Smart Contract Debugger Pre-Release Extension
 
-> Note, if you don't already have a nuget.config file in your project directory, you can simply
-  download the one from the NFT sample repo and use it as is.
+To install the debugger preview - even if you already have the debugger installed - visit the Neo Smart
+Contract Debugger page in the 
+[VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=ngd-seattle.neo-contract-debug)
+Press the install button to launch the debugger extension management UI inside VSCode.
 
-To distinguish the Storage Schema Preview versions from production, the preview compiler and framework
-NuGet packages have a patch version number over 1000 and the prerelease tag `storage-schema-preview`.
-For example, the initial Storage Schema preview release version of the compiler and framework is
-`3.1.1035-storage-schema-preview`. The patch version has a base value of 1000 then adds the number
-of git commits since the branch forked from master. If there is a new production release of the
-compiler and framework ship during the Storage Schema preview, the preview version number will
-be updated to track the production version
+If you already have the debugger installed, there will be a button labeled "Switch to Pre-Release Version".
+If you do not already have the debugger installed, there will be a button labeled "Install" with a
+drop down menu that you can use to select the pre-release version for install. During the Storage Schema
+preview, only the pre-release version of the debugger supports the new experience. Once installed, the
+pre-release extension will update automatically as new pre-releases are published on the marketplace.
+At any time, you can switch back to the release version of the debugger extension but navigating to the 
+debugger extension management UI inside VSCode and pushing the "Switch to Release Version" button
 
-* The base preview patch number is the production patch number plus one and then times one thousand.
-  * A theoretical 3.1.1 production release of devpack would have a base preview version of 3.1.2000.
-  * A theoretical 3.2.0 production release of devpack would have a base preview version of 3.2.1000.
+> Note, the pre-release version of the debugger still supports the older debug information format. Even
+  if you don't update your Neo C# compiler to generate the new debug information format, the debugger
+  will still work (albeit with the older non-schematized view of contract storage).
+
+As of v3.2, production releases of the debugger have even numbered minor version numbers while pre-releases
+have odd minor version numbers. v3.3 of the Neo Smart Contract Debugger includes Storage Schema support.
+
+### Install Storage Schema Neo C# Preview Compiler 
+
+> Note, while the preview debugger will work with older debug information generated by the release
+  Neo C# compiler and other Neo contract compilers, the preview compiler is **NOT COMPATIBLE** with
+  the release debugger. If you want your project to work with the release debugger, you **MUST** use
+  the release version of the compiler.
+
+The Neo C# compiler is distributed as a [.NET tool](https://docs.microsoft.com/en-us/dotnet/core/tools/global-tools).
+.NET tools are distributed as NuGet packages, typically downloaded from [nuget.org](http://nuget.org).
+However, the Storage Schema preview version of the compiler (and framework, described below) are **NOT**
+published on the central nuget.org repository. We have chosen to create a private NuGet repository to
+host Storage Schema preview packages. This section describes how to configure your contract project
+to work with the private package repository.
+
+#### nuget.config File
+
+NuGet must be configured to use the private package repository. This is done via a 
+[`nuget.config` file](https://docs.microsoft.com/en-us/nuget/reference/nuget-config-file)
+in your contract project root folder. Here are the contents of the NFT sample's nuget.config file:
+
+``` xml
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <add key="ngd-ent-nuget" value="https://ngdentnuget.blob.core.windows.net/packages/index.json" />
+  </packageSources>
+</configuration>
+```
+
+This file basically tells NuGet tools to look in the `ngd-ent-nuget` package repository if it can't
+find a given package in the global nuget.org repository. 
+
+#### Installing the Preview Neo C# Compiler 
+
+.NET tools like the Neo C# compiler can be installed globally on a machine or locally to a project
+folder. Since the Storage Schema enabled compiler is a preview release, we recommend installing
+the compiler as a local tool. The NFT sample installs the preview compiler as a local tool.
+
+> Note, this preview is in active development. New versions of the compiler and framework are expected
+  to ship regularly. .NET tools have no built-in mechanism to auto update, so developers should
+  regularly re-run the commands below to ensure their tools are up to date.
+
+.NET tools are installed from the command line. Open a terminal window and navigate to the root folder
+of your project. Note, this folder must have the `nuget.config` file described above. 
+
+To install the compiler as a local tool, your project folder needs to have a tool manifest file. If
+your project doesn't already have one, you can create a tool manifest via the `dotnet new tool-manifest`
+command. To install or update the preview compiler, run this command:
+
+``` shell
+> dotnet tool update Neo.Compiler.CSharp --prerelease
+```
+
+To install the compiler as a global tool run the following command from the folder where you created
+the `nuget.config` as described above. This command will ensure you have the latest version, including
+prerelease versions downloaded from the private nuget repository referenced in the nuget.config file
+
+``` shell
+> dotnet tool update --global Neo.Compiler.csharp --prerelease
+```
+
+Regardless if the preview compiler is installed as global or local tool, the version installed should
+include the prerelease tag `storage-schema-preview`. To distinguish the Storage Schema Preview versions
+from production releases, the preview compiler and framework NuGet packages have a patch version number
+over 1000 and the prerelease tag `storage-schema-preview`. For example, the initial Storage Schema preview
+release version of the compiler and framework is `3.1.1035-storage-schema-preview`. 
+
+If the dotnet tool update command reports an installed version that doesn't have the `storage-schema-preview`
+tag, you will not get the Storage Schema Experience. If this happens, your `nuget.config` file is likely
+invalid or missing.
+
+### Using the Neo SmartContract Framework Preview Package
+
+Like the Neo C# compiler, Storage Schema uses an updated SmartContract Framework that's available as a
+preview from the private NuGet repository described above. The version of the SmartContract Framework
+referenced in your project should match the version of the Neo C# Compiler you have installed.
+
+The preview version of the SmartContract Framework can be added to an existing C# project via the 
+`dotnet add package` command. The `add package` command must be run from the command line while
+in the folder containing the `.csproj` file of your contract. Like the compiler installation, 
+installing the preview version from the private NuGet repository requires the `nuget.config`
+file be configured as described above.
+
+``` shell
+> dotnet add package neo.smartcontract.framework --prerelease
+```
+
+> Note, like .NET tools, package references are not updated automatically. You can use the 
+  [`dotnet outdated` tool](https://github.com/dotnet-outdated/dotnet-outdated) or 
+  [VersionLens extension](https://marketplace.visualstudio.com/items?itemName=pflannery.vscode-versionlens)
+  to ensure your package versions are up to date.
 
 ### Storage Schema Preview Attributes
 
-The preview Neo C# compiler includes Storage Schema information in the .nefdbgnfo file for both runtime
-and storage types. Runtime type information is derived from the C# source and requires no additional
-effort aside from using the new compiler. Storage type information requires adding some custom
-attributes to the contract code. More information about the conceptual storage model that informed
-this design is [available below](#neo-contract-storage-conceptual-model).
+> Note, the attributes described in this section should be considered a first draft design. More information
+  about the conceptual storage model that informed this design is [available below](#neo-contract-storage-conceptual-model).
+  Other designs that are better integrated with contract storage imperative code or that leverage compile-time
+  source generation will be considered before final release of the Storage Schema feature. If you have any
+  feedback or suggestions regarding this design, please feel free to let us know by opening issues in the 
+  [debugger GitHub repo](https://github.com/neo-project/neo-debugger/issues).
 
-> Note, this mechanism for specifying storage item schema information in code is very much a first draft.
-  The approach may change drastically before final release. Feedback strongly encouraged!
+Once you install the preview debugger and C# compiler and the Smart Contract Framework package reference
+has been updated to the latest version, you should be able to get the new rich Storage Schema experience
+for runtime items (arguments, local variables and static variables) by simply recompiling your code with
+the preview compiler. Getting the rich Storage Schema experience for storage keys and values requires 
+adding a few attributes to your contract code. 
 
-The preview version of the Smart Contract Framework includes two new attributes used to generate Storage
-Schema information: `StorageGroup` and `StorageKeySegment`. Here is an 
+These new attributes have *NO EFFECT* on the execution of your contract code. They are only used by the 
+preview C# compiler to generate the information needed to decode storage keys and values in the debugger.
+If the these attributes are missing or incorrect, it will only affect the developers experience using the 
+Variables view in the debugger. Even when storage schema information is available, the debugger always
+provides a raw view of the storage keys and items that can be inspected the same way as previous versions
+of the debugger.
+
+The Smart Contract Framework preview includes two new attributes used to generate Storage Schema information:
+`StorageGroup` and `StorageKeySegment`. Here is an 
 [example](https://github.com/ngdenterprise/neo-contrib-token/blob/storage-schema-preview/token-contract/NeoContributorToken.cs#L33-L53)
 of their use from the NFT sample:
 
@@ -115,38 +227,62 @@ const byte Prefix_ContractOwner = 0xFF;
 
 #### StorageGroup Attribute
 
-The StorageGroup attribute must be attached to a const prefix value defined in the SmartContract class
-(i.e. the class that derives from `SmartContract`). The StorageGroup attribute specifies the type of
+The `StorageGroup` attribute must be attached to a const prefix value defined in the `SmartContract` class
+(i.e. the class that derives from `SmartContract`). The `StorageGroup` attribute specifies the type of
 the storage group's value. It also optionally provides the name of the storage group. If the name is
-not specified in the attribute, the name of the const field is used (with `Prefix_` removed).
+not specified in the attribute, the name of the const field is used. If the const fields starts with
+`Prefix_` as the sample code fields above do, only the name of the field after `Prefix_` is used. So
+the storage group created from the `Prefix_ContractOwner` field would be named `ContractOwner`.
 
-The const field that a StorageGroup attribute is attached to must be a single byte or a string. The
+The const field that a `StorageGroup` attribute is attached to must be a single byte or a string. The
 value of the const field is used as the prefix value in storage. If the const field is a string,
 the UTF8 encoding of the string is used as the storage group prefix;
 
 > Note, C# has no mechanism for declaring a const collection of bytes except for strings. While the 
   underlying Storage Schema model allows for arbitrary multi-byte prefixes, there is currently no
-  mechanism for declaring one via the StorageGroup attribute.
+  mechanism for declaring one via the `StorageGroup` attribute.
 
 #### StorageKeySegment Attribute
 
 Some storage groups only store a single value. For example, the NFT token sample above only has a single
 Total Supply value and a single Contract Owner. However, most storage groups store multiple records of
 related information, such as account balances or token information. To support multiple records in a given
-group, each record must have a unique key value after the constant prefix. The StorageKeySegment attribute
+group, each record must have a unique key value after the constant prefix. The `StorageKeySegment` attribute
 declares the structure of key. 
 
-Like the StorageGroup attribute, the StorageKeySegment Attribute must be applied to a const field in
-the SmartContract class. Additionally, there must also be StorageGroup attribute applied to the field,
+Like the StorageGroup attribute, the `StorageKeySegment` attribute must be applied to a const field in
+the `SmartContract` class. Additionally, there must also be `StorageGroup` attribute applied to the field,
 otherwise the StorageKeySegment attribute is ignored.
 
-Each storage key segment has a name and a type. Unlike StorageGroup value types, key segments must be
-a primitive type as specified in the StorageKeySegmentType enumeration. Multiple StorageKeySegment attributes
-may be applied to a single const field. To enable proper key decoding, the order of StorageKeySegment
+Each storage key segment has a name and a type. Unlike `StorageGroup` value types, key segments must be
+a primitive type as specified in the StorageKeySegmentType enumeration. Multiple `StorageKeySegment` attributes
+may be applied to a single const field. To enable proper key decoding, the order of `StorageKeySegment`
 attributes must match the order of key segments in the code.
 
 All key segments except the last one must be fixed size in order to be decoded. The final (or single)
 key segment can be of variable length (ByteArray and Integer).
+
+These are the allowed storage key segment types. With the exception of `Address`, they all match values
+from the [`ContractParameterType` enumeration](https://github.com/neo-project/neo/blob/master/src/neo/SmartContract/ContractParameterType.cs)
+from the core Neo platform. `Address` is an alias for `Hash160`. The only difference is how they are
+displayed in the debugger. `Hash160` values are displayed as hex encoded byte arrays while `Address`
+values are displayed as standard Neo N3 addresses. The 
+[Primitive Type section](https://github.com/neo-project/neo-debugger/blob/master/docs/storage-schema-overview.md#primitive-type)
+below has more details on how the debugger handles address encoding.
+
+* Boolean
+* Integer
+* ByteArray
+* String
+* Hash160
+* Hash256
+* PublicKey
+* Signature
+* Address
+
+> Note, a future version of the Neo SmartContract Framework Preview will include a mechanism to
+  declare type fields as `Address` as well. `Address` type fields will be displayed as Neo N3
+  addresses like `Address` key segments are. 
 
 ## Neo Contract Storage Conceptual Model
 
