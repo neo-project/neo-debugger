@@ -16,9 +16,6 @@ namespace NeoDebug.Neo3
 {
     class DisassemblyManager
     {
-        public delegate bool TryGetScript(IExecutionContext scriptHash, [MaybeNullWhen(false)] out Script script);
-        public delegate bool TryGetDebugInfo(IExecutionContext scriptHash, [MaybeNullWhen(false)] out DebugInfo debugInfo);
-
         static readonly ImmutableDictionary<uint, string> sysCallNames;
 
         static DisassemblyManager()
