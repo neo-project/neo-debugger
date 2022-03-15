@@ -10,7 +10,6 @@ using Neo.BlockchainToolkit.TraceDebug;
 using Neo.SmartContract;
 using Neo.VM;
 
-
 namespace NeoDebug.Neo3
 {
     internal partial class TraceApplicationEngine

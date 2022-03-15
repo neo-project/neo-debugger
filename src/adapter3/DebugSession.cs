@@ -96,6 +96,11 @@ namespace NeoDebug.Neo3
                         disassemblyMap.GetOrAdd(contract.Hash.GetHashCode(), 
                             sourceRef => ToDisassembly(sourceRef, contract.Hash, contract.Nef.Script, contract.Nef.Tokens, debugInfo));
                     }
+                    else
+                    {
+                        debugInfo = null;
+                    }
+
                 }
             }
         }

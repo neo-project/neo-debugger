@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
-using Neo.SmartContract;
-using StackItem = Neo.VM.Types.StackItem;
 
 namespace NeoDebug.Neo3
 {
@@ -29,7 +26,7 @@ namespace NeoDebug.Neo3
                 return id;
             }
 
-            throw new Exception();
+            throw new Exception($"specified container already exists");
         }
     }
 }

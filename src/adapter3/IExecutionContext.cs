@@ -1,10 +1,8 @@
-using System;
 using System.Collections.Generic;
 using Neo.SmartContract;
 using StackItem = Neo.VM.Types.StackItem;
 using Neo;
 using Neo.VM;
-using System.Diagnostics.CodeAnalysis;
 
 namespace NeoDebug.Neo3
 {
@@ -13,7 +11,6 @@ namespace NeoDebug.Neo3
         Instruction CurrentInstruction { get; }
         int InstructionPointer { get; }
         UInt160 ScriptHash { get; }
-        // UInt160 ScriptIdentifier { get; }
         Script Script { get; }
         IReadOnlyList<MethodToken> Tokens { get; }
         uint? NefChecksum { get; }

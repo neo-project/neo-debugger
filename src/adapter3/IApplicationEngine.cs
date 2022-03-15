@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using Neo.SmartContract;
+using System.Diagnostics.CodeAnalysis;
+using Neo;
+using Neo.BlockchainToolkit.Models;
+using Neo.VM;
+
 using StackItem = Neo.VM.Types.StackItem;
 using NeoArray = Neo.VM.Types.Array;
-using Neo;
-using Neo.VM;
-using System.Diagnostics.CodeAnalysis;
-using Neo.BlockchainToolkit.Models;
 
 namespace NeoDebug.Neo3
 {

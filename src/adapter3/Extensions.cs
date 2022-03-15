@@ -2,21 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Numerics;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
-using Neo.BlockchainToolkit;
 using Neo.BlockchainToolkit.Models;
-using Neo.Cryptography.ECC;
-using Neo.SmartContract;
 using Newtonsoft.Json.Linq;
-using OneOf;
 
 namespace NeoDebug.Neo3
 {
     using StackItem = Neo.VM.Types.StackItem;
     using StackItemType = Neo.VM.Types.StackItemType;
-    using ByteString = Neo.VM.Types.ByteString;
 
     internal static class Extensions
     {
