@@ -47,6 +47,16 @@ namespace NeoDebug.Neo3
             return false;
         }
 
+        public static TValue GetOrAdd<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, TKey key, Func<TKey, TValue> valueFactory)
+            where TKey : notnull
+        {
+            if (dictionary.TryGetValue(key, out var value)) return value;
+
+            value = valueFactory(key);
+            dictionary.Add(key, value);
+            return value;
+        }
+
         public static bool TryGetMethod(this DebugInfo debugInfo, int instructionPointer, out DebugInfo.Method method)
         {
             for (int i = 0; i < debugInfo.Methods.Count; i++)
