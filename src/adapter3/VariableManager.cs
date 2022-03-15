@@ -21,12 +21,11 @@ namespace NeoDebug.Neo3
         public int Add(IVariableContainer container)
         {
             var id = container.GetHashCode();
-            if (containers.TryAdd(id, container))
+            if (!containers.TryAdd(id, container))
             {
-                return id;
+                throw new Exception("specified container already exists");
             }
-
-            throw new Exception($"specified container already exists");
+            return id;
         }
     }
 }
