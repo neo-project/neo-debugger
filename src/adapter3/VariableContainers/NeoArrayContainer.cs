@@ -12,11 +12,12 @@ namespace NeoDebug.Neo3
 
     class NeoArrayContainer : IVariableContainer
     {
+        readonly string name;
         readonly NeoArray array;
         readonly OneOf<StructContractType, ArrayContractType, None> type;
         readonly byte addressVersion;
 
-        public NeoArrayContainer(NeoArray array, OneOf<StructContractType, ArrayContractType, None> type, byte addressVersion)
+        public NeoArrayContainer(string name, NeoArray array, OneOf<StructContractType, ArrayContractType, None> type, byte addressVersion)
         {
             if (type.TryPickT0(out var structType, out _)
                 && structType.Fields.Count != array.Count)
@@ -24,6 +25,7 @@ namespace NeoDebug.Neo3
                 throw new ArgumentException($"Expected {structType.Fields.Count} array fields, received {array.Count}");
             }
 
+            this.name = name;
             this.array = array;
             this.type = type;
             this.addressVersion = addressVersion;
@@ -31,7 +33,7 @@ namespace NeoDebug.Neo3
 
         public static Variable Create(IVariableManager manager, NeoArray array, string name, StructContractType type, byte addressVersion)
         {
-            var container = new NeoArrayContainer(array, type, addressVersion);
+            var container = new NeoArrayContainer(name, array, type, addressVersion);
             return new Variable()
             {
                 Name = name,
@@ -43,7 +45,7 @@ namespace NeoDebug.Neo3
 
         public static Variable Create(IVariableManager manager, NeoArray array, string name, ArrayContractType type, byte addressVersion)
         {
-            var container = new NeoArrayContainer(array, type, addressVersion);
+            var container = new NeoArrayContainer(name, array, type, addressVersion);
             return new Variable()
             {
                 Name = name,
@@ -55,7 +57,7 @@ namespace NeoDebug.Neo3
 
         public static Variable Create(IVariableManager manager, NeoArray array, string name)
         {
-            var container = new NeoArrayContainer(array, default(None), 0);
+            var container = new NeoArrayContainer(name, array, default(None), 0);
             return new Variable()
             {
                 Name = name,
@@ -74,12 +76,22 @@ namespace NeoDebug.Neo3
                     s => s.Fields[i].Type,
                     a => a.Type,
                     _ => ContractType.Unspecified);
-                var fieldName = type.Match<string>(
-                    s => s.Fields[i].Name,
-                    a => $"{i}",
-                    _ => $"{i}");
 
-                yield return fieldValue.AsVariable(manager, fieldName, fieldType, addressVersion);
+                string fieldName, evalName;
+                if (type.TryPickT0(out var @struct, out _))
+                {
+                    fieldName = @struct.Fields[i].Name;
+                    evalName = $"{name}.{fieldName}";
+                }
+                else
+                {
+                    fieldName = $"{i}";
+                    evalName = $"{name}[{fieldName}]";
+                }
+
+                var variable = fieldValue.AsVariable(manager, fieldName, fieldType, addressVersion);
+                variable.EvaluateName = evalName;
+                yield return variable;
             }
         }
     }

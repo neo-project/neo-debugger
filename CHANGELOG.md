@@ -18,6 +18,14 @@ may not exactly match a publicly released version.
   marketplace, but will not have the prerelease string in the version number. For more
   details, please see [Versioning Strategy](https://github.com/neo-project/neo-debugger#versioning-strategy)
 
+## [Unreleased]
+
+### Changed
+
+* Folded BreakpointManager and DisassemblyManager code into DebugSession (#161)
+* Updated ExpressionEvaluator to handle arrays and maps (#161)
+
+
 ## [3.3.25-preview] - 2022-03-14
 
 ### Changed

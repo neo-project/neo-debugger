@@ -111,19 +111,19 @@ namespace NeoDebug.Neo3
                 : address;
         }
 
-        public static UInt160 FromAddress(this ReadOnlyMemory<char> @this, byte addressVersion)
+        public static UInt160 FromAddress(this ReadOnlySpan<char> @this, byte addressVersion)
         {
             if (@this.IsEmpty) throw new FormatException();
 
-            if (@this.Span.Slice(1).SequenceEqual("000000000000000000000000000000000"))
+            if (@this.Slice(1).SequenceEqual("000000000000000000000000000000000"))
             {
                 var address = Neo.Wallets.Helper.ToAddress(UInt160.Zero, addressVersion);
-                if (address[0] != @this.Span[0]) throw new FormatException();
+                if (address[0] != @this[0]) throw new FormatException();
                 return UInt160.Zero;
             }
             else
             {
-                return Neo.Wallets.Helper.ToScriptHash(new string(@this.Span), addressVersion);
+                return Neo.Wallets.Helper.ToScriptHash(new string(@this), addressVersion);
             }
         }
 
@@ -133,18 +133,21 @@ namespace NeoDebug.Neo3
             return Convert.FromHexString(@this.Span);
         }
 
-        public static string AsValue(this ReadOnlyMemory<byte> @this, PrimitiveContractType type, byte addressVersion)
-            => type.Type switch
+        public static string AsValue(this ReadOnlySpan<byte> @this, PrimitiveContractType type, byte addressVersion)
+            => AsValue(@this, type.Type, addressVersion);
+
+        public static string AsValue(this ReadOnlySpan<byte> @this, PrimitiveType type, byte addressVersion)
+            => type switch
             {
-                PrimitiveType.Address => new UInt160(@this.Span).AsAddress(addressVersion),
-                PrimitiveType.Boolean => new BigInteger(@this.Span) != 0 ? "true" : "false",
-                PrimitiveType.ByteArray or PrimitiveType.Signature => @this.Span.ToHexString(),
-                PrimitiveType.Hash160 => new UInt160(@this.Span).ToString(),
-                PrimitiveType.Hash256 => new UInt256(@this.Span).ToString(),
-                PrimitiveType.Integer => new BigInteger(@this.Span).ToString(),
-                PrimitiveType.PublicKey => ECPoint.DecodePoint(@this.Span, ECCurve.Secp256r1).ToString(),
-                PrimitiveType.String => Neo.Utility.StrictUTF8.GetString(@this.Span),
-                _ => throw new NotSupportedException($"{type.Type} primitive type"),
+                PrimitiveType.Address => new UInt160(@this).AsAddress(addressVersion),
+                PrimitiveType.Boolean => new BigInteger(@this) != 0 ? "true" : "false",
+                PrimitiveType.ByteArray or PrimitiveType.Signature => Convert.ToHexString(@this),
+                PrimitiveType.Hash160 => new UInt160(@this).ToString(),
+                PrimitiveType.Hash256 => new UInt256(@this).ToString(),
+                PrimitiveType.Integer => new BigInteger(@this).ToString(),
+                PrimitiveType.PublicKey => ECPoint.DecodePoint(@this, ECCurve.Secp256r1).ToString(),
+                PrimitiveType.String => Neo.Utility.StrictUTF8.GetString(@this),
+                _ => throw new NotSupportedException($"{type} primitive type"),
             };
 
         public static Variable AsVariable(this ReadOnlyMemory<byte> @this, IVariableManager manager, string name, PrimitiveContractType type, byte addressVersion)
@@ -160,7 +163,7 @@ namespace NeoDebug.Neo3
                 return new Variable
                 {
                     Name = name,
-                    Value = @this.AsValue(type, addressVersion),
+                    Value = @this.Span.AsValue(type, addressVersion),
                     Type = type.AsTypeName(),
                 };
             }

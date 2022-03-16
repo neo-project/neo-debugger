@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq;
+using System.Text;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
 using Neo.BlockchainToolkit;
 using Neo.BlockchainToolkit.Models;
+using Neo.SmartContract;
 using Neo.SmartContract.Native;
 using Neo.VM;
 
@@ -13,25 +16,43 @@ namespace NeoDebug.Neo3
 {
     using NeoArray = Neo.VM.Types.Array;
 
-    internal class DebugSession : IDebugSession, IDisposable
+    class DebugSession : IDebugSession, IDisposable
     {
         public const string CAUGHT_EXCEPTION_FILTER = "caught";
         public const string UNCAUGHT_EXCEPTION_FILTER = "uncaught";
 
-        private readonly IApplicationEngine engine;
-        private readonly IReadOnlyList<CastOperation> returnTypes;
-        
-        private readonly IReadOnlyList<DebugInfo> debugInfoList;
-        private readonly Dictionary<UInt160, DebugInfo> debugInfoMap = new();
-        private readonly Dictionary<UInt160, string> contractNameMap = new();
-        private readonly Action<DebugEvent> sendEvent;
-        private bool disassemblyView;
-        private readonly StorageView storageView;
-        private readonly DisassemblyManager disassemblyManager;
-        private readonly VariableManager variableManager = new VariableManager();
-        private readonly BreakpointManager breakpointManager;
-        private bool breakOnCaughtExceptions;
-        private bool breakOnUncaughtExceptions = true;
+        static readonly IReadOnlyDictionary<uint, string> sysCallNames;
+
+        static DebugSession()
+        {
+            sysCallNames = Neo.SmartContract.ApplicationEngine.Services
+                .ToDictionary(kvp => kvp.Value.Hash, kvp => kvp.Value.Name);
+        }
+
+        readonly record struct Disassembly
+        {
+            public readonly UInt160 ScriptHash { get; init; }
+            public readonly string Source { get; init; }
+            public readonly int SourceReference { get; init; }
+            public readonly IReadOnlyDictionary<int, int> AddressMap { get; init; }
+            public readonly IReadOnlyDictionary<int, int> LineMap { get; init; }
+        }
+
+        readonly IApplicationEngine engine;
+        readonly Action<DebugEvent> sendEvent;
+        readonly StorageView storageView;
+        readonly VariableManager variableManager = new VariableManager();
+        readonly Dictionary<UInt160, DebugInfo> debugInfoMap = new();
+        readonly Dictionary<UInt160, string> contractNameMap = new();
+        readonly Dictionary<int, Disassembly> disassemblyMap = new();
+        readonly Dictionary<string, IReadOnlySet<(UInt160 hash, int position)>> sourceBreakpoints = new();
+        readonly Dictionary<UInt160, IReadOnlySet<int>> disassemblyBreakpoints = new();
+        readonly Dictionary<UInt160, IReadOnlySet<int>> breakpointCache = new();
+        readonly IReadOnlyList<CastOperation> returnTypes;
+
+        bool disassemblyView;
+        bool breakOnCaughtExceptions;
+        bool breakOnUncaughtExceptions = true;
 
         public DebugSession(IApplicationEngine engine,
                             IReadOnlyList<DebugInfo> debugInfoList,
@@ -43,11 +64,8 @@ namespace NeoDebug.Neo3
             this.engine = engine;
             this.returnTypes = returnTypes;
             this.sendEvent = sendEvent;
-            this.debugInfoList = debugInfoList;
             disassemblyView = defaultDebugView == DebugView.Disassembly;
             this.storageView = storageView;
-            disassemblyManager = new DisassemblyManager();
-            breakpointManager = new BreakpointManager(disassemblyManager, () => debugInfoMap);
 
             this.engine.DebugNotify += OnNotify;
             this.engine.DebugLog += OnLog;
@@ -74,16 +92,18 @@ namespace NeoDebug.Neo3
                     if (debugInfoList.TryFind(di => di.ScriptHash == scriptId, out var debugInfo))
                     {
                         debugInfoMap.Add(contract.Hash, debugInfo);
-                        disassemblyManager.GetOrAdd(contract, debugInfo);
+                        disassemblyMap.GetOrAdd(contract.Hash.GetHashCode(), 
+                            sourceRef => ToDisassembly(sourceRef, contract.Hash, contract.Nef.Script, contract.Nef.Tokens, debugInfo));
                     }
                     else
                     {
-                        disassemblyManager.GetOrAdd(contract, null);
+                        debugInfo = null;
                     }
                 }
             }
         }
 
+        // TODO: Debug info decoding of state values
         private void OnNotify(object? sender, (UInt160 scriptHash, string scriptName, string eventName, NeoArray state) args)
         {
             var state = args.state.ToJson().ToString(Newtonsoft.Json.Formatting.Indented);
@@ -153,7 +173,7 @@ namespace NeoDebug.Neo3
 
                 var contractName = contractNameMap.TryGetValue(context.ScriptHash, out var _name)
                     ? _name : null;
-                
+
                 var frame = new StackFrame()
                 {
                     Id = index,
@@ -162,7 +182,8 @@ namespace NeoDebug.Neo3
 
                 if (disassemblyView)
                 {
-                    var disassembly = disassemblyManager.GetOrAdd(context, debugInfo);
+                    var disassembly = disassemblyMap.GetOrAdd(context.ScriptHash.GetHashCode(), 
+                        sourceRef => ToDisassembly(sourceRef, context.ScriptHash, context.Script, context.Tokens, debugInfo));
                     var shortHash = context.ScriptHash.ToString().Substring(0, 8) + "...";
                     frame.Source = new Source()
                     {
@@ -182,7 +203,7 @@ namespace NeoDebug.Neo3
                 }
                 else
                 {
-                    if (method.TryGetSequencePoint(context.InstructionPointer, out var point) 
+                    if (method.TryGetSequencePoint(context.InstructionPointer, out var point)
                         && point.TryGetDocumentPath(debugInfo, out var docPath))
                     {
                         frame.Source = new Source()
@@ -209,6 +230,7 @@ namespace NeoDebug.Neo3
             }
         }
 
+        // TODO: use consts from expr eval
         const string EVAL_STACK_PREFIX = "#eval";
         const string RESULT_STACK_PREFIX = "#result";
         public const string STORAGE_PREFIX = "#storage";
@@ -258,7 +280,7 @@ namespace NeoDebug.Neo3
         public SourceResponse GetSource(SourceArguments arguments)
         {
             if (arguments.Source.SourceReference.HasValue
-                && disassemblyManager.TryGet(arguments.Source.SourceReference.Value, out var disassembly))
+                && disassemblyMap.TryGetValue(arguments.Source.SourceReference.Value, out var disassembly))
             {
                 return new SourceResponse(disassembly.Source)
                 {
@@ -285,7 +307,111 @@ namespace NeoDebug.Neo3
 
         public IEnumerable<Breakpoint> SetBreakpoints(Source source, IReadOnlyList<SourceBreakpoint> sourceBreakpoints)
         {
-            return breakpointManager.SetBreakpoints(source, sourceBreakpoints);
+            // If SourceReference has a value, source represents a disassembly file
+            if (source.SourceReference.HasValue)
+            {
+                if (disassemblyMap.TryGetValue(source.SourceReference.Value, out var disassembly))
+                {
+                    HashSet<int> breakpoints = new();
+                    foreach (var sbp in sourceBreakpoints)
+                    {
+                        var validated = disassembly.LineMap.TryGetValue(sbp.Line, out var address);
+
+                        breakpoints.Add(address);
+
+                        yield return new Breakpoint(validated)
+                        {
+                            Column = sbp.Column,
+                            Line = sbp.Line,
+                            Source = source
+                        };
+                    }
+                    disassemblyBreakpoints[disassembly.ScriptHash] = breakpoints;
+                }
+                else
+                {
+                    foreach (var sbp in sourceBreakpoints)
+                    {
+                        yield return new Breakpoint(false)
+                        {
+                            Column = sbp.Column,
+                            Line = sbp.Line,
+                            Source = source
+                        };
+                    }
+                }
+            }
+            else
+            {
+                var sbpValidated = new bool[sourceBreakpoints.Count];
+                HashSet<(UInt160, int)> breakpoints = new();
+
+                foreach (var (scriptHash, debugInfo) in debugInfoMap)
+                {
+                    if (!TryFindDocumentIndex(debugInfo.Documents, source.Path, out var index)) continue;
+
+                    // TODO: Cache this?
+                    var pointLookup = debugInfo.Methods
+                        .SelectMany(m => m.SequencePoints)
+                        .Where(sp => sp.Document == index)
+                        .ToLookup(sp => sp.Start.line);
+
+                    for (int j = 0; j < sourceBreakpoints.Count; j++)
+                    {
+                        SourceBreakpoint? sbp = sourceBreakpoints[j];
+                        var validated = pointLookup.TryLookup(sbp.Line, out var points);
+
+                        if (validated)
+                        {
+                            sbpValidated[j] = true;
+                            breakpoints.Add((scriptHash, points.First().Address));
+                        }
+                    }
+                }
+
+                this.sourceBreakpoints[source.Path] = breakpoints;
+
+                for (int i = 0; i < sourceBreakpoints.Count; i++)
+                {
+                    var sbp = sourceBreakpoints[i];
+                    yield return new Breakpoint(sbpValidated[i])
+                    {
+                        Column = sbp.Column,
+                        Line = sbp.Line,
+                        Source = source
+                    };
+                }
+            }
+
+            this.breakpointCache.Clear();
+
+            {
+                // combine source and disassembly break points into a common collection of scriptHash and position
+                var srcBreakpoints = this.sourceBreakpoints.SelectMany(kvp => kvp.Value);
+                var dsmBreakpoints = this.disassemblyBreakpoints.SelectMany(bp => bp.Value.Select(p => (hash: bp.Key, position: p)));
+                var breakpoints = srcBreakpoints.Concat(dsmBreakpoints).GroupBy(bp => bp.hash, bp => bp.position);
+                foreach (var contractGroup in breakpoints)
+                {
+                    this.breakpointCache[contractGroup.Key] = contractGroup
+                        .Distinct()
+                        .ToHashSet();
+                }
+            }
+
+            static bool TryFindDocumentIndex(IReadOnlyList<string> documents, string path, out int index)
+            {
+                for (int i = 0; i < documents.Count; i++)
+                {
+                    if (documents[i].Equals(path, StringComparison.OrdinalIgnoreCase))
+                    {
+                        index = i;
+                        return true;
+                    }
+                }
+
+                index = 0;
+                return false;
+            }
         }
 
         public void SetExceptionBreakpoints(IReadOnlyList<string> filters)
@@ -425,7 +551,7 @@ namespace NeoDebug.Neo3
                     }
                 }
 
-                if (breakpointManager.CheckBreakpoint(engine.CurrentContext))
+                if (CheckBreakpoint(engine.CurrentContext))
                 {
                     FireStoppedEvent(StoppedEvent.ReasonValue.Breakpoint);
                     break;
@@ -437,6 +563,19 @@ namespace NeoDebug.Neo3
                     FireStoppedEvent(StoppedEvent.ReasonValue.Step);
                     break;
                 }
+            }
+
+            bool CheckBreakpoint(IExecutionContext? context)
+            {
+                if (context is null) return false;
+
+                if (breakpointCache.TryGetValue(context.ScriptHash, out var set)
+                    && set.Contains(context.InstructionPointer))
+                {
+                    return true;
+                }
+
+                return false;
             }
 
             bool CheckSequencePoint()
@@ -493,6 +632,98 @@ namespace NeoDebug.Neo3
         public void StepBack()
         {
             Step((_) => true, true);
+        }
+
+        static Disassembly ToDisassembly(int sourceRef, UInt160 scriptHash, Neo.VM.Script script, IReadOnlyList<MethodToken> tokens, DebugInfo? debugInfo)
+        {
+            var padString = script.GetInstructionAddressPadding();
+            var sourceBuilder = new StringBuilder();
+            Dictionary<int, int> addressMap = new();
+            Dictionary<int, int> lineMap = new();
+
+            var documents = (debugInfo?.Documents ?? Array.Empty<string>())
+                .Select(path => 
+                {
+                    var fileName = Path.GetFileName(path);
+                    var lines = File.Exists(path) 
+                        ? File.ReadAllLines(path) 
+                        : Array.Empty<string>();
+                    return (fileName, lines);
+                })
+                .ToArray().AsReadOnly();
+            var methods = debugInfo?.Methods ?? Enumerable.Empty<DebugInfo.Method>();
+            var methodStarts = methods.ToDictionary(m => m.Range.Start).AsReadOnly();
+            var methodEnds = methods.ToDictionary(m => m.Range.End).AsReadOnly();
+            var sequencePoints = methods.SelectMany(m => m.SequencePoints)
+                .ToDictionary(s => s.Address).AsReadOnly();
+
+            var instructions = script.EnumerateInstructions()
+                .ToArray().AsReadOnly();
+
+            var line = 1;
+            for (int i = 0; i < instructions.Count; i++)
+            {
+                if (sourceBuilder.Length > 0) sourceBuilder.Append("\n");
+
+                if (methodStarts.TryGetValue(instructions[i].address, out var methodStart))
+                {
+                    sourceBuilder.AppendLine($"# Start Method {methodStart.Namespace}.{methodStart.Name}");
+                    line++;
+                }
+
+                if (sequencePoints.TryGetValue(instructions[i].address, out var sp)
+                    && sp.Document < documents.Count)
+                {
+                    var doc = documents[sp.Document];
+                    if (doc.lines.Length > sp.Start.line - 1)
+                    {
+                        var srcLine = doc.lines[sp.Start.line - 1];
+
+                        if (sp.Start.column > 1) srcLine = srcLine.Substring(sp.Start.column - 1);
+                        if (sp.Start.line == sp.End.line && sp.End.column > sp.Start.column)
+                        {
+                            srcLine = srcLine.Substring(0, sp.End.column - sp.Start.column);
+                        }
+
+                        sourceBuilder.AppendLine($"# Code {doc.fileName} line {sp.Start.line}: \"{srcLine.Trim()}\"");
+                        line++;
+                    }
+                }
+
+                AddSource(sourceBuilder, instructions[i].address, instructions[i].instruction, padString, tokens);
+                addressMap.Add(instructions[i].address, line);
+                lineMap.Add(line, instructions[i].address);
+                line++;
+
+                if (methodEnds.TryGetValue(instructions[i].address, out var methodEnd))
+                {
+                    sourceBuilder.Append($"\n# End Method {methodEnd.Namespace}.{methodEnd.Name}");
+                    line++;
+                }
+            }
+
+            return new Disassembly
+            {
+                ScriptHash = scriptHash,
+                Source = sourceBuilder.ToString(),
+                SourceReference = sourceRef,
+                AddressMap = addressMap,
+                LineMap = lineMap
+            };
+
+            static void AddSource(StringBuilder sourceBuilder, int address, Instruction instruction, string padString, IReadOnlyList<MethodToken> tokens)
+            {
+                sourceBuilder.Append($"{address.ToString(padString)} {instruction.OpCode}");
+                if (!instruction.Operand.IsEmpty)
+                {
+                    sourceBuilder.Append($" {instruction.GetOperandString()}");
+                }
+                var comment = instruction.GetComment(address, tokens);
+                if (comment.Length > 0)
+                {
+                    sourceBuilder.Append($" # {comment}");
+                }
+            }
         }
     }
 }

@@ -15,6 +15,5 @@ namespace NeoDebug.Neo3
             if (n < 1000000000) return 9;
             return 10;
         }
-
     }
 }

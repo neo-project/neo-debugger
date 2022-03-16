@@ -9,7 +9,10 @@ using StackItem = Neo.VM.Types.StackItem;
 using StackItemType = Neo.VM.Types.StackItemType;
 using NeoArray = Neo.VM.Types.Array;
 using ByteString = Neo.VM.Types.ByteString;
-using Boolean = Neo.VM.Types.Boolean;
+using NeoBoolean = Neo.VM.Types.Boolean;
+using NeoInteger = Neo.VM.Types.Integer;
+using NeoPrimitive = Neo.VM.Types.PrimitiveType;
+using System.Numerics;
 
 namespace NeoDebug.Neo3
 {
@@ -92,9 +95,27 @@ namespace NeoDebug.Neo3
                     var keyBuffer = expr.Slice(1, bracketIndex - 1);
                     var remain = expr.Slice(bracketIndex + 1);
 
-                    if (item is Neo.VM.Types.Map)
+                    if (item is Neo.VM.Types.Map map)
                     {
-                        // TODO: implement map contract type 
+                        if (type is MapContractType mapType)
+                        {
+                            if (TryParseKeyBuffer(keyBuffer.Span, mapType.KeyType, out var key)
+                                && map.ContainsKey(key))
+                            {
+                                evalContext = new ExpressionEvalContext(remain, map[key], mapType.ValueType);
+                                return true;
+                            }
+                        }
+                        else
+                        {
+                            if (TryParseKeyBuffer(keyBuffer.Span, out var key)
+                                && map.ContainsKey(key))
+                            {
+                                evalContext = new ExpressionEvalContext(remain, map[key], ContractType.Unspecified);
+                                return true;
+                            }
+                        }
+
                         return false;
                     }
                     else
@@ -104,10 +125,13 @@ namespace NeoDebug.Neo3
                             if (item is NeoArray array
                                 && key < array.Count)
                             {
-                                ContractType newType = type is StructContractType structType && array.Count == structType.Fields.Count
-                                    ? structType.Fields[key].Type : UnspecifiedContractType.Unspecified;
+                                ContractType elementType = type is StructContractType structType
+                                    ? structType.Fields[key].Type
+                                    : type is ArrayContractType arrayType
+                                        ? arrayType.Type
+                                        : ContractType.Unspecified;
 
-                                evalContext = new ExpressionEvalContext(remain, array[key], newType);
+                                evalContext = new ExpressionEvalContext(remain, array[key], elementType);
                                 return true;
                             }
                             else if (item is Neo.VM.Types.PrimitiveType primitive)
@@ -141,6 +165,116 @@ namespace NeoDebug.Neo3
                 }
             }
 
+            return false;
+        }
+
+        bool TryParseKeyBuffer(ReadOnlySpan<char> span, PrimitiveType type, [MaybeNullWhen(false)] out NeoPrimitive item)
+        {
+            switch (type)
+            {
+                case PrimitiveType.Boolean:
+                    if (bool.TryParse(span, out var boolResult))
+                    {
+                        item = boolResult
+                            ? (NeoBoolean)StackItem.True
+                            : (NeoBoolean)StackItem.False;
+                        return true;
+                    }
+                    break;
+                case PrimitiveType.Integer:
+                    if (BigInteger.TryParse(span, out var intResult))
+                    {
+                        item = new NeoInteger(intResult);
+                        return true;
+                    }
+                    break;
+                case PrimitiveType.String:
+                    {
+                        var count = Neo.Utility.StrictUTF8.GetByteCount(span);
+                        var buffer = new byte[count];
+                        Neo.Utility.StrictUTF8.GetBytes(span, buffer);
+                        item = new ByteString(buffer);
+                        return true;
+                    }
+                case PrimitiveType.Address:
+                    {
+                        try
+                        {
+                            var address = span.FromAddress(addressVersion);
+                            item = new ByteString(Neo.IO.Helper.ToArray(address));
+                            return true;
+                        }
+                        catch {}
+                    }
+                    break;
+                case PrimitiveType.Hash160:
+                    if (UInt160.TryParse(new string(span), out var uInt160))
+                    {
+                        item = new ByteString(Neo.IO.Helper.ToArray(uInt160));
+                        return true;
+                    }
+                    break;
+                case PrimitiveType.Hash256:
+                    if (UInt256.TryParse(new string(span), out var uInt256))
+                    {
+                        item = new ByteString(Neo.IO.Helper.ToArray(uInt256));
+                        return true;
+                    }
+                    break;
+                case PrimitiveType.PublicKey:
+                    break; // not implemented yet
+                case PrimitiveType.ByteArray:
+                case PrimitiveType.Signature:
+                    if (TryFromHexString(span, out var value))
+                    {
+                        item = new ByteString(value);
+                        return true;
+                    }
+                    break;
+            }
+
+            item = default;
+            return false;
+        }
+
+        static bool TryFromHexString(ReadOnlySpan<char> span, out ReadOnlyMemory<byte> value)
+        {
+            try
+            {
+                span = span.StartsWith("0x") ? span.Slice(2) : span;
+                value = Convert.FromHexString(span);
+                return true;
+            }
+            catch { }
+
+            value = default;
+            return false;
+
+        }
+
+        static bool TryParseKeyBuffer(ReadOnlySpan<char> span, [MaybeNullWhen(false)] out NeoPrimitive item)
+        {
+            if (bool.TryParse(span, out var boolResult))
+            {
+                item = boolResult
+                    ? (NeoBoolean)StackItem.True
+                    : (NeoBoolean)StackItem.False;
+                return true;
+            }
+
+            if (System.Numerics.BigInteger.TryParse(span, out var intResult))
+            {
+                item = new NeoInteger(intResult);
+                return true;
+            }
+
+            if (TryFromHexString(span, out var bytesResult))
+            {
+                item = new ByteString(bytesResult);
+                return true;
+            }
+
+            item = default;
             return false;
         }
 
@@ -194,7 +328,7 @@ namespace NeoDebug.Neo3
                     {
                         var result = slot[slotIndex];
                         var remaining = expression.Slice(slotIndexExpr.Length);
-                        context = new ExpressionEvalContext(remaining, result, UnspecifiedContractType.Unspecified);
+                        context = new ExpressionEvalContext(remaining, result, ContractType.Unspecified);
                         return true;
                     }
                 }
@@ -215,9 +349,7 @@ namespace NeoDebug.Neo3
                     var remaining = expression.Slice(variable.Name.Length);
                     if (IsValidRemaining(remaining))
                     {
-                        // result = (slot[variable.Index], variable.Type);
-                        // TODO: return type info
-                        context = new ExpressionEvalContext(remaining, slot[variable.Index], UnspecifiedContractType.Unspecified);
+                        context = new ExpressionEvalContext(remaining, slot[variable.Index], variable.Type);
                         return true;
                     }
                 }
@@ -294,25 +426,25 @@ namespace NeoDebug.Neo3
                             {
                                 return true;
                             }
-                            else  
+                            else
                             {
                                 break;
                             }
                         }
                     case CastOperation.Address:
-                    {
-                        var span = item is Neo.VM.Types.PrimitiveType || item is Neo.VM.Types.Buffer ? item.GetSpan() : default;
-                        if (span.Length == UInt160.Length)
                         {
-                            result = item is ByteString byteString
-                                ? byteString
-                                : item is Neo.VM.Types.Buffer buffer
-                                    ? buffer.InnerBuffer
-                                    : item.GetSpan().ToArray();
-                            return true;
+                            var span = item is Neo.VM.Types.PrimitiveType || item is Neo.VM.Types.Buffer ? item.GetSpan() : default;
+                            if (span.Length == UInt160.Length)
+                            {
+                                result = item is ByteString byteString
+                                    ? byteString
+                                    : item is Neo.VM.Types.Buffer buffer
+                                        ? buffer.InnerBuffer
+                                        : item.GetSpan().ToArray();
+                                return true;
+                            }
                         }
-                    }
-                    break;
+                        break;
                 }
             }
             catch { }

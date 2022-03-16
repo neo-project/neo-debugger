@@ -9,7 +9,6 @@ using System.Diagnostics.CodeAnalysis;
 using Neo.BlockchainToolkit.TraceDebug;
 using System.Linq;
 using System.IO;
-using Neo.SmartContract.Native;
 using Neo.BlockchainToolkit.Models;
 
 namespace NeoDebug.Neo3

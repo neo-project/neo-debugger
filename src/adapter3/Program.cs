@@ -3,7 +3,6 @@ using System.IO;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using McMaster.Extensions.CommandLineUtils;
 
-
 namespace NeoDebug.Neo3
 {
     class Program

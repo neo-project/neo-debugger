@@ -2,21 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Numerics;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo;
-using Neo.BlockchainToolkit;
 using Neo.BlockchainToolkit.Models;
-using Neo.Cryptography.ECC;
-using Neo.SmartContract;
 using Newtonsoft.Json.Linq;
-using OneOf;
 
 namespace NeoDebug.Neo3
 {
     using StackItem = Neo.VM.Types.StackItem;
     using StackItemType = Neo.VM.Types.StackItemType;
-    using ByteString = Neo.VM.Types.ByteString;
 
     internal static class Extensions
     {
@@ -45,6 +39,16 @@ namespace NeoDebug.Neo3
 
             elements = Enumerable.Empty<TElement>();
             return false;
+        }
+
+        public static TValue GetOrAdd<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, TKey key, Func<TKey, TValue> valueFactory)
+            where TKey : notnull
+        {
+            if (dictionary.TryGetValue(key, out var value)) return value;
+
+            value = valueFactory(key);
+            dictionary.Add(key, value);
+            return value;
         }
 
         public static bool TryGetMethod(this DebugInfo debugInfo, int instructionPointer, out DebugInfo.Method method)

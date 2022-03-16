@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
-using Neo.SmartContract;
-using StackItem = Neo.VM.Types.StackItem;
 
 namespace NeoDebug.Neo3
 {
@@ -24,12 +21,11 @@ namespace NeoDebug.Neo3
         public int Add(IVariableContainer container)
         {
             var id = container.GetHashCode();
-            if (containers.TryAdd(id, container))
+            if (!containers.TryAdd(id, container))
             {
-                return id;
+                throw new Exception("specified container already exists");
             }
-
-            throw new Exception();
+            return id;
         }
     }
 }
