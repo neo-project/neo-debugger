@@ -22,7 +22,9 @@ may not exactly match a publicly released version.
 
 ### Changed
 
-* Folded BreakpointManager and DisassemblyManager code into DebugSession
+* Folded BreakpointManager and DisassemblyManager code into DebugSession (#161)
+* Updated ExpressionEvaluator to handle arrays and maps (#161)
+
 
 ## [3.3.25-preview] - 2022-03-14
 
