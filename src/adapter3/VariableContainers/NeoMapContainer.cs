@@ -12,12 +12,14 @@ namespace NeoDebug.Neo3
 
     class NeoMapContainer : IVariableContainer
     {
+        readonly string name;
         readonly NeoMap map;
         readonly OneOf<MapContractType, None> type;
         readonly byte addressVersion;
 
-        public NeoMapContainer(NeoMap map, OneOf<MapContractType, None> type, byte addressVersion)
+        public NeoMapContainer(string name, NeoMap map, OneOf<MapContractType, None> type, byte addressVersion)
         {
+            this.name = name;
             this.map = map;
             this.type = type;
             this.addressVersion = addressVersion;
@@ -25,7 +27,7 @@ namespace NeoDebug.Neo3
 
         public static Variable Create(IVariableManager manager, NeoMap map, string name, MapContractType type, byte addressVersion)
         {
-            var container = new NeoMapContainer(map, type, addressVersion);
+            var container = new NeoMapContainer(name, map, type, addressVersion);
             return new Variable()
             {
                 Name = name,
@@ -37,7 +39,7 @@ namespace NeoDebug.Neo3
 
         public static Variable Create(IVariableManager manager, NeoMap map, string name)
         {
-            var container = new NeoMapContainer(map, default(None), 0);
+            var container = new NeoMapContainer(name, map, default(None), 0);
             return new Variable()
             {
                 Name = name,
@@ -51,19 +53,23 @@ namespace NeoDebug.Neo3
         {
             foreach (var key in map.Keys)
             {
-                var keyString = key switch
-                {
-                    Neo.VM.Types.Boolean @bool => @bool.GetBoolean().ToString(),
-                    Neo.VM.Types.ByteString byteString => byteString.GetSpan().ToHexString(),
-                    Neo.VM.Types.Integer @int => @int.GetInteger().ToString(),
-                    _ => throw new NotImplementedException($"Unknown primitive type {key.GetType()}"),
-                };
+                string keyString = type.TryPickT0(out var mapType, out _)
+                    ? key.GetSpan().AsValue(mapType.KeyType, addressVersion)
+                    : key switch
+                    {
+                        Neo.VM.Types.Boolean @bool => @bool.GetBoolean().ToString(),
+                        Neo.VM.Types.ByteString byteString => byteString.GetSpan().ToHexString(),
+                        Neo.VM.Types.Integer @int => @int.GetInteger().ToString(),
+                        _ => throw new NotImplementedException($"Unknown primitive type {key.GetType()}"),
+                    };
 
                 var valueType = type.Match<ContractType>(
                     m => m.ValueType,
                     _ => ContractType.Unspecified);
 
-                yield return map[key].AsVariable(manager, keyString, valueType, addressVersion);
+                var variable = map[key].AsVariable(manager, keyString, valueType, addressVersion);
+                variable.EvaluateName = $"{name}[{keyString}]";
+                yield return variable;
             }
         }
     }

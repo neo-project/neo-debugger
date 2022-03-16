@@ -165,7 +165,7 @@ namespace NeoDebug.Neo3
             {
                 var result = new Neo.VM.Types.ByteString(key);
                 var remaining = expression.Slice(4);
-                context = new ExpressionEvalContext(remaining, result, UnspecifiedContractType.Unspecified);
+                context = new ExpressionEvalContext(remaining, result, ContractType.Unspecified);
                 return true;
             }
 
@@ -176,7 +176,7 @@ namespace NeoDebug.Neo3
                     ? Neo.VM.Types.Null.Null
                     : new Neo.VM.Types.ByteString(storage.item.Value);
                 var remaining = expression.Slice(5);
-                context = new ExpressionEvalContext(remaining, result, UnspecifiedContractType.Unspecified);
+                context = new ExpressionEvalContext(remaining, result, ContractType.Unspecified);
                 return true;
             }
 
@@ -197,7 +197,7 @@ namespace NeoDebug.Neo3
                         {
                             var result = new Neo.VM.Types.ByteString(key);
                             var remaining = expression.Slice(4);
-                            context = new ExpressionEvalContext(remaining, result, UnspecifiedContractType.Unspecified);
+                            context = new ExpressionEvalContext(remaining, result, ContractType.Unspecified);
                             return true;
                         }
 
@@ -208,7 +208,7 @@ namespace NeoDebug.Neo3
                                 ? Neo.VM.Types.Null.Null
                                 : new Neo.VM.Types.ByteString(item.Value);
                             var remaining = expression.Slice(5);
-                            context = new ExpressionEvalContext(remaining, result, UnspecifiedContractType.Unspecified);
+                            context = new ExpressionEvalContext(remaining, result, ContractType.Unspecified);
                             return true;
                         }
                     }
@@ -224,7 +224,7 @@ namespace NeoDebug.Neo3
         {
             return type switch
             {
-                PrimitiveType.Address => buffer.FromAddress(addressVersion).ToArray(),
+                PrimitiveType.Address => buffer.Span.FromAddress(addressVersion).ToArray(),
                 PrimitiveType.Boolean => (bool.Parse(buffer.Span) ? BigInteger.One : BigInteger.Zero).ToByteArray(),
                 PrimitiveType.ByteArray => buffer.FromHexString(),
                 PrimitiveType.Hash160 => UInt160.Parse(new string(buffer.Span)).ToArray(),
