@@ -18,6 +18,18 @@ may not exactly match a publicly released version.
   marketplace, but will not have the prerelease string in the version number. For more
   details, please see [Versioning Strategy](https://github.com/neo-project/neo-debugger#versioning-strategy)
 
+## [Unreleased]
+
+### Changed
+
+* Neo Debug Info version 2 support (current v2 proposal: https://github.com/devhawk/proposals/blob/devhawk/cd2l/nep-19.md)
+* Associate all known debug infos with deployed contract hash on debugger startup (debug engine only)
+* Load all scripts into Disassembly manager on startup (debug engine only)
+
+### Removed
+
+* Hand-authored Storage Schema support has been replaces with Neo Debug Info v2 support.
+
 ## [3.2.34] - 2022-03-11
 
 ### Fixed
@@ -36,19 +48,22 @@ may not exactly match a publicly released version.
 
 ## [3.2.28] - 2022-02-28
 
-## Changed
+### Changed
 
 * Only override CheckWitness when specified via `runtime.witnesses` launch config property. (#155)
 * Render method token information in Disassembly view (#156)
 
-## Fixed
+### Fixed
 
 * Respect DebugInfo.SlotVariable.Index (#155)
 
-## Engineering
+### Engineering
 
 * Adopting [VS Code recommendations](https://code.visualstudio.com/api/working-with-extensions/publishing-extension#prerelease-extensions)
   for version numbers to enable shipping pre-release versions of the debugger. 
+* Added push and pull request GitHub workflows scripts.
+* Updated release GitHub workflow to publish extension to VSCode marketplace
+* Removed Azure DevOps workflow. This repo is no longer using Azure DevOps for build/release services
 
 ## [3.1.23] - 2021-12-14
 
