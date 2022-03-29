@@ -4,10 +4,12 @@ on:
   pull_request:
     branches:
       - master
+      - develop
       - 'release/*'
   push:
     branches:
       - master
+      - develop
       - 'release/**'
     paths-ignore:
       - 'readme.md'
@@ -46,12 +48,12 @@ jobs:
       uses: dotnet/nbgv@v0.4.0
 
     # Production releases are published from release branches and have an *even* minor version number
-    # Preview releases are published from master branch and have an *odd* minor version number
+    # Preview releases are published from develop branch and have an *odd* minor version number
     #   Details: https://github.com/neo-project/neo-debugger#versioning-strategy
     # relInfo step calculates release information for later use in the workflow
     #   * preRelease is true for preview releases (odd minor version) and false for production
     #     releases (even minor version)
-    #   * version is SimpleVersion (w/o prerelease string) when publicationBranches (master + release) and
+    #   * version is SimpleVersion (w/o prerelease string) when publicationBranches (develop + release) and
     #     NpmPackageVersion (w/ prerelease string) when publicationBranch is false
     - id: relInfo
       name: Calculate Release Info
@@ -69,9 +71,9 @@ jobs:
           // convert boolean values to integers via + operator for github expressions compatibility
           core.setOutput('preRelease', +preRelease);
 
-          // use simple version for master branch builds (w/o any prerelease string)
+          // use simple version for develop branch builds (w/o any prerelease string)
           // so extension can be published on VSCode marketplace
-          const extensionVersion = context.ref === 'refs/heads/master' ? SIMPLE_VERSION : NPM_VERSION;
+          const extensionVersion = context.ref === 'refs/heads/develop' ? SIMPLE_VERSION : NPM_VERSION;
           core.setOutput('extensionVersion', extensionVersion);
 
     - name: Install debug adapter dependencies
