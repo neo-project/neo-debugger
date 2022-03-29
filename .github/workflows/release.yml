@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       githubRelease:
-        description: 'Create a GitHub release (master/release branches only)'
+        description: 'Create a GitHub release (develop/release branches only)'
         default: true
         type: boolean
       marketplaceRelease:
-        description: 'Publish to VSCode Marketplace (master/release branches only)'
+        description: 'Publish to VSCode Marketplace (develop/release branches only)'
         default: true
         type: boolean
 
@@ -27,13 +27,13 @@ jobs:
       with:
         script: |
 
-          const onMasterBranch = context.ref === 'refs/heads/master';
+          const onDevelopBranch = context.ref === 'refs/heads/develop';
           const onReleaseBranch = context.ref.startsWith('refs/heads/release/');
-          if (!onMasterBranch && !onReleaseBranch) { core.setFailed('Can only release from master or release branches'); }
+          if (!onDevelopBranch && !onReleaseBranch) { core.setFailed('Can only release from develop or release branches'); }
 
           // environment values are passed as strings, so first convert PRERELEASE to integer and then to boolean
           const preRelease = !!(+process.env.PRERELEASE);
-          if (onMasterBranch && !preRelease) { core.setFailed('master branch releases must have odd minor version'); }
+          if (onDevelopBranch && !preRelease) { core.setFailed('develop branch releases must have odd minor version'); }
           if (onReleaseBranch && preRelease) { core.setFailed('release branch releases must have even minor version'); }
 
     - name: Download a Build Artifact
