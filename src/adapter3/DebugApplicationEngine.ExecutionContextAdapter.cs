@@ -42,7 +42,7 @@ namespace NeoDebug.Neo3
             public IReadOnlyList<StackItem> Arguments => Coalese(context.Arguments);
 
             public Script Script => context.Script;
-            public IReadOnlyList<MethodToken> Tokens => context.GetState<ExecutionContextState>()?.Contract?.Nef.Tokens
+            public IReadOnlyList<MethodToken> Tokens => context.GetState<ExecutionContextState>()?.Contract?.Nef?.Tokens
                 ?? Array.Empty<MethodToken>();
 
             public uint? NefChecksum => context.GetState<ExecutionContextState>()?.Contract?.Nef.CheckSum;

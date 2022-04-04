@@ -153,8 +153,7 @@
                                             "oracle-response": {
                                                 "type": "object",
                                                 "required": [
-                                                    "url",
-                                                    "callback"
+                                                    "url"
                                                 ],
                                                 "properties": {
                                                     "url": {
