@@ -1,3 +1,8 @@
+using System;
+using System.Diagnostics.CodeAnalysis;
+using Neo;
+using Neo.BlockchainToolkit;
+
 namespace NeoDebug.Neo3
 {
     public static class Utility
@@ -16,5 +21,16 @@ namespace NeoDebug.Neo3
             return 10;
         }
 
+        public static UInt160 ParseContractHash(this ContractParameterParser paramParser, string contract)
+            => paramParser.TryParseContractHash(contract, out var hash)
+                ? hash
+                : throw new ArgumentException(nameof(contract));
+
+        public static bool TryParseContractHash(this ContractParameterParser paramParser, string contract, [MaybeNullWhen(false)] out UInt160 hash)
+        {
+            if (paramParser.TryLoadScriptHash(contract, out hash)) return true;
+            if (UInt160.TryParse(contract, out hash)) return true;
+            return false;
+        }
     }
 }
