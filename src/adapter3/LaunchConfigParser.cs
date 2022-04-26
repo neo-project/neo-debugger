@@ -103,17 +103,18 @@ namespace NeoDebug.Neo3
                 throw new Exception($"Trigger Type {trigger} not supported");
             }
 
-            var signers = ParseSigners(config, chain, checkpoint.Settings.AddressVersion).ToArray();
-
             var store = new MemoryTrackingStore(checkpoint);
             store.EnsureLedgerInitialized(checkpoint.Settings);
+
+            var paramParser = CreateContractParameterParser(checkpoint.Settings.AddressVersion, store, chain);
+            var signers = ParseSigners(config, chain, paramParser).ToArray();
 
             Script invokeScript;
             var attributes = Array.Empty<TransactionAttribute>();
             if (invocation.IsT3) // T3 == ContractDeploymentInvocation
             {
                 if ((signers.Length == 0 || (signers.Length == 1 && signers[0].Account == UInt160.Zero))
-                    && TryGetDeploymentSigner(config, chain, checkpoint.Settings.AddressVersion, out var deploySigner))
+                    && TryGetDeploymentSigner(config, chain, paramParser, out var deploySigner))
                 {
                     signers = new[] { deploySigner };
                 }
@@ -124,8 +125,7 @@ namespace NeoDebug.Neo3
             }
             else
             {
-                var paramParser = CreateContractParameterParser(checkpoint.Settings.AddressVersion, store, chain);
-                var deploySigner = TryGetDeploymentSigner(config, chain, checkpoint.Settings.AddressVersion, out var _deploySigner)
+                var deploySigner = TryGetDeploymentSigner(config, chain, paramParser, out var _deploySigner)
                     ? _deploySigner
                     : new Signer { Account = UInt160.Zero };
 
@@ -161,11 +161,11 @@ namespace NeoDebug.Neo3
             engine.LoadScript(invokeScript);
             return engine;
 
-            static bool TryGetDeploymentSigner(ConfigProps config, ExpressChain? chain, byte version, [MaybeNullWhen(false)] out Signer signer)
+            static bool TryGetDeploymentSigner(ConfigProps config, ExpressChain? chain, ContractParameterParser paramParser, [MaybeNullWhen(false)] out Signer signer)
             {
                 if (config.TryGetValue("deploy-signer", out var deploySignerToken))
                 {
-                    return TryParseSigner(deploySignerToken, chain, version, out signer);
+                    return TryParseSigner(deploySignerToken, chain, paramParser, out signer);
                 }
 
                 signer = default;
@@ -404,7 +404,7 @@ namespace NeoDebug.Neo3
                 launch =>
                 {
                     if (launch.Contract.Length > 0
-                        && paramParser.TryLoadScriptHash(launch.Contract, out var hash))
+                        && paramParser.TryParseContractHash(launch.Contract, out var hash))
                     {
                         scriptHash = hash;
                     }
@@ -581,20 +581,20 @@ namespace NeoDebug.Neo3
             }
         }
 
-        static bool TryParseSigner(JToken token, ExpressChain? chain, byte version, [MaybeNullWhen(false)] out Signer signer)
+        static bool TryParseSigner(JToken token, ExpressChain? chain, ContractParameterParser paramParser, [MaybeNullWhen(false)] out Signer signer)
         {
             if (token.Type == JTokenType.String)
             {
-                var account = ParseAddress(token.Value<string>() ?? "", chain, version);
+                var account = ParseAddress(token.Value<string>() ?? "", chain, paramParser.AddressVersion);
                 signer = new Signer { Account = account, Scopes = WitnessScope.CalledByEntry };
                 return true;
             }
 
             if (token.Type == JTokenType.Object)
             {
-                var account = ParseAddress(token.Value<string>("account") ?? "", chain, version);
+                var account = ParseAddress(token.Value<string>("account") ?? "", chain, paramParser.AddressVersion);
                 var scopes = token.Value<string>("scopes");
-                var allowedContracts = token["allowedcontracts"]?.Select(j => UInt160.Parse(j.Value<string>())).ToArray();
+                var allowedContracts = token["allowedcontracts"]?.Select(j => paramParser.ParseContractHash(j.Value<string>())).ToArray();
                 var allowedGropus = token["allowedgroups"]?.Select(j => ECPoint.Parse(j.Value<string>(), ECCurve.Secp256r1)).ToArray();
 
                 signer = new Signer
@@ -611,13 +611,13 @@ namespace NeoDebug.Neo3
             return false;
         }
 
-        static IEnumerable<Signer> ParseSigners(ConfigProps config, ExpressChain? chain, byte version)
+        static IEnumerable<Signer> ParseSigners(ConfigProps config, ExpressChain? chain, ContractParameterParser paramParser)
         {
             if (config.TryGetValue("signers", out var signersJson))
             {
                 foreach (var token in signersJson)
                 {
-                    if (TryParseSigner(token, chain, version, out var signer))
+                    if (TryParseSigner(token, chain, paramParser, out var signer))
                     {
                         yield return signer;
                     }
