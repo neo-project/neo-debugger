@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
@@ -63,7 +64,7 @@ namespace NeoDebug.Neo3
             //     returnTypes = builder.ToImmutable();
             // }
 
-            var debugInfoList = await LoadStoredContractsDebugInfoAsync(launchArguments.ConfigurationProperties, sourceFileMap).ToListAsync().ConfigureAwait(false);
+            var debugInfoList = await LoadDebugInfosAsync(launchArguments.ConfigurationProperties, sourceFileMap).ToListAsync().ConfigureAwait(false);
             var engine = await CreateEngineAsync(launchArguments.ConfigurationProperties, sourceFileMap).ConfigureAwait(false);
             return new DebugSession(engine, debugInfoList, Array.Empty<CastOperation>(), sendEvent, defaultDebugView, storageView);
         }
@@ -94,13 +95,11 @@ namespace NeoDebug.Neo3
         static async Task<IApplicationEngine> CreateDebugEngineAsync(ConfigProps config, JToken jsonInvocation)
         {
             var program = ParseProgram(config);
-            var programNef = LoadNefFile(program);
-            var programManifest = await LoadContractManifestAsync(program).ConfigureAwait(false);
-            var programDebugInfo = await DebugInfo.LoadAsync(program).ConfigureAwait(false);
-            
+            var launchNefFile = LoadNefFile(program);
+            var launchManifest = await LoadContractManifestAsync(program).ConfigureAwait(false);
             var chain = LoadNeoExpress(config);
             var invocation = ParseInvocation(jsonInvocation);
-
+            
             var checkpoint = LoadBlockchainCheckpoint(config, chain?.Network, chain?.AddressVersion);
 
             var (trigger, witnessChecker) = ParseRuntime(config, chain, checkpoint.Settings.AddressVersion);
@@ -112,62 +111,71 @@ namespace NeoDebug.Neo3
             var store = new MemoryTrackingStore(checkpoint);
             store.EnsureLedgerInitialized(checkpoint.Settings);
 
-            var launchContractHash = UInt160.Zero;
+            var paramParser = CreateContractParameterParser(checkpoint.Settings.AddressVersion, store, chain);
+            var signers = ParseSigners(config, chain, paramParser).ToArray();
+
+            Script invokeScript;
+            var attributes = Array.Empty<TransactionAttribute>();
+            if (invocation.IsT3) // T3 == ContractDeploymentInvocation
+            {
+                if ((signers.Length == 0 || (signers.Length == 1 && signers[0].Account == UInt160.Zero))
+                    && TryGetDeploymentSigner(config, chain, paramParser, out var deploySigner))
+                {
+                    signers = new[] { deploySigner };
+                }
+
+                using var builder = new ScriptBuilder();
+                builder.EmitDynamicCall(NativeContract.ContractManagement.Hash, "deploy", launchNefFile.ToArray(), launchManifest.ToJson().ToString());
+                invokeScript = builder.ToArray();
+            }
+            else
+            {
+                var deploySigner = TryGetDeploymentSigner(config, chain, paramParser, out var _deploySigner)
+                    ? _deploySigner
+                    : new Signer { Account = UInt160.Zero };
+
+                var (launchContractId, launchContractHash) = EnsureContractDeployed(store, launchNefFile, launchManifest, deploySigner, checkpoint.Settings);
+                UpdateContractStorage(store, launchContractId, ParseStorage(config, paramParser));
+                invokeScript = await CreateInvokeScriptAsync(invocation, program, launchContractHash, paramParser);
+
+                if (invocation.IsT1) // T1 == OracleResponseInvocation
+                {
+                    attributes = GetTransactionAttributes(invocation.AsT1, store, launchContractHash, paramParser);
+                }
+            }
+
+            // TODO: load other contracts
+            //          Not sure supporting other contracts is a good idea anymore. Since there's no way to calculate the 
+            //          contract id hash prior to deployment in Neo 3, I'm thinking the better approach would be to simply
+            //          deploy whatever contracts you want and take a snapshot rather than deploying multiple contracts 
+            //          during launch configuration.
+
             var tx = new Transaction
             {
                 Version = 0,
                 Nonce = (uint)new Random().Next(),
                 Script = Array.Empty<byte>(),
-                Signers = GetSigners(config, chain, checkpoint.Settings),
+                Signers = signers,
                 ValidUntilBlock = checkpoint.Settings.MaxValidUntilBlockIncrement,
                 Attributes = Array.Empty<TransactionAttribute>(),
                 Witnesses = Array.Empty<Witness>()
             };
 
-            if (invocation.IsT3) // T3 == DeploymentInvocation
-            {
-                if (tx.Signers.Length == 0)
-                {
-                    tx.Signers = TryGetDeploymentSigner(config, chain, checkpoint.Settings, out var deploymentSigner)
-                        ? new[] { deploymentSigner }
-                        : new[] { new Signer { Account = UInt160.Zero } };
-                }
-
-                launchContractHash = Neo.SmartContract.Helper.GetContractHash(tx.Sender, programNef.CheckSum, programManifest.Name);
-
-                using var builder = new ScriptBuilder();
-                builder.EmitDynamicCall(NativeContract.ContractManagement.Hash, "deploy", programNef.ToArray(), programManifest.ToJson().ToString());
-                tx.Script = builder.ToArray();
-            }
-            else
-            {
-                if (tx.Signers.Length == 0)
-                {
-                    tx.Signers = new[] { new Signer { Account = UInt160.Zero } };
-                }
-
-                var deploymentSigner = TryGetDeploymentSigner(config, chain, checkpoint.Settings, out var _deploymentSigner)
-                    ? _deploymentSigner : new Signer { Account = UInt160.Zero };
-                launchContractHash = EnsureContractDeployed(store, programNef, programManifest, deploymentSigner, checkpoint.Settings);
-
-                var paramParser = CreateContractParameterParser(checkpoint.Settings.AddressVersion, store, chain);
-                UpdateContractStorage(store, launchContractHash, ParseStorage(config, paramParser));
-                tx.Script = await CreateInvokeScriptAsync(invocation, program, launchContractHash, paramParser);
-
-                if (invocation.TryPickT1(out var oracleResponse, out _)) // T1 == OracleResponseInvocation
-                {
-                    tx.Attributes = GetTransactionAttributes(oracleResponse, store, launchContractHash, paramParser);
-                }
-            }
-
-            if (tx.Script.Length == 0) throw new InvalidOperationException("Debug transaction script length zero");
-            if (tx.Signers.Length == 0) throw new InvalidOperationException("Debug transaction signers length zero");
-            if (launchContractHash == UInt160.Zero) throw new InvalidOperationException("Debug contract hash could not determined");
-
             var block = CreateDummyBlock(store, tx);
             var engine = new DebugApplicationEngine(tx, store, checkpoint.Settings, block, witnessChecker);
-            engine.LoadScript(tx.Script);
+            engine.LoadScript(invokeScript);
             return engine;
+
+            static bool TryGetDeploymentSigner(ConfigProps config, ExpressChain? chain, ContractParameterParser paramParser, [MaybeNullWhen(false)] out Signer signer)
+            {
+                if (config.TryGetValue("deploy-signer", out var deploySignerToken))
+                {
+                    return TryParseSigner(deploySignerToken, chain, paramParser, out signer);
+                }
+
+                signer = default;
+                return false;
+            }
         }
 
         static NefFile LoadNefFile(string path)
@@ -259,7 +267,7 @@ namespace NeoDebug.Neo3
             return new ContractParameterParser(addressVersion, tryGetAccount, tryGetContract);
         }
 
-        static UInt160 EnsureContractDeployed(IStore store, NefFile nefFile, ContractManifest manifest, Signer deploySigner, ProtocolSettings settings)
+        static (int id, UInt160 scriptHash) EnsureContractDeployed(IStore store, NefFile nefFile, ContractManifest manifest, Signer deploySigner, ProtocolSettings settings)
         {
             const byte Prefix_Contract = 8;
 
@@ -281,7 +289,7 @@ namespace NeoDebug.Neo3
                             snapshot.Commit();
                         }
 
-                        return contract.Hash;
+                        return (contract.Id, contract.Hash);
                     }
                 }
             }
@@ -292,7 +300,7 @@ namespace NeoDebug.Neo3
                 var contractState = Deploy(snapshot, deploySigner, nefFile, manifest, settings);
                 snapshot.Commit();
 
-                return contractState.Hash;
+                return (contractState.Id, contractState.Hash);
             }
 
             // following logic lifted from ContractManagement.Deploy
@@ -367,15 +375,12 @@ namespace NeoDebug.Neo3
             }
         }
 
-        static void UpdateContractStorage(IStore store, UInt160 contractHash, Storages storages)
+        static void UpdateContractStorage(IStore store, int contractId, Storages storages)
         {
             using var snapshot = new SnapshotCache(store.GetSnapshot());
-            var contract = NativeContract.ContractManagement.GetContract(snapshot, contractHash);
-            if (contract is null) throw new ArgumentException($"{contractHash} contract not found", nameof(contractHash));
-
             foreach (var (key, storageItem) in storages)
             {
-                var storageKey = new StorageKey() { Id = contract.Id, Key = key };
+                var storageKey = new StorageKey() { Id = contractId, Key = key };
                 var item = snapshot.GetAndChange(storageKey);
                 if (item == null)
                 {
@@ -405,7 +410,7 @@ namespace NeoDebug.Neo3
                 launch =>
                 {
                     if (launch.Contract.Length > 0
-                        && paramParser.TryLoadScriptHash(launch.Contract, out var hash))
+                        && paramParser.TryParseContractHash(launch.Contract, out var hash))
                     {
                         scriptHash = hash;
                     }
@@ -582,29 +587,29 @@ namespace NeoDebug.Neo3
             }
         }
 
-        static Signer[] GetSigners(ConfigProps config, ExpressChain? chain, ProtocolSettings settings)
-            => GetSigners(config, chain, settings.AddressVersion);
-
-        static Signer[] GetSigners(ConfigProps config, ExpressChain? chain, byte version)
+        static bool TryParseSigner(JToken token, ExpressChain? chain, ContractParameterParser paramParser, [MaybeNullWhen(false)] out Signer signer)
         {
-            if (config.TryGetValue("signers", out var signersJson)
-                && signersJson is JArray signersArray
-                && signersArray.Count > 0)
+            if (token.Type == JTokenType.String)
             {
-                return signersArray.Select(j => ParseSigner(j, chain, version)).ToArray();
+                var account = ParseAddress(token.Value<string>() ?? "", chain, paramParser.AddressVersion);
+                signer = new Signer { Account = account, Scopes = WitnessScope.CalledByEntry };
+                return true;
             }
 
-            return Array.Empty<Signer>();
-        }
-
-        static bool TryGetDeploymentSigner(ConfigProps config, ExpressChain? chain, ProtocolSettings settings, [MaybeNullWhen(false)] out Signer signer)
-            => TryGetDeploymentSigner(config, chain, settings.AddressVersion, out signer);
-
-        static bool TryGetDeploymentSigner(ConfigProps config, ExpressChain? chain, byte version, [MaybeNullWhen(false)] out Signer signer)
-        {
-            if (config.TryGetValue("deploy-signer", out var deploySignerToken))
+            if (token.Type == JTokenType.Object)
             {
-                signer = ParseSigner(deploySignerToken, chain, version);
+                var account = ParseAddress(token.Value<string>("account") ?? "", chain, paramParser.AddressVersion);
+                var scopes = token.Value<string>("scopes");
+                var allowedContracts = token["allowedcontracts"]?.Select(j => paramParser.ParseContractHash(j.Value<string>())).ToArray();
+                var allowedGropus = token["allowedgroups"]?.Select(j => ECPoint.Parse(j.Value<string>(), ECCurve.Secp256r1)).ToArray();
+
+                signer = new Signer
+                {
+                    Account = account,
+                    Scopes = string.IsNullOrEmpty(scopes) ? WitnessScope.CalledByEntry : Enum.Parse<WitnessScope>(scopes),
+                    AllowedContracts = allowedContracts,
+                    AllowedGroups = allowedGropus,
+                };
                 return true;
             }
 
@@ -612,85 +617,100 @@ namespace NeoDebug.Neo3
             return false;
         }
 
-        static Signer ParseSigner(JToken token, ExpressChain? chain, byte version)
+        static IEnumerable<Signer> ParseSigners(ConfigProps config, ExpressChain? chain, ContractParameterParser paramParser)
         {
-            if (token.Type == JTokenType.String)
+            if (config.TryGetValue("signers", out var signersJson))
             {
-                var address = ParseAddress(token.Value<string>(), chain, version);
-                return new Signer { Account = address, Scopes = WitnessScope.CalledByEntry };
-            }
-            else if (token.Type == JTokenType.Object)
-            {
-                var address = ParseAddress(token.Value<string>("account"), chain, version);
-                var scopes = ParseScopes(token.Value<string>("scopes"));
-                var allowedContracts = token["allowedcontracts"]?.Select(j => UInt160.Parse(j.Value<string>())).ToArray();
-                var allowedGropus = token["allowedgroups"]?.Select(j => ECPoint.Parse(j.Value<string>(), ECCurve.Secp256r1)).ToArray();
-
-                return new Signer
+                foreach (var token in signersJson)
                 {
-                    Account = address,
-                    Scopes = scopes,
-                    AllowedContracts = allowedContracts,
-                    AllowedGroups = allowedGropus,
-                };
+                    if (TryParseSigner(token, chain, paramParser, out var signer))
+                    {
+                        yield return signer;
+                    }
+                }
             }
             else
             {
-                throw new JsonException("Invalid signer JSON");
+                yield return new Signer { Account = UInt160.Zero, Scopes = WitnessScope.None };
             }
-
-            static WitnessScope ParseScopes(string? text)
-                => text is null ? WitnessScope.CalledByEntry : Enum.Parse<WitnessScope>(text);
         }
 
-        static UInt160 ParseAddress(string? text, ExpressChain? chain, byte version)
+        static UInt160 ParseAddress(string text, ExpressChain? chain, byte version)
         {
-            if (string.IsNullOrEmpty(text)) throw new ArgumentException("null or empty address string", nameof(text));
-
-            if (text[0] == '@' && chain is not null)
+            if (text[0] == '@')
             {
-                var accountName = text[1..];
-
-                if (string.Equals(accountName, "genesis", StringComparison.OrdinalIgnoreCase))
-                {
-                    return chain.CreateGenesisContract().ScriptHash;
-                }
+                if (chain == null) throw new FormatException($"You must specify a neo-express file in your launch config in order to use {text} as an address");
+                var account = text[1..];
 
                 if (chain.Wallets != null && chain.Wallets.Count > 0)
                 {
                     for (int i = 0; i < chain.Wallets.Count; i++)
                     {
-                        if (string.Equals(accountName, chain.Wallets[i].Name, StringComparison.OrdinalIgnoreCase))
+                        if (string.Equals(account, chain.Wallets[i].Name, StringComparison.OrdinalIgnoreCase)
+                            && TryToScriptHash(chain.Wallets[i].DefaultAccount?.ScriptHash ?? string.Empty, version, out var scriptHash))
                         {
-                            return ToScriptHash(chain.Wallets[i], version);
+                            return scriptHash;
                         }
                     }
                 }
 
+                Debug.Assert(chain.ConsensusNodes != null && chain.ConsensusNodes.Count > 0);
+
                 for (int i = 0; i < chain.ConsensusNodes.Count; i++)
                 {
-                    if (string.Equals(accountName, chain.ConsensusNodes[i].Wallet.Name, StringComparison.OrdinalIgnoreCase))
+                    var nodeWallet = chain.ConsensusNodes[i].Wallet;
+                    if (string.Equals(account, nodeWallet.Name, StringComparison.OrdinalIgnoreCase)
+                        && TryToScriptHash(nodeWallet.DefaultAccount?.ScriptHash ?? string.Empty, version, out var scriptHash))
                     {
-                        return ToScriptHash(chain.ConsensusNodes[i].Wallet, version);
+                        return scriptHash;
                     }
+                }
+
+                if (string.Equals(account, "genesis", StringComparison.OrdinalIgnoreCase))
+                {
+                    return GetGenesisScriptHash(chain, version);
                 }
             }
 
-            try { return text.ToScriptHash(version); }
-            catch { /* ignore ToScriptHash exception */ }
-
-            if (UInt160.TryParse(text, out var uInt160)) return uInt160;
-
-            throw new ArgumentException($"invalid address string {text}", nameof(text));
-
-            static UInt160 ToScriptHash(ExpressWallet wallet, byte version)
+            if (TryToScriptHash(text, version, out var hash))
             {
-                var account = wallet.DefaultAccount ?? throw new InvalidOperationException($"{wallet.Name} wallet missing default account");
-                return account.ScriptHash.ToScriptHash(version);
+                return hash;
+            }
+
+            throw new FormatException($"Invalid Account {text}");
+
+            static bool TryToScriptHash(string address, byte version, [NotNullWhen(true)] out UInt160? scriptHash)
+            {
+                try
+                {
+                    scriptHash = address.ToScriptHash(version);
+                    return true;
+                }
+                catch { }
+
+                scriptHash = default;
+                return false;
+            }
+
+            static UInt160 GetGenesisScriptHash(ExpressChain chain, byte version)
+            {
+                Debug.Assert(chain.ConsensusNodes != null && chain.ConsensusNodes.Count > 0);
+
+                var nodeWallet = chain.ConsensusNodes[0].Wallet;
+                for (int i = 0; i < nodeWallet.Accounts.Count; i++)
+                {
+                    var account = nodeWallet.Accounts[i];
+                    if (account.Contract.Script.HexToBytes().IsMultiSigContract())
+                    {
+                        return account.ScriptHash.ToScriptHash(version);
+                    }
+                }
+
+                throw new FormatException("Could not locate consensus node multi-sig contract");
             }
         }
 
-        static async IAsyncEnumerable<DebugInfo> LoadStoredContractsDebugInfoAsync(ConfigProps config, IReadOnlyDictionary<string, string> sourceFileMap)
+        static async IAsyncEnumerable<DebugInfo> LoadDebugInfosAsync(ConfigProps config, IReadOnlyDictionary<string, string> sourceFileMap)
         {
             var program = ParseProgram(config);
             var debugInfo = (await DebugInfo.LoadAsync(program, sourceFileMap).ConfigureAwait(false))
@@ -704,14 +724,16 @@ namespace NeoDebug.Neo3
                     if (storedContract.Type == JTokenType.String)
                     {
                         program = storedContract.Value<string>() ?? throw new JsonException("invalid stored-contracts item");
-                        var loadResult = (await DebugInfo.LoadAsync(program, sourceFileMap).ConfigureAwait(false));
-                        if (loadResult.TryPickT0(out debugInfo, out _)) yield return debugInfo;
+                        debugInfo = (await DebugInfo.LoadAsync(program, sourceFileMap).ConfigureAwait(false))
+                            .Match(di => di, _ => throw new FileNotFoundException(program));
+                        yield return debugInfo;
                     }
                     else if (storedContract.Type == JTokenType.Object)
                     {
                         program = storedContract.Value<string>("program") ?? throw new JsonException("missing program property");
-                        var loadResult = (await DebugInfo.LoadAsync(program, sourceFileMap).ConfigureAwait(false));
-                        if (loadResult.TryPickT0(out debugInfo, out _)) yield return debugInfo;
+                        debugInfo = (await DebugInfo.LoadAsync(program, sourceFileMap).ConfigureAwait(false))
+                            .Match(di => di, _ => throw new FileNotFoundException(program));
+                        yield return debugInfo;
                     }
                     else
                     {

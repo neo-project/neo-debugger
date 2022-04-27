@@ -309,14 +309,7 @@
                                                     "type": "string"
                                                 },
                                                 "scopes": {
-                                                    "type": "string",
-                                                    "enum": [
-                                                        "None",
-                                                        "CalledByEntry",
-                                                        "CustomContracts",
-                                                        "CustomGroups",
-                                                        "Global"
-                                                    ]
+                                                    "type": "string"
                                                 },
                                                 "allowedcontracts": {
                                                     "type": "array",
