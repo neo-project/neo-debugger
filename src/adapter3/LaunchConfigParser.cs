@@ -708,7 +708,8 @@ namespace NeoDebug.Neo3
         {
             var program = ParseProgram(config);
             var debugInfo = (await DebugInfo.LoadAsync(program, sourceFileMap).ConfigureAwait(false))
-                .Match(di => di, _ => throw new FileNotFoundException(program));
+                .Match(di => di, 
+                    _ => throw new FileNotFoundException($"Debug info for {Path.GetFileName(program)} not found"));
             yield return debugInfo;
 
             if (config.TryGetValue("stored-contracts", out var storedContracts))
