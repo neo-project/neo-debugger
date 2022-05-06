@@ -713,8 +713,7 @@ namespace NeoDebug.Neo3
         static async IAsyncEnumerable<DebugInfo> LoadDebugInfosAsync(ConfigProps config, IReadOnlyDictionary<string, string> sourceFileMap)
         {
             var program = ParseProgram(config);
-            var debugInfo = (await DebugInfo.LoadAsync(program, sourceFileMap).ConfigureAwait(false))
-                .Match(di => di, _ => throw new FileNotFoundException(program));
+            var debugInfo = await LoadDebugInfoAsync(program, sourceFileMap).ConfigureAwait(false);
             yield return debugInfo;
 
             if (config.TryGetValue("stored-contracts", out var storedContracts))
@@ -724,15 +723,13 @@ namespace NeoDebug.Neo3
                     if (storedContract.Type == JTokenType.String)
                     {
                         program = storedContract.Value<string>() ?? throw new JsonException("invalid stored-contracts item");
-                        debugInfo = (await DebugInfo.LoadAsync(program, sourceFileMap).ConfigureAwait(false))
-                            .Match(di => di, _ => throw new FileNotFoundException(program));
+                        debugInfo = await LoadDebugInfoAsync(program, sourceFileMap).ConfigureAwait(false);
                         yield return debugInfo;
                     }
                     else if (storedContract.Type == JTokenType.Object)
                     {
                         program = storedContract.Value<string>("program") ?? throw new JsonException("missing program property");
-                        debugInfo = (await DebugInfo.LoadAsync(program, sourceFileMap).ConfigureAwait(false))
-                            .Match(di => di, _ => throw new FileNotFoundException(program));
+                        debugInfo = await LoadDebugInfoAsync(program, sourceFileMap).ConfigureAwait(false);
                         yield return debugInfo;
                     }
                     else
@@ -741,6 +738,12 @@ namespace NeoDebug.Neo3
                     }
                 }
             }
+
+            static async Task<DebugInfo> LoadDebugInfoAsync(string program, IReadOnlyDictionary<string, string> sourceFileMap)
+                => (await DebugInfo.LoadAsync(program, sourceFileMap).ConfigureAwait(false))
+                    .Match(
+                        di => di,
+                        _ => throw new FileNotFoundException($"Debug info for {Path.GetFileName(program)} not found"));
         }
     }
 }

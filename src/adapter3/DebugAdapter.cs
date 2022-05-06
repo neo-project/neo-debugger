@@ -92,21 +92,22 @@ namespace NeoDebug.Neo3
                 return;
             }
 
-            _ = LaunchConfigParser.CreateDebugSessionAsync(responder.Arguments, Protocol.SendEvent, defaultDebugView, storageView)
+            _ = HandleLaunchRequestAsync(responder.Arguments)
                 .ContinueWith(t =>
                 {
                     if (t.IsCompletedSuccessfully)
                     {
-                        session = t.Result;
-                        session.Start();
-                        Protocol.SendEvent(new InitializedEvent());
                         responder.SetResponse(new LaunchResponse());
                     }
                     else
                     {
-                        if (t.Exception != null)
+                        if (t.Exception is not null)
                         {
-                            responder.SetError(new ProtocolException(t.Exception.Message, t.Exception));
+                            var exception = t.Exception is AggregateException aggregate
+                                && aggregate.InnerExceptions.Count == 1
+                                    ? aggregate.InnerExceptions[0]
+                                    : t.Exception;
+                            responder.SetError(new ProtocolException(exception.Message, exception));
                         }
                         else
                         {
@@ -114,6 +115,13 @@ namespace NeoDebug.Neo3
                         }
                     }
                 }, TaskScheduler.Current);
+        }
+
+        async Task HandleLaunchRequestAsync(LaunchArguments arguments)
+        {
+            session = await LaunchConfigParser.CreateDebugSessionAsync(arguments, Protocol.SendEvent, defaultDebugView, storageView);
+            session.Start();
+            Protocol.SendEvent(new InitializedEvent());
         }
 
         private void HandleDebugViewRequest(DebugViewArguments arguments)
