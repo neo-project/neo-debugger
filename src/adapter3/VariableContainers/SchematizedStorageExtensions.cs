@@ -9,7 +9,6 @@ using Neo.Cryptography.ECC;
 using StackItem = Neo.VM.Types.StackItem;
 using NeoArray = Neo.VM.Types.Array;
 using NeoMap = Neo.VM.Types.Map;
-using ContractParameterType = Neo.SmartContract.ContractParameterType;
 
 namespace NeoDebug.Neo3
 {
@@ -137,18 +136,27 @@ namespace NeoDebug.Neo3
             => AsValue(@this, type.Type, addressVersion);
 
         public static string AsValue(this ReadOnlySpan<byte> @this, PrimitiveType type, byte addressVersion)
-            => type switch
+        {
+            try
             {
-                PrimitiveType.Address => new UInt160(@this).AsAddress(addressVersion),
-                PrimitiveType.Boolean => new BigInteger(@this) != 0 ? "true" : "false",
-                PrimitiveType.ByteArray or PrimitiveType.Signature => Convert.ToHexString(@this),
-                PrimitiveType.Hash160 => new UInt160(@this).ToString(),
-                PrimitiveType.Hash256 => new UInt256(@this).ToString(),
-                PrimitiveType.Integer => new BigInteger(@this).ToString(),
-                PrimitiveType.PublicKey => ECPoint.DecodePoint(@this, ECCurve.Secp256r1).ToString(),
-                PrimitiveType.String => Neo.Utility.StrictUTF8.GetString(@this),
-                _ => throw new NotSupportedException($"{type} primitive type"),
-            };
+                return type switch
+                {
+                    PrimitiveType.Address => new UInt160(@this).AsAddress(addressVersion),
+                    PrimitiveType.Boolean => new BigInteger(@this) != 0 ? "true" : "false",
+                    PrimitiveType.ByteArray or PrimitiveType.Signature => Convert.ToHexString(@this),
+                    PrimitiveType.Hash160 => new UInt160(@this).ToString(),
+                    PrimitiveType.Hash256 => new UInt256(@this).ToString(),
+                    PrimitiveType.Integer => new BigInteger(@this).ToString(),
+                    PrimitiveType.PublicKey => ECPoint.DecodePoint(@this, ECCurve.Secp256r1).ToString(),
+                    PrimitiveType.String => Neo.Utility.StrictUTF8.GetString(@this),
+                    _ => throw new NotSupportedException($"{type} primitive type"),
+                };
+            }
+            catch (System.Exception ex) when (ex.GetType() != typeof(NotSupportedException))
+            {
+                return $"<invalid {type}>";
+            }
+        }
 
         public static Variable AsVariable(this ReadOnlyMemory<byte> @this, IVariableManager manager, string name, PrimitiveContractType type, byte addressVersion)
         {
@@ -184,17 +192,20 @@ namespace NeoDebug.Neo3
                     return variable;
                 }
 
+                // ByteArray and Signature handled above
+                System.Diagnostics.Debug.Assert(primitive.Type != PrimitiveType.ByteArray 
+                    && primitive.Type != PrimitiveType.Signature);
+
                 string value = primitive.Type switch
                 {
-                    PrimitiveType.Address => new UInt160(@this.GetSpan()).AsAddress(addressVersion),
                     PrimitiveType.Boolean => $"{@this.GetBoolean()}",
-                    // PrimitiveType.ByteArray handled above
-                    PrimitiveType.Hash160 => $"{new UInt160(@this.GetSpan())}",
-                    PrimitiveType.Hash256 => $"{new UInt256(@this.GetSpan())}",
-                    PrimitiveType.Integer => $"{new BigInteger(@this.GetSpan())}",
-                    PrimitiveType.PublicKey => $"{ECPoint.DecodePoint(@this.GetSpan(), ECCurve.Secp256r1)}",
-                    // PrimitiveType.Signature handled above
+                    PrimitiveType.Integer => $"{@this.GetInteger()}",
                     PrimitiveType.String => @this.GetString() ?? "<null>",
+                    PrimitiveType.Address 
+                        or PrimitiveType.Hash160
+                        or PrimitiveType.Hash256 
+                        or PrimitiveType.PublicKey
+                            => AsValue(@this.GetSpan(), primitive.Type, addressVersion),
                     _ => throw new NotSupportedException($"{primitive.Type}"),
                 };
 
@@ -274,7 +285,7 @@ namespace NeoDebug.Neo3
                 case Neo.VM.Types.Pointer pointer:
                     // TODO: decode the pointer.Script value
                     return new Variable { Name = name, Value = $"Pointer<{pointer.Position}>", Type = "Pointer" }; ;
-                default: 
+                default:
                     throw new NotSupportedException($"StackItem {@this.Type}");
             }
             throw new Exception();
