@@ -331,7 +331,7 @@ namespace NeoDebug.Neo3
                 {
                     var newItem = item switch
                     {
-                        Neo.VM.Types.Buffer buffer => (int)buffer.InnerBuffer[index],
+                        Neo.VM.Types.Buffer buffer => (int)buffer.InnerBuffer.Span[index],
                         Neo.VM.Types.ByteString byteString => (int)byteString.GetSpan()[index],
                         Neo.VM.Types.Array array => array[index],
                         _ => throw new InvalidOperationException(),

@@ -102,7 +102,7 @@ namespace NeoDebug.Neo3
                 keyItem.EvaluateName = prefix + "key";
                 yield return keyItem;
 
-                var valueItem = ByteArrayContainer.Create(manager, new ReadOnlyMemory<byte>(item.Value), "item");
+                var valueItem = ByteArrayContainer.Create(manager, item.Value, "item");
                 valueItem.EvaluateName = prefix + "item";
                 yield return valueItem;
             }

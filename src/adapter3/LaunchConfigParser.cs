@@ -76,7 +76,7 @@ namespace NeoDebug.Neo3
             {
                 var traceFile = jsonInvocation.Value<string>("trace-file") ?? throw new JsonException("invalid trace-file property");
                 var program = ParseProgram(config);
-                var launchContract = LoadNefFile(program);
+                var launchContract = await LoadNefFileAsync(program).ConfigureAwait(false);
                 var contracts = new List<NefFile> { launchContract };
 
                 // TODO: load other contracts?
@@ -90,7 +90,7 @@ namespace NeoDebug.Neo3
         static async Task<IApplicationEngine> CreateDebugEngineAsync(ConfigProps config, JToken jsonInvocation)
         {
             var program = ParseProgram(config);
-            var launchNefFile = LoadNefFile(program);
+            var launchNefFile = await LoadNefFileAsync(program).ConfigureAwait(false);
             var launchManifest = await LoadContractManifestAsync(program).ConfigureAwait(false);
             var chain = LoadNeoExpress(config);
             var invocation = ParseInvocation(jsonInvocation);
@@ -173,11 +173,16 @@ namespace NeoDebug.Neo3
             }
         }
 
-        static NefFile LoadNefFile(string path)
+        static async Task<NefFile> LoadNefFileAsync(string path)
         {
-            using var stream = File.OpenRead(path);
-            using var reader = new BinaryReader(stream, Encoding.UTF8, false);
-            return reader.ReadSerializable<NefFile>();
+            var buffer = await File.ReadAllBytesAsync(path).ConfigureAwait(false);
+            return LoadNefFile(buffer);
+
+            static NefFile LoadNefFile(ReadOnlyMemory<byte> buffer)
+            {
+                var reader = new MemoryReader(buffer);
+                return reader.ReadSerializable<NefFile>();
+            }
         }
 
         static async Task<ContractManifest> LoadContractManifestAsync(string contractPath)
@@ -264,6 +269,7 @@ namespace NeoDebug.Neo3
         static (int id, UInt160 scriptHash) EnsureContractDeployed(IStore store, NefFile nefFile, ContractManifest manifest, Signer deploySigner, ProtocolSettings settings)
         {
             const byte Prefix_Contract = 8;
+            var nefScriptHash = nefFile.Script.Span.ToScriptHash();
 
             using (var snapshotView = new SnapshotCache(store))
             {
@@ -276,7 +282,7 @@ namespace NeoDebug.Neo3
                     if (string.Equals(contract.Manifest.Name, manifest.Name))
                     {
                         // if the deployed script doesn't match the script parameter, overwrite the deployed script
-                        if (nefFile.Script.ToScriptHash() != contract.Script.ToScriptHash())
+                        if (nefScriptHash != contract.Script.Span.ToScriptHash())
                         {
                             using var snapshot = new SnapshotCache(store.GetSnapshot());
                             Update(snapshot, deploySigner, contract.Hash, nefFile, manifest, settings);
@@ -694,7 +700,8 @@ namespace NeoDebug.Neo3
                 for (int i = 0; i < nodeWallet.Accounts.Count; i++)
                 {
                     var account = nodeWallet.Accounts[i];
-                    if (account.Contract.Script.HexToBytes().IsMultiSigContract())
+                    var script = Convert.FromHexString(account.Contract.Script);
+                    if (Neo.SmartContract.Helper.IsMultiSigContract(script))
                     {
                         return account.ScriptHash.ToScriptHash(version);
                     }
