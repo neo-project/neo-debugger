@@ -4,6 +4,7 @@ using Neo.SmartContract;
 using StackItem = Neo.VM.Types.StackItem;
 using Neo;
 using Neo.VM;
+using Neo.BlockchainToolkit;
 
 namespace NeoDebug.Neo3
 {
@@ -24,7 +25,7 @@ namespace NeoDebug.Neo3
                 }
                 else
                 {
-                    this.ScriptIdentifier = Neo.SmartContract.Helper.ToScriptHash(context.Script);
+                    this.ScriptIdentifier = context.Script.CalculateScriptHash();
                     scriptIdMap[this.ScriptHash] = this.ScriptIdentifier;
                 }
             }
