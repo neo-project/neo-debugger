@@ -243,8 +243,8 @@ namespace NeoDebug.Neo3
             {
                 PrimitiveContractType primitive => primitive.Type switch
                 {
-                    PrimitiveType.Boolean => new Neo.VM.Types.Boolean(new BigInteger(item.Value) != BigInteger.Zero),
-                    PrimitiveType.Integer => new Neo.VM.Types.Integer(new BigInteger(item.Value)),
+                    PrimitiveType.Boolean => new BigInteger(item.Value.Span) != BigInteger.Zero ? Neo.VM.Types.Boolean.True : Neo.VM.Types.Boolean.False,
+                    PrimitiveType.Integer => new Neo.VM.Types.Integer(new BigInteger(item.Value.Span)),
                     _ => new Neo.VM.Types.ByteString(item.Value),
                 },
                 StructContractType _ => (Neo.VM.Types.Array)BinarySerializer.Deserialize(item.Value, Neo.VM.ExecutionEngineLimits.Default),
@@ -298,7 +298,7 @@ namespace NeoDebug.Neo3
         {
             if (StorageGroupDef.ValueType is PrimitiveContractType primitiveType)
             {
-                var memory = new ReadOnlyMemory<byte>(item.Value);
+                var memory = item.Value;
                 var variable = memory.AsVariable(manager, StorageGroupDef.Name, primitiveType, addressVersion);
                 return variable;
             }
@@ -385,7 +385,7 @@ namespace NeoDebug.Neo3
                 keyItem.EvaluateName = prefix + "key";
                 yield return keyItem;
 
-                var valueItem = ByteArrayContainer.Create(manager, new ReadOnlyMemory<byte>(item.Value), "item");
+                var valueItem = ByteArrayContainer.Create(manager, item.Value, "item");
                 valueItem.EvaluateName = prefix + "item";
                 yield return valueItem;
             }
@@ -407,7 +407,7 @@ namespace NeoDebug.Neo3
             public IEnumerable<Variable> Enumerate(IVariableManager manager)
             {
                 yield return CreateVariable(manager, key, "key");
-                yield return CreateVariable(manager, new ReadOnlyMemory<byte>(item.Value), "item");
+                yield return CreateVariable(manager, item.Value, "item");
             }
 
             Variable CreateVariable(IVariableManager manager, ReadOnlyMemory<byte> buffer, string name)

@@ -87,7 +87,7 @@ namespace NeoDebug.Neo3
 
                     if (contract.Id < 0) continue;
 
-                    var scriptId = Neo.SmartContract.Helper.ToScriptHash(contract.Nef.Script);
+                    var scriptId = Neo.SmartContract.Helper.ToScriptHash(contract.Nef.Script.Span);
 
                     if (debugInfoList.TryFind(di => di.ScriptHash == scriptId, out var debugInfo))
                     {

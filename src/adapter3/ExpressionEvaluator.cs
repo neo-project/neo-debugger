@@ -415,7 +415,7 @@ namespace NeoDebug.Neo3
                             }
                             if (item is Neo.VM.Types.Buffer buffer)
                             {
-                                result = (ByteString)buffer.InnerBuffer;
+                                result = buffer.ConvertTo(StackItemType.ByteString);
                             }
                             if (item is Neo.VM.Types.PrimitiveType)
                             {
@@ -439,7 +439,7 @@ namespace NeoDebug.Neo3
                                 result = item is ByteString byteString
                                     ? byteString
                                     : item is Neo.VM.Types.Buffer buffer
-                                        ? buffer.InnerBuffer
+                                        ? buffer.ConvertTo(StackItemType.ByteString)
                                         : item.GetSpan().ToArray();
                                 return true;
                             }

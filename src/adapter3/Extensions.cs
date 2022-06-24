@@ -171,7 +171,7 @@ namespace NeoDebug.Neo3
             => item.IsNull
                 ? default
                 : item is Neo.VM.Types.Buffer buffer
-                    ? buffer.InnerBuffer.AsMemory()
+                    ? buffer.InnerBuffer
                     : item is Neo.VM.Types.ByteString byteString
                         ? byteString
                         : item is Neo.VM.Types.PrimitiveType primitive
@@ -184,7 +184,7 @@ namespace NeoDebug.Neo3
                 : item is Neo.VM.Types.PrimitiveType primitive
                     ? primitive.GetSpan()
                     : item is Neo.VM.Types.Buffer buffer
-                        ? buffer.InnerBuffer.AsSpan()
+                        ? buffer.InnerBuffer.Span
                         : throw new InvalidCastException($"Cannot get span of {item.Type}");
 
 

@@ -180,8 +180,8 @@ namespace NeoDebug.Neo3
 
         static NefFile LoadNefFile(string path)
         {
-            using var stream = File.OpenRead(path);
-            using var reader = new BinaryReader(stream, Encoding.UTF8, false);
+            var buffer = File.ReadAllBytes(path);
+            var reader = new MemoryReader(buffer);
             return reader.ReadSerializable<NefFile>();
         }
 
@@ -282,7 +282,7 @@ namespace NeoDebug.Neo3
                     if (string.Equals(contract.Manifest.Name, manifest.Name))
                     {
                         // if the deployed script doesn't match the script parameter, overwrite the deployed script
-                        if (nefFile.Script.ToScriptHash() != contract.Script.ToScriptHash())
+                        if (nefFile.Script.Span.ToScriptHash() != contract.Script.Span.ToScriptHash())
                         {
                             using var snapshot = new SnapshotCache(store.GetSnapshot());
                             Update(snapshot, deploySigner, contract.Hash, nefFile, manifest, settings);
@@ -700,7 +700,7 @@ namespace NeoDebug.Neo3
                 for (int i = 0; i < nodeWallet.Accounts.Count; i++)
                 {
                     var account = nodeWallet.Accounts[i];
-                    if (account.Contract.Script.HexToBytes().IsMultiSigContract())
+                    if (Neo.SmartContract.Helper.IsMultiSigContract(Convert.FromHexString(account.Contract.Script)))
                     {
                         return account.ScriptHash.ToScriptHash(version);
                     }
