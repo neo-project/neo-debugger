@@ -7,7 +7,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as cp from 'child_process';
 import * as _glob from 'glob';
-import slash = require('slash');
+import slash from 'slash';
 
 function checkFileExists(filePath: string): Promise<boolean> {
     return new Promise((resolve, reject) => {
