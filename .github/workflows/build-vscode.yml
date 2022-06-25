@@ -28,7 +28,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
-      releaseVersion:   ${{ steps.nbgv.outputs.CloudBuildNumber }}
+      releaseVersion:   ${{ steps.nbgv.outputs.NpmPackageVersion }}
       extensionVersion: ${{ steps.relInfo.outputs.extensionVersion }}
       preRelease:       ${{ steps.relInfo.outputs.preRelease }}
     steps:
@@ -49,31 +49,36 @@ jobs:
 
     # Production releases are published from release branches and have an *even* minor version number
     # Preview releases are published from develop branch and have an *odd* minor version number
-    #   Details: https://github.com/neo-project/neo-debugger#versioning-strategy
+    # Develop branch minor version will always be one higher than currently shipping production release
+    #   minor version. So if current prodution release is 3.2.x, develop branch will be 3.3-preview
+    # Master branch minor version will always be one higher than develop branch. So if current develop
+    #   branch is 3.3-preview, master branch version will be 3.4-preview   
+    # Details: https://github.com/neo-project/neo-debugger#versioning-strategy
+
     # relInfo step calculates release information for later use in the workflow
-    #   * preRelease is true for preview releases (odd minor version) and false for production
-    #     releases (even minor version)
-    #   * version is SimpleVersion (w/o prerelease string) when publicationBranches (develop + release) and
-    #     NpmPackageVersion (w/ prerelease string) when publicationBranch is false
+    #   * preRelease is true for develop branch builds and false otherwise
+    #   * extensionVersion is SimpleVersion (w/o prerelease string) for publicationBranches (develop + release) 
+    #     and NpmPackageVersion (w/ prerelease string) otherwise
+
     - id: relInfo
       name: Calculate Release Info
       uses: actions/github-script@v6.0.0
       env:
         NPM_VERSION: ${{ steps.nbgv.outputs.NpmPackageVersion }}
         SIMPLE_VERSION: ${{ steps.nbgv.outputs.SimpleVersion }}
-        VERSION_MINOR: ${{ steps.nbgv.outputs.VersionMinor }}
       with:
         script: |
-          const { NPM_VERSION, SIMPLE_VERSION, VERSION_MINOR } = process.env;
+          const { NPM_VERSION, SIMPLE_VERSION } = process.env;
 
-          // convert VERSION_MINOR to integer via + operator before modulo operation
-          const preRelease = (+VERSION_MINOR) % 2 !== 0;
-          // convert boolean values to integers via + operator for github expressions compatibility
+          const onDevelopBranch = context.ref === 'refs/heads/develop';
+          const onReleaseBranch = context.ref.startsWith('refs/heads/release/');
+          const onPublicationBranch = onDevelopBranch || onReleaseBranch;
+
+          const preRelease = onDevelopBranch ? true : false;
+          const extensionVersion = onPublicationBranch ? SIMPLE_VERSION : NPM_VERSION;
+
+          // convert boolean preRelease value to integer via + operator for github expressions compatibility
           core.setOutput('preRelease', +preRelease);
-
-          // use simple version for develop branch builds (w/o any prerelease string)
-          // so extension can be published on VSCode marketplace
-          const extensionVersion = context.ref === 'refs/heads/develop' ? SIMPLE_VERSION : NPM_VERSION;
           core.setOutput('extensionVersion', extensionVersion);
 
     - name: Install debug adapter dependencies
@@ -99,7 +104,8 @@ jobs:
       with:
         script: |
           const { EXTENSION_VERSION, PRERELEASE } = process.env;
-          // environment values are passed as strings, so convert PRERELEASE to integer and then boolean
+          // environment values are passed as strings, so convert PRERELEASE to integer via + operator
+          // and then to boolean via !! operator
           const preRelease = !!(+PRERELEASE);
 
           const args = ["vsce", "package", "--no-git-tag-version"];

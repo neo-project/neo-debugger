@@ -29,10 +29,13 @@ jobs:
 
           const onDevelopBranch = context.ref === 'refs/heads/develop';
           const onReleaseBranch = context.ref.startsWith('refs/heads/release/');
-          if (!onDevelopBranch && !onReleaseBranch) { core.setFailed('Can only release from develop or release branches'); }
 
-          // environment values are passed as strings, so first convert PRERELEASE to integer and then to boolean
+          // environment values are passed as strings, so convert PRERELEASE to integer via + operator
+          // and then to boolean via !! operator
           const preRelease = !!(+process.env.PRERELEASE);
+
+          // validate we are releasing from a publication branch and that preRelease flag is set correctly
+          if (!onDevelopBranch && !onReleaseBranch) { core.setFailed('Can only release from develop or release branches'); }
           if (onDevelopBranch && !preRelease) { core.setFailed('develop branch releases must have odd minor version'); }
           if (onReleaseBranch && preRelease) { core.setFailed('release branch releases must have even minor version'); }
 
@@ -47,11 +50,11 @@ jobs:
         name: vscode-extension
         path: ./artifacts
 
-    # for release branch builds, create a GitHub release and publish to VS code marketplace
     # NOTE: even though github/marketplaceRelease inputs are marked as type boolean, the value returned 
     #       via github.event.inputs is string encoded (i.e. 'true' or 'false'). This feels somewhat
     #       fragile, but if the github.event.inputs encoding changes at least it will most likely break
     #       such that the releases do not get published
+
     - name: Create GitHub release
       if: ${{ github.event.inputs.githubRelease == 'true' }}
       uses: marvinpinto/action-automatic-releases@v1.1.1
