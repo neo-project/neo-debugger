@@ -15,13 +15,12 @@
             "outFiles": [
                 "${workspaceFolder}/src/extension/out/**/*.js"
             ],
-            // "preLaunchTask": "build all"
+            "preLaunchTask": "build all"
         },
         {
-            "name": ".NET Core Attach",
+            "name": "Attach N3 Debug Adapter",
             "type": "coreclr",
             "request": "attach",
-            // "processId": "${command:pickProcess}"
             "processName": "neodebug-3-adapter"
         }
     ]
