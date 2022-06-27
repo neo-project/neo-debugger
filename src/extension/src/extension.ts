@@ -7,7 +7,18 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as cp from 'child_process';
 import * as _glob from 'glob';
-import slash from 'slash';
+
+// lifted from https://github.com/sindresorhus/slash
+function slash(path: string) {
+    const isExtendedLengthPath = /^\\\\\?\\/.test(path);
+    const hasNonAscii = /[^\u0000-\u0080]+/.test(path); // eslint-disable-line no-control-regex
+
+    if (isExtendedLengthPath || hasNonAscii) {
+        return path;
+    }
+
+    return path.replace(/\\/g, '/');
+}
 
 function checkFileExists(filePath: string): Promise<boolean> {
     return new Promise((resolve, reject) => {
@@ -220,7 +231,7 @@ async function getDebugAdapterCommand(program: string, config:vscode.WorkspaceCo
         switch (ext)
         {
             case '.nef': 
-                return ['adapter3', "net5.0"];
+                return ['adapter3', "net6.0"];
             case '.avm':
                 return ['adapter2', "netcoreapp3.1"];
             default: 

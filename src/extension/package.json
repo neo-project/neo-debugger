@@ -536,8 +536,7 @@
         "package-local": "npm run pack-adapters-local && vsce package"
     },
     "dependencies": {
-        "glob": "^8.0.3",
-        "slash": "^4.0.0"
+        "glob": "^8.0.3"
     },
     "devDependencies": {
         "@types/glob": "^7.2.0",
