@@ -43,29 +43,12 @@ Smart Contract Debugger.
 
 |Neo Smart Contract Debugger Version|.NET Core Version|
 |-----------------------------------|-----------------|
-| v3.1 | [v6.0](https://dotnet.microsoft.com/download/dotnet/6.0) (for Neo N3 contracts) <br /> [v3.1](https://dotnet.microsoft.com/download/dotnet-core/3.1) (for Neo Legacy Contracts) |
+| v3.1 and later | [v6.0](https://dotnet.microsoft.com/download/dotnet/6.0) (for Neo N3 contracts) <br /> [v3.1](https://dotnet.microsoft.com/download/dotnet-core/3.1) (for Neo Legacy Contracts) |
 | v3.0 | [v5.0](https://dotnet.microsoft.com/download/dotnet/5.0) (for Neo N3 contracts) <br /> [v3.1](https://dotnet.microsoft.com/download/dotnet-core/3.1) (for Neo Legacy Contracts) |
 | v2.0 (unsupported) | [v5.0](https://dotnet.microsoft.com/download/dotnet/5.0) (for Neo N3 contracts) <br /> [v3.1](https://dotnet.microsoft.com/download/dotnet-core/3.1) (for Neo Legacy Contracts) |
 | v1.0 | [v3.1](https://dotnet.microsoft.com/download/dotnet/3.1) |
 | v0.9 (unsupported) | [v3.0](https://dotnet.microsoft.com/download/dotnet/3.0) |
 | v0.5 (unsupported) | [v2.2](https://dotnet.microsoft.com/download/dotnet/2.2) |
-
-### Visual Studio
-
-The Neo Smart Contract Debugger for Visual Studio is currently in preview.
-To install it, download a recent release of neodebug-vs-{version}.vsix from
-the [GitHub release](https://github.com/neo-project/neo-debugger/releases) page
-to your local machine then double click on the file. 
-
-The Neo Smart Contract Debugger for Visual Studio requires Visual Studio 2019
-Community, Professional or Enterprise. It has not been tested with Visual
-Studio 2022 preview releases. Additionally, The Neo Smart Contract Debugger 
-for Visual Studio requires [.NET v5.0](https://dotnet.microsoft.com/download/dotnet/5.0)
-in order to debug Neo N3 contracts as described above. Debugging Neo Legacy contracts
-is not supported in the Neo Smart Contract Debugger for Visual Studio.
-
-[Additional documentation](docs/visual-studio.md) on using The Neo Smart Contract Debugger 
-for Visual Studio is available.
 
 ### Visual Studio Code 
 
@@ -105,6 +88,23 @@ pressing the "Artifacts" button in the upper right hand corner and downloading t
 artifact. The artifact is a zip file containing the debugger VSIX file, which can be installed
 manually. For more information on installing VSIX extensions in VSCode, please see the 
 [official VSCode docs](https://code.visualstudio.com/docs/editor/extension-gallery#_install-from-a-vsix).
+
+### Visual Studio
+
+The Neo Smart Contract Debugger for Visual Studio is currently in preview.
+To install it, download a recent release of neodebug-vs-{version}.vsix from
+the [GitHub release](https://github.com/neo-project/neo-debugger/releases) page
+to your local machine then double click on the file. 
+
+The Neo Smart Contract Debugger for Visual Studio requires Visual Studio 2019
+Community, Professional or Enterprise. It has not been tested with Visual
+Studio 2022 preview releases. Additionally, The Neo Smart Contract Debugger 
+for Visual Studio requires [.NET v5.0](https://dotnet.microsoft.com/download/dotnet/5.0)
+in order to debug Neo N3 contracts as described above. Debugging Neo Legacy contracts
+is not supported in the Neo Smart Contract Debugger for Visual Studio.
+
+[Additional documentation](docs/visual-studio.md) on using The Neo Smart Contract Debugger 
+for Visual Studio is available.
 
 ## A Message from the Engineer
 
