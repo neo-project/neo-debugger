@@ -18,6 +18,16 @@ may not exactly match a publicly released version.
   marketplace, but will not have the prerelease string in the version number. For more
   details, please see [Versioning Strategy](https://github.com/neo-project/neo-debugger#versioning-strategy)
 
+## [3.5] - 2022-06-28
+
+* Updated pre-release debugger release for Neo 3.3.1
+
+## [3.4] - 2022-06-28
+
+### Changed
+
+* Updated production debugger release for Neo 3.3.1
+
 ## [3.3.29-preview] - 2022-03-16
 
 ### Changed
