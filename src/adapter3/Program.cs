@@ -51,7 +51,7 @@ namespace NeoDebug.Neo3
                 : DebugView.Source;
 
             if (defaultDebugView == DebugView.Toggle)
-                throw new ArgumentException(nameof(DefaultDebugView));
+                throw new ArgumentException($"invalid DefaultDebugView {defaultDebugView}", nameof(DefaultDebugView));
 
             var adapter = new DebugAdapter(
                 Console.OpenStandardInput(),

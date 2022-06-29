@@ -22,9 +22,9 @@ namespace NeoDebug.Neo3
         }
 
         public static UInt160 ParseContractHash(this ContractParameterParser paramParser, string contract)
-            => paramParser.TryParseContractHash(contract, out var hash)
+            => TryParseContractHash(paramParser, contract, out var hash)
                 ? hash
-                : throw new ArgumentException(nameof(contract));
+                : throw new ArgumentException($"Failed to parse \"{contract}\"", nameof(contract));
 
         public static bool TryParseContractHash(this ContractParameterParser paramParser, string contract, [MaybeNullWhen(false)] out UInt160 hash)
         {
