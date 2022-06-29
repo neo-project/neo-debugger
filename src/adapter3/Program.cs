@@ -55,7 +55,7 @@ namespace NeoDebug.Neo3
                 ? _storageView : Neo3.StorageView.FullKey;
 
             if (defaultDebugView == DebugView.Toggle)
-                throw new ArgumentException(nameof(DefaultDebugView));
+                throw new ArgumentException($"invalid DefaultDebugView {defaultDebugView}", nameof(DefaultDebugView));
 
             var adapter = new DebugAdapter(
                 Console.OpenStandardInput(),
