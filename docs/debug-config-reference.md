@@ -174,7 +174,7 @@ Properties for a `signers` object include:
   signer properties, the account string can be specified directly.
 * `scopes` specifies the `WitnessScope` of the signer. `WitnessScope.CalledByEntry` scope is used by default.
 * `allowedcontracts` specifies the list of contract hashes allowed by the `WitnessScope.CustomContracts` scope.
-  Contract hashes can be specified by hex encoded string or `#` prefixed contract name.
+  Contract hashes can be specified by hex encoded string or deployed contract name.
 * `allowedgroups` specifies the list of custom group hex-encoded public keys allowed by the `WitnessScope.CustomGroups` scope.
 
 > Note, at this time `WitnessScope.WitnessRules` is not supported by the Neo debugger.
