@@ -321,7 +321,7 @@ namespace NeoDebug.Neo3
 
         private static (StackItem? item, ContractParameterType type, ReadOnlyMemory<char> remaining) Evaluate(StackItem? item, ContractParameterType type, ReadOnlyMemory<char> remaining)
         {
-            if (remaining.IsEmpty) throw new ArgumentException("", nameof(remaining));
+            if (remaining.IsEmpty) throw new ArgumentException("Evaluate remaining argument IsEmpty", nameof(remaining));
 
             if (remaining.Span[0] == '[')
             {
@@ -501,7 +501,7 @@ namespace NeoDebug.Neo3
                 DebugView.Disassembly => true,
                 DebugView.Source => false,
                 DebugView.Toggle => !disassemblyView,
-                _ => throw new ArgumentException(nameof(debugView))
+                _ => throw new ArgumentException($"Unknown DebugView {debugView}", nameof(debugView))
             };
 
             if (original != disassemblyView)
@@ -520,7 +520,7 @@ namespace NeoDebug.Neo3
 
         string ToResult(int index)
         {
-            if (index >= engine.ResultStack.Count) throw new ArgumentException("", nameof(index));
+            if (index >= engine.ResultStack.Count) throw new ArgumentException("invalid ResultStack index", nameof(index));
 
             var result = engine.ResultStack[index];
             var returnType = index < returnTypes.Count ? returnTypes[index] : CastOperation.None;
