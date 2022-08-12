@@ -118,7 +118,9 @@ namespace NeoDebug.Neo3
                             ? response.Value<string>()
                             : (TryLoadResultFile(response, out var resultFileContents) ? resultFileContents : null);
 
-                        if (!string.IsNullOrEmpty(url) && result != null)
+                        if (!string.IsNullOrEmpty(url) 
+                            && !string.IsNullOrEmpty(callback) 
+                            && result != null )
                         {
                             var filter = response.Value<string>("filter") ?? string.Empty;
                             var code = response["code"] == null

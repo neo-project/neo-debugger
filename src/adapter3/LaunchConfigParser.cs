@@ -600,15 +600,19 @@ namespace NeoDebug.Neo3
             {
                 var account = ParseAddress(token.Value<string>("account") ?? "", chain, paramParser.AddressVersion);
                 var scopes = token.Value<string>("scopes");
-                var allowedContracts = token["allowedcontracts"]?.Select(j => paramParser.ParseContractHash(j.Value<string>())).ToArray();
-                var allowedGropus = token["allowedgroups"]?.Select(j => ECPoint.Parse(j.Value<string>(), ECCurve.Secp256r1)).ToArray();
+                var allowedContracts = token["allowedcontracts"]?
+                    .Select(j => paramParser.ParseContractHash(j.Value<string>()!))
+                    .ToArray();
+                var allowedGroups = token["allowedgroups"]?
+                    .Select(j => ECPoint.Parse(j.Value<string>(), ECCurve.Secp256r1))
+                    .ToArray();
 
                 signer = new Signer
                 {
                     Account = account,
                     Scopes = string.IsNullOrEmpty(scopes) ? WitnessScope.CalledByEntry : Enum.Parse<WitnessScope>(scopes),
                     AllowedContracts = allowedContracts,
-                    AllowedGroups = allowedGropus,
+                    AllowedGroups = allowedGroups,
                 };
                 return true;
             }
