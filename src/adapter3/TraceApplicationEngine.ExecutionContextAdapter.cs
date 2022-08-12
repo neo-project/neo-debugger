@@ -47,7 +47,7 @@ namespace NeoDebug.Neo3
                 }
             }
 
-            public Instruction CurrentInstruction => Script.GetInstruction(InstructionPointer);
+            public Instruction? CurrentInstruction => Script.GetInstruction(InstructionPointer);
 
             public int InstructionPointer => frame.InstructionPointer;
 

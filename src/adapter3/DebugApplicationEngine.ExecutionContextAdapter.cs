@@ -30,7 +30,7 @@ namespace NeoDebug.Neo3
                 }
             }
 
-            public Instruction CurrentInstruction => context.CurrentInstruction;
+            public Instruction? CurrentInstruction => context.CurrentInstruction;
 
             public int InstructionPointer => context.InstructionPointer;
 
