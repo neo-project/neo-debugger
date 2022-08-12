@@ -531,7 +531,7 @@ namespace NeoDebug.Neo3
                     // lastThrowAddress is used to ensure we don't perform the THROW
                     // check multiple times for a single address in a row.
 
-                    if (engine.CurrentContext?.CurrentInstruction.OpCode == OpCode.THROW
+                    if (engine.CurrentContext?.CurrentInstruction?.OpCode == OpCode.THROW
                         && engine.CurrentContext.InstructionPointer != lastThrowAddress)
                     {
                         lastThrowAddress = engine.CurrentContext.InstructionPointer;

@@ -8,7 +8,7 @@ namespace NeoDebug.Neo3
 {
     internal interface IExecutionContext
     {
-        Instruction CurrentInstruction { get; }
+        Instruction? CurrentInstruction { get; }
         int InstructionPointer { get; }
         UInt160 ScriptHash { get; }
         Script Script { get; }
