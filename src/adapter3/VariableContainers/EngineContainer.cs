@@ -17,7 +17,7 @@ namespace NeoDebug.Neo3
             yield return new Variable
             {
                 Name = nameof(IApplicationEngine.GasConsumed),
-                Value = engine.GasConsumedAsBigDecimal.ToString(),
+                Value = engine.GasConsumed.AsBigDecimal().ToString(),
             };
         }
     }

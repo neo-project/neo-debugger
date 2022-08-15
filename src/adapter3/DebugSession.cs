@@ -556,7 +556,7 @@ namespace NeoDebug.Neo3
                             output += $"  Contract Exception: {engine.FaultException.InnerException.Message} [{engine.FaultException.InnerException.GetType().Name}]\n";
                         }
                     }
-                    output += $"Gas Consumed: {engine.GasConsumedAsBigDecimal}\n";
+                    output += $"Gas Consumed: {engine.GasConsumed.AsBigDecimal()}\n";
 
                     sendEvent(new OutputEvent()
                     {
@@ -575,7 +575,7 @@ namespace NeoDebug.Neo3
                         sendEvent(new OutputEvent()
                         {
                             Category = OutputEvent.CategoryValue.Stdout,
-                            Output = $"Gas Consumed: {engine.GasConsumedAsBigDecimal}\nReturn: {result}\n",
+                            Output = $"Gas Consumed: {engine.GasConsumed.AsBigDecimal()}\nReturn: {result}\n",
                         });
                     }
                     sendEvent(new ExitedEvent());

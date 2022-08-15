@@ -232,5 +232,11 @@ namespace NeoDebug.Neo3
                 _ => throw new NotSupportedException(),
             };
         }
+
+        public static BigDecimal AsBigDecimal(this long value, byte? decimals = null) 
+        {
+            decimals ??= Neo.SmartContract.Native.NativeContract.GAS.Decimals;
+            return new BigDecimal((System.Numerics.BigInteger)value, decimals.Value);
+        }
     }
 }
