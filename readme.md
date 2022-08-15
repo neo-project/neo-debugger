@@ -3,6 +3,10 @@
 [![](https://github.com/neo-project/neo-debugger/actions/workflows/build-vscode.yml/badge.svg)](https://github.com/neo-project/neo-debugger/actions)
 [![](https://vsmarketplacebadge.apphb.com/version-short/ngd-seattle.neo-contract-debug.svg)](https://marketplace.visualstudio.com/items?itemName=ngd-seattle.neo-contract-debug)
 
+> Note, the Neo Smart Contract Debugger **DOES NOT** use the same versioning scheme as the core Neo platform.
+> For example, Debugger v3.4 is for Neo v3.3. Reasoning for the debugger versioning strategy are
+> [explained here](https://github.com/neo-project/neo-debugger#versioning-strategy)
+
 The Neo Smart Contract Debugger enables Neo developers to debug their smart contracts
 in Visual Studio and Visual Studio Code. It is built on the same [virtual machine](https://github.com/neo-project/neo-vm)
 as the [core Neo project](https://github.com/neo-project/neo) to ensure maximum compatibility
