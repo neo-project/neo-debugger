@@ -11,6 +11,9 @@ import * as _glob from 'glob';
 import * as https from 'https';
 import { Octokit } from "@octokit/rest";
 
+const OWNER = 'neo-project';
+const REPO = 'neo-debugger';
+
 interface GithubReleaseAsset {
     url: string;
     browser_download_url: string;
@@ -427,8 +430,8 @@ class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDes
             try {
                 const octokit = new Octokit();
                 const release = await octokit.rest.repos.getReleaseByTag({
-                    owner: 'neo-project',
-                    repo: 'neo-debugger',
+                    owner: OWNER,
+                    repo: REPO,
                     tag: version
                 });
                 if (release.status < 200 || release.status > 299) {
@@ -442,15 +445,16 @@ class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDes
     }
 
     private getAdapterProjectPath(packageId: string): string {
-        const srcDirectoryPath = resolve(this.extensionPath, "..");
+        const segments = [this.extensionPath, ".."];
         switch (packageId) {
             case 'Neo.Debug3.Adapter':
-                return resolve(srcDirectoryPath, 'adapter3');
+                segments.push('adapter3'); break;
             case 'Neo.Debug2.Adapter':
-                return resolve(srcDirectoryPath, 'adapter2');
+                segments.push('adapter2'); break;
             default:
                 throw new Error(`Unexpected adapter package ${packageId}`);
         }
+        return resolve(...segments);
     }
 
     private getAdapterProjectExePath(packageId: string): string {
@@ -474,7 +478,7 @@ class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDes
 
     private getAssemblyName(packageId: string) {
 
-        let path: string | undefined = undefined;
+        let path: string;
         switch (packageId) {
             case 'Neo.Debug3.Adapter':
                 path = 'neodebug-3-adapter';
