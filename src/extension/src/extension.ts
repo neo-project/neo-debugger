@@ -1,7 +1,7 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import { WorkspaceFolder, DebugConfiguration, ProviderResult, CancellationToken } from 'vscode';
+import { WorkspaceFolder, DebugConfiguration, CancellationToken } from 'vscode';
 import { join, basename, relative, resolve, extname } from 'path';
 import * as fs from 'fs/promises';
 import { createWriteStream, stat, unlink } from 'fs';
@@ -10,10 +10,6 @@ import * as cp from 'child_process';
 import * as _glob from 'glob';
 import * as https from 'https';
 import { Octokit } from "@octokit/rest";
-import { deepStrictEqual, rejects } from 'assert';
-import { runInNewContext } from 'vm';
-import { fileURLToPath } from 'url';
-import { Stream } from 'stream';
 
 // lifted from https://github.com/sindresorhus/slash
 function slash(path: string) {
@@ -225,6 +221,7 @@ class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDes
         // get path to where debug adapter package gets installed 
         const packageId = getAdapterPackageId(program);
         const installedAdapterPath = this.getInstalledAdapterPath(packageId);
+
         // if the adapter is found at the expected installation location, use it
         if (await checkFileExists(installedAdapterPath)) {
             return { cmd: installedAdapterPath, args: [] };
@@ -232,7 +229,7 @@ class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDes
             this.channel.appendLine(`${packageId} not installed at ${installedAdapterPath}`)
         }
 
-        // check the extension folder for the debug adapter package
+        // if the debug adapter package is available locally, install it
         const adapterPackagePath = await this.getExtensionAdapterPackagePath(packageId);
         if (await checkFileExists(adapterPackagePath)) {
             const base = basename(adapterPackagePath, ".nupkg");
@@ -252,60 +249,68 @@ class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDes
             this.channel.appendLine(`${packageId} package not available at ${adapterPackagePath}`)
         }
 
-        let version = this.extension.packageJSON.version;
-        const octokit = new Octokit();
-        const release = version === '0.0.0'
-            ? await octokit.rest.repos.getLatestRelease({
-                owner: 'neo-project',
-                repo: 'neo-debugger'
-            })
-            : await octokit.rest.repos.getReleaseByTag({
-                owner: 'neo-project',
-                repo: 'neo-debugger',
-                tag: version
-            });
-        if (release.status < 200 || release.status > 299) {
-            throw new Error("fetching release info from github failed");
-        }
+        // if the debug adapter package is not available locally, check to see if it can be
+        // downloaded from github
+        const version = this.extension.packageJSON.version;
+        const asset = await getAdapterPackageReleaseAsset(version, packageId);
+        if (asset) {
+            const tempDir = await fs.mkdtemp(resolve(os.tmpdir(), `${packageId}-`));
+            const tempPath = resolve(tempDir, asset.name);
 
-        const downloadResponse = await vscode.window.showInformationMessage(
-            `${packageId} package cannot be found locally. Download version ${release.data.tag_name} from GitHub?`,
-            "Yes", "No");
+            this.channel.appendLine(`downloading ${asset.browser_download_url} to ${tempDir}`)
+            // await downloadFile(asset.browser_download_url, tempPath);
+            const stat = await fs.stat(tempPath);
+            if (stat.size === 0) throw new Error(`download failed`);
 
-        if (downloadResponse === 'Yes') {
-            const asset = release.data.assets.find(a => {
-                return a.name.startsWith(packageId) && a.name.endsWith(".nupkg");
-            })
-
-            if (asset) {
-
-                const tempDir = await fs.mkdtemp(resolve(os.tmpdir(), `${packageId}-`));
-                const tempPath = resolve(tempDir, asset.name);
-
-                this.channel.appendLine(`downloading ${asset.browser_download_url} to ${tempDir}`)
-                await downloadFile(asset.browser_download_url, tempPath);
-                const stat = await fs.stat(tempPath);
-                if (stat.size === 0) throw new Error(`download failed`);
-                this.channel.appendLine(`installing ${packageId}.${release.data.tag_name} from ${tempDir}`)
-
-                await this.installAdapter(packageId, release.data.tag_name, tempDir);
-                if (await checkFileExists(installedAdapterPath)) {
-                    await fs.rm(tempDir, { recursive: true, force: true });
-                    return { cmd: installedAdapterPath, args: [] };
-                }
+            this.channel.appendLine(`installing ${packageId}.${version} from ${tempDir}`)
+            await this.installAdapter(packageId, version, tempDir);
+            if (await checkFileExists(installedAdapterPath)) {
+                await fs.rm(tempDir, { recursive: true, force: true });
+                return { cmd: installedAdapterPath, args: [] };
             }
+
+            await fs.rm(tempDir, { recursive: true, force: true });
         }
+        // if (release) {
 
-        // if the extension is in development mode, check for the debug adapter in the relevant adapter source directory
+        //     // TODO: initiate package download automatically, but provide cancellation mechanism
+        //     const downloadResponse = await vscode.window.showInformationMessage(
+        //         `${packageId} package cannot be found locally. Download version ${version} from GitHub?`,
+        //         "Yes", "No");
+
+        //     if (downloadResponse === 'Yes') {
+        //         const asset = release.assets.find(a => {
+        //             return a.name.startsWith(packageId) && a.name.endsWith(".nupkg");
+        //         })
+
+        //         if (asset) {
+
+        //             const tempDir = await fs.mkdtemp(resolve(os.tmpdir(), `${packageId}-`));
+        //             const tempPath = resolve(tempDir, asset.name);
+
+        //             this.channel.appendLine(`downloading ${asset.browser_download_url} to ${tempDir}`)
+        //             await downloadFile(asset.browser_download_url, tempPath);
+        //             const stat = await fs.stat(tempPath);
+        //             if (stat.size === 0) throw new Error(`download failed`);
+        //             this.channel.appendLine(`installing ${packageId}.${version} from ${tempDir}`)
+
+        //             await this.installAdapter(packageId, version, tempDir);
+        //             if (await checkFileExists(installedAdapterPath)) {
+        //                 await fs.rm(tempDir, { recursive: true, force: true });
+        //                 return { cmd: installedAdapterPath, args: [] };
+        //             }
+        //         }
+        //     }
+        // }
+
+        // if the extension is in development mode (i.e. the debugger extension is being debugged),
+        // look for the debug adapter in the relevant adapter source directory
         if (this.extensionMode === vscode.ExtensionMode.Development) {
-            // const { folderName, framework } = getAdapterProjectInfo(program);
-            // const adapterProjectFolderPath = resolve(this.extensionPath, "..", folderName);
-
-            // // if there's a compiled version of the adapter, use it
-            // var adapterProjectPath = resolve(adapterProjectFolderPath, "bin", "Debug", framework, basename(installedAdapterPath));
-            // if (await checkFileExists(adapterProjectPath)) {
-            //     return { cmd: adapterProjectPath, args: [] };
-            // }
+            // if there's a compiled version of the adapter, use it
+            const adapterProjectExePath = this.getAdapterProjectExePath(packageId);
+            if (await checkFileExists(adapterProjectExePath)) {
+                return { cmd: adapterProjectExePath, args: [] };
+            }
 
             // if there is not a compiled version of the adapter, launch the debug adapter via `dotnet run`
             return {
@@ -324,6 +329,31 @@ class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDes
                     return 'Neo.Debug2.Adapter';
                 default:
                     throw new Error(`Unexpected Neo contract extension ${extname(program)}`);
+            }
+        }
+
+        async function getAdapterPackageReleaseAsset(version: string, packageId: string) {
+            const release = await getAdapterPackageRelease(version);
+            return release?.assets.find(asset => {
+                return asset.name.startsWith(packageId) 
+                    && asset.name.endsWith('.nupkg')
+            });
+        }
+
+        async function getAdapterPackageRelease(version: string) {
+            try {
+                const octokit = new Octokit();
+                const release = await octokit.rest.repos.getReleaseByTag({
+                    owner: 'neo-project',
+                    repo: 'neo-debugger',
+                    tag: version
+                });
+                if (release.status < 200 || release.status > 299) {
+                    return undefined;
+                }
+                return release.data;
+            } catch {
+                return undefined;
             }
         }
 
@@ -358,7 +388,6 @@ class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDes
                 throw new Error(`Unexpected adapter package ${packageId}`);
         }
     }
-
 
     private getAdapterProjectExePath(packageId: string): string {
         const adapterProjectPath = this.getAdapterProjectPath(packageId);
