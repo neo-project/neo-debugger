@@ -9,3 +9,5 @@ vsc-extension-quickstart.md
 **/tslint.json
 **/*.map
 **/*.ts
+Neo.Debug2.Adapter.*.nupkg
+Neo.Debug3.Adapter.*.nupkg
