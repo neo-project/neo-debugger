@@ -73,7 +73,13 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Use debug adapter source project when debugging extension"
+                },
+                "neo-debugger.release-tag": {
+                    "type": "string",
+                    "default": null,
+                    "description": "GitHub release tag. Defaults to extension version"
                 }
+
             }
         },
         "debuggers": [
@@ -540,8 +546,7 @@
         "package-local": "npm run pack-adapters-local && vsce package"
     },
     "dependencies": {
-        "@octokit/rest": "^19.0.4",
-        "glob": "^8.0.3"
+        "@octokit/rest": "^19.0.4"
     },
     "devDependencies": {
         "@types/glob": "^7.2.0",

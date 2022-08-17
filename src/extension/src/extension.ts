@@ -1,14 +1,12 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import { WorkspaceFolder, DebugConfiguration, CancellationToken } from 'vscode';
-import { join, basename, relative, resolve, extname } from 'path';
+import * as path from 'path';
 import * as fs from 'fs/promises';
-import { createWriteStream, stat, unlink } from 'fs';
 import * as os from 'os';
 import * as cp from 'child_process';
-import * as _glob from 'glob';
 import * as https from 'https';
+import { createWriteStream, stat, unlink, WriteStream } from 'fs';
 import { Octokit } from "@octokit/rest";
 
 const OWNER = 'neo-project';
@@ -151,70 +149,56 @@ function execChildProcess(command: string, workingDirectory: string): Promise<st
     });
 }
 
-function glob(pattern: string, options: _glob.IOptions = {}): Promise<string[]> {
-    return new Promise((resolve, reject) => {
-        _glob(pattern, options, (err, matches) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(matches);
-            }
-        });
-    });
-}
-
-
-function downloadFile(url: string, path: string, onData: (length: number) => boolean) {
-    return new Promise<void>((resolve, reject) => {
-        const request = https.get(url, (res) => {
-            const statusCode = res.statusCode;
-
-            if (statusCode === 200) {
-
-                const stream = createWriteStream(path, { flags: 'wx' });
-                res
-                    .on('data', (c:Buffer) => {
-                        const cancel = onData(c.length);
-                        if (cancel) {
-                            reject(new Error("user canceled"));
-                        }
-                    })
-                    .on('end', () => {
-                        stream.end();
-                        resolve();
-                    })
-                    .on('error', e => {
-                        stream.destroy();
-                        unlink(path, () => reject(e));
-                    })
-                    .pipe(stream);
-            } else if (statusCode === 301 || statusCode === 302) {
-                downloadFile(res.headers.location!, path, onData ).then(() => resolve());
-            } else {
-                reject(new Error(`downloadFile failed ${res.statusCode}`));
-            }
-        });
-
-        request.on('error', e => { unlink(path, () => reject(e)) });
-    });
-
-}
-
 function downloadAsset(asset: GithubReleaseAsset, path: string, url?: string) {
     return vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
-        title: `Downloading ${asset.name}`,
+        title: `Downloading ${asset.name} adapter package`,
         cancellable: true
     }, (progress, token) => {
         let total = 0;
         return downloadFile(asset.browser_download_url, path, length => {
             total += length;
-            const increment = total / asset.size 
-            const message = `${total} of ${asset.size} downloaded`;
+            const message = `\n${total} of ${asset.size} downloaded`;
             progress.report({ message });
             return token.isCancellationRequested;
         })
     })
+
+    function downloadFile(url: string, path: string, onData: (length: number) => boolean) {
+        return new Promise<void>((resolve, reject) => {
+            https
+                .get(url, (msg) => {
+                    const statusCode = msg.statusCode;
+                    if (statusCode === 200) {
+                        const stream = createWriteStream(path, { flags: 'wx' });
+                        msg
+                            .on('data', (c: Buffer) => {
+                                const cancel = onData(c.length);
+                                if (cancel) {
+                                    stream.destroy();
+                                    unlink(path, () => reject(new Error(`User cancelled adapter ownload`)));
+                                }
+                            })
+                            .on('end', () => {
+                                stream.end();
+                                resolve();
+                            })
+                            .on('error', e => {
+                                stream.destroy();
+                                unlink(path, () => reject(e));
+                            })
+                            .pipe(stream);
+                    } else if (statusCode === 301 || statusCode === 302) {
+                        downloadFile(msg.headers.location!, path, onData)
+                            .then(() => resolve())
+                            .catch((e) => reject(e));
+                    } else {
+                        reject(new Error(`downloadFile failed ${msg.statusCode}`));
+                    }
+                })
+                .on('error', e => unlink(path, () => reject(e)));
+        });
+    }
 }
 
 // this method is called when your extension is activated
@@ -252,18 +236,18 @@ async function changeDebugView(debugView: 'source' | 'disassembly' | 'toggle') {
 }
 
 class NeoContractDebugConfigurationProvider implements vscode.DebugConfigurationProvider {
-    public async provideDebugConfigurations(folder: WorkspaceFolder | undefined, token?: CancellationToken): Promise<DebugConfiguration[]> {
+    public async provideDebugConfigurations(folder: vscode.WorkspaceFolder | undefined, token?: vscode.CancellationToken): Promise<vscode.DebugConfiguration[]> {
 
-        function createConfig(programPath: string | undefined = undefined): DebugConfiguration {
+        function createConfig(programPath: string | undefined = undefined): vscode.DebugConfiguration {
             return {
-                name: programPath ? basename(programPath) : "Neo Contract",
+                name: programPath ? path.basename(programPath) : "Neo Contract",
                 type: "neo-contract",
                 request: "launch",
                 program: programPath && folder
-                    ? slash(join("${workspaceFolder}", relative(folder.uri.fsPath, programPath)))
+                    ? slash(path.join("${workspaceFolder}", path.relative(folder.uri.fsPath, programPath)))
                     : "${workspaceFolder}/<insert path to contract here>",
                 invocation: {
-                    operation: (programPath ? extname(programPath) : "") === ".nef"
+                    operation: (programPath ? path.extname(programPath) : "") === ".nef"
                         ? "<insert operation here>"
                         : undefined,
                     args: [],
@@ -294,13 +278,15 @@ class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDes
         this.extensionMode = context.extensionMode;
     }
 
-    async createDebugAdapterDescriptor(session: vscode.DebugSession, executable: vscode.DebugAdapterExecutable | undefined): Promise<vscode.DebugAdapterDescriptor> {
+    async createDebugAdapterDescriptor(session: vscode.DebugSession, executable: vscode.DebugAdapterExecutable | undefined): Promise<vscode.DebugAdapterDescriptor | null> {
 
         const program: string = session.configuration["program"];
         this.validateDebugConfig(program, session.configuration);
 
         const config = vscode.workspace.getConfiguration("neo-debugger");
-        let { cmd, args } = await this.getDebugAdapterCommand(program, config);
+        const adapterCmd = await this.getDebugAdapterCommand(program, config);
+        if (!adapterCmd) return null;
+        const { cmd, args } = adapterCmd;
 
         if (config.get<Boolean>("debug", false)) {
             args.push("--debug");
@@ -317,12 +303,13 @@ class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDes
         }
 
         const options = session.workspaceFolder ? { cwd: session.workspaceFolder.uri.fsPath } : {};
-        this.channel.appendLine(`Launching debug adapter "${cmd} ${args.join(' ')}"`);
+        this.channel.appendLine(`Launching debug adapter "${path.basename(cmd)} ${args.join(' ')}"`);
         this.channel.appendLine(`  Current directory "${options.cwd ?? 'missing'}"`);
+        this.channel.appendLine(`  Adapter directory "${path.dirname(cmd)}"`);
         return new vscode.DebugAdapterExecutable(cmd, args, options);
     }
 
-    private async getDebugAdapterCommand(program: string, config: vscode.WorkspaceConfiguration): Promise<{ cmd: string; args: string[]; }> {
+    private async getDebugAdapterCommand(program: string, config: vscode.WorkspaceConfiguration): Promise<{ cmd: string; args: string[]; } | undefined> {
 
         // if the debug-adapter path is specified in the config file, use it 
         const debugAdapterConfig = config.get<string[]>("debug-adapter");
@@ -335,7 +322,7 @@ class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDes
 
         // get path to where debug adapter package gets installed 
         const packageId = getAdapterPackageId(program);
-        const installedAdapterPath = resolve(this.extensionPath, packageId, this.getAssemblyName(packageId));
+        const installedAdapterPath = path.join(this.extensionPath, packageId, this.getAssemblyName(packageId));
 
         // if the adapter is found at the expected installation location, use it
         if (await checkFileExists(installedAdapterPath)) {
@@ -347,17 +334,19 @@ class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDes
         // if the debug adapter package is available locally, install it
         const adapterPackagePath = await this.getExtensionAdapterPackagePath(packageId);
         if (await checkFileExists(adapterPackagePath)) {
-            const base = basename(adapterPackagePath, ".nupkg");
-            this.channel.appendLine(`Installing ${base} package`);
+            const base = path.basename(adapterPackagePath, ".nupkg");
+            this.channel.appendLine(`Found ${base} adapter package`);
             const version = base.startsWith(`${packageId}.`) ? base.substring(packageId.length + 1) : undefined;
-            if (!version) { throw new Error(`could not determine package version of ${adapterPackagePath}`) }
+            if (!version) {
+                throw new Error(`could not determine package version of ${adapterPackagePath}`)
+            }
 
             await this.installAdapter(packageId, version);
             if (await checkFileExists(installedAdapterPath) === false) {
                 throw new Error(`Installing adapter package ${adapterPackagePath} failed`);
             }
 
-            this.channel.appendLine(`  deleting \"${basename(adapterPackagePath)}\"`);
+            this.channel.appendLine(`Deleting ${base} adapter package`);
             await fs.rm(adapterPackagePath);
             return { cmd: installedAdapterPath, args: [] };
         } else {
@@ -382,57 +371,59 @@ class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDes
             };
         }
 
-        // if the debug adapter package is not available locally, check to see if it can be
-        // downloaded from github
-        const version = this.extension.packageJSON.version;
-        const asset = await getAdapterPackageReleaseAsset(version, packageId);
+        // if the debug adapter package is not available locally,
+        // check to see if it can be downloaded from github
+        const releaseTag = config.get<string>("release-tag")
+            ?? this.extension.packageJSON.version;
+        this.channel.appendLine(`Checking GitHub for ${OWNER}/${REPO} ${releaseTag} release`);
+        const asset = await getAdapterPackageReleaseAsset(releaseTag, packageId);
         if (asset) {
+            const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), `${packageId}-`));
+            const tempPath = path.join(tempDir, asset.name);
 
-            const tempDir = await fs.mkdtemp(resolve(os.tmpdir(), `${packageId}-`));
-            const tempPath = resolve(tempDir, asset.name);
-
-            this.channel.appendLine(`downloading ${asset.browser_download_url} to ${tempDir}`)
+            this.channel.appendLine(`Downloading ${asset.browser_download_url} to ${tempDir}`)
             await downloadAsset(asset, tempPath);
             const stat = await fs.stat(tempPath);
-            if (stat.size === 0) throw new Error(`download failed`);
+            if (stat.size === 0) { throw new Error(`download failed`); }
 
-            this.channel.appendLine(`installing ${packageId}.${version} from ${tempDir}`)
-            await this.installAdapter(packageId, version, tempDir);
+            await this.installAdapter(packageId, releaseTag, tempDir);
             if (await checkFileExists(installedAdapterPath)) {
-                this.channel.appendLine(`removing ${tempDir}`)
+                this.channel.appendLine(`Deleting ${tempDir}`)
                 await fs.rm(tempDir, { recursive: true, force: true });
                 return { cmd: installedAdapterPath, args: [] };
             }
+        } else {
+            this.channel.appendLine(`GitHub ${OWNER}/${REPO} ${releaseTag} release not found`);
         }
 
         throw new Error(`cannot locate ${packageId} debug adapter`);
 
         function getAdapterPackageId(program: string) {
-            switch (extname(program)) {
+            switch (path.extname(program)) {
                 case '.nef':
                     return 'Neo.Debug3.Adapter';
                 case '.avm':
                     return 'Neo.Debug2.Adapter';
                 default:
-                    throw new Error(`Unexpected Neo contract extension ${extname(program)}`);
+                    throw new Error(`Unexpected Neo contract extension ${path.extname(program)}`);
             }
         }
 
-        async function getAdapterPackageReleaseAsset(version: string, packageId: string): Promise<GithubReleaseAsset | undefined> {
-            const release = await getAdapterPackageRelease(version);
+        async function getAdapterPackageReleaseAsset(releaseTag: string, packageId: string): Promise<GithubReleaseAsset | undefined> {
+            const release = await getAdapterPackageRelease(releaseTag);
             return release?.assets.find(asset => {
                 return asset.name.startsWith(packageId)
                     && asset.name.endsWith('.nupkg')
             });
         }
 
-        async function getAdapterPackageRelease(version: string): Promise<GithubRelease | undefined> {
+        async function getAdapterPackageRelease(releaseTag: string): Promise<GithubRelease | undefined> {
             try {
                 const octokit = new Octokit();
                 const release = await octokit.rest.repos.getReleaseByTag({
                     owner: OWNER,
                     repo: REPO,
-                    tag: version
+                    tag: releaseTag
                 });
                 if (release.status < 200 || release.status > 299) {
                     return undefined;
@@ -454,7 +445,7 @@ class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDes
             default:
                 throw new Error(`Unexpected adapter package ${packageId}`);
         }
-        return resolve(...segments);
+        return path.join(...segments);
     }
 
     private getAdapterProjectExePath(packageId: string): string {
@@ -473,7 +464,7 @@ class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDes
         }
 
         segments.push(this.getAssemblyName(packageId));
-        return resolve(...segments);
+        return path.join(...segments);
     }
 
     private getAssemblyName(packageId: string) {
@@ -494,29 +485,22 @@ class NeoContractDebugAdapterDescriptorFactory implements vscode.DebugAdapterDes
     }
 
     private async getExtensionAdapterPackagePath(packageId: string) {
-        const extensionPath = this.extensionPath;
-        const extensionVersion: string = this.extension.packageJSON.version;
-        const currentVersionPackageName = resolve(extensionPath, `${packageId}.${extensionVersion}.nupkg`);
-
-        // if (await checkFileExists(currentVersionPackageName)) {
-        return currentVersionPackageName;
-        // }
-
-        // var matchGlob = join(extensionPath, `${packageId}.*.nupkg`);
-        // var matches = await glob(matchGlob);
-        // return matches.length === 1 ? matches[0] : undefined;
+        const entries = await fs.readdir(this.extensionPath, { withFileTypes: true });
+        const entry = entries.find(e => e.isFile() && e.name.startsWith(packageId) && e.name.endsWith(".nupkg"));
+        const fileName = entry ? entry.name : `${packageId}.${this.extension.packageJSON.version}.nupkg`;
+        return path.join(this.extensionPath, fileName)
     }
 
     private async installAdapter(packageId: string, version: string, sourceDir?: string) {
+        this.channel.appendLine(`Installing ${packageId} version ${version} from ${sourceDir ?? this.extensionPath}`);
         sourceDir ??= '.';
-        const toolPath = resolve(this.extensionPath, packageId);
+        const toolPath = path.join(this.extensionPath, packageId);
         const commandLine = `dotnet tool install ${packageId} --version ${version} --tool-path ${toolPath} --add-source ${sourceDir}`;
-        this.channel.appendLine(`Installing ${packageId} via \"${commandLine}\"`);
         await execChildProcess(commandLine, this.extensionPath);
     }
 
     private validateDebugConfig(program: string, config: vscode.DebugConfiguration) {
-        switch (extname(program)) {
+        switch (path.extname(program)) {
             case '.nef': {
                 if (config["utxo"]) {
                     throw new Error("utxo configuration not supported in Neo 3");
