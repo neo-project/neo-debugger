@@ -187,6 +187,10 @@ namespace NeoDebug.Neo3
                         ? buffer.InnerBuffer.Span
                         : throw new InvalidCastException($"Cannot get span of {item.Type}");
 
-
+        public static BigDecimal AsBigDecimal(this long value, byte? decimals = null) 
+        {
+            decimals ??= Neo.SmartContract.Native.NativeContract.GAS.Decimals;
+            return new BigDecimal((System.Numerics.BigInteger)value, decimals.Value);
+        }
     }
 }
