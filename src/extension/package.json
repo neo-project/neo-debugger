@@ -31,7 +31,7 @@
     ],
     "badges": [
         {
-            "url":  "https://github.com/neo-project/neo-debugger/actions/workflows/build-vscode.yml/badge.svg",
+            "url": "https://github.com/neo-project/neo-debugger/actions/workflows/build-vscode.yml/badge.svg",
             "href": "https://github.com/neo-project/neo-debugger/actions",
             "description": "Build Status"
         }
@@ -53,7 +53,7 @@
                 "neo-debugger.debug": {
                     "type": "boolean",
                     "default": false,
-                    "markdownDescription": "Pass the `--debug` flag when launching the Neo Debugger server. Note, this setting is for developers who are _contributing_ to the Neo Debugger extension. If you're _using_ the Neo Debugger extension, this flag will **_cause the debugger to hang_**."
+                    "markdownDescription": "Pass the `--debug` flag when launching the Neo debug adapter. Note, this setting is for developers who are _contributing_ to the Neo Debugger extension. If you're _using_ the Neo Debugger extension, this flag will **_cause the debugger to hang_**."
                 },
                 "neo-debugger.default-debug-view": {
                     "type": "string",
@@ -67,8 +67,19 @@
                 "neo-debugger.debug-adapter": {
                     "type": "array",
                     "items": "string",
-                    "description": "Path to the Neo Debugger server"
+                    "description": "Path to the Neo debug adapter executable"
+                },
+                "neo-debugger.adapter-project": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Use debug adapter source project when debugging extension"
+                },
+                "neo-debugger.release-tag": {
+                    "type": "string",
+                    "default": null,
+                    "description": "GitHub release tag. Defaults to extension version"
                 }
+
             }
         },
         "debuggers": [
@@ -535,7 +546,7 @@
         "package-local": "npm run pack-adapters-local && vsce package"
     },
     "dependencies": {
-        "glob": "^8.0.3"
+        "@octokit/rest": "^19.0.4"
     },
     "devDependencies": {
         "@types/glob": "^7.2.0",
