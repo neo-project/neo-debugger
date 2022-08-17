@@ -18,6 +18,18 @@ may not exactly match a publicly released version.
   marketplace, but will not have the prerelease string in the version number. For more
   details, please see [Versioning Strategy](https://github.com/neo-project/neo-debugger#versioning-strategy)
 
+## [Unreleased] 
+
+### Added
+
+* Extension downloads debug adapter from GitHub if not available locally ([#178](https://github.com/neo-project/neo-debugger/pull/178))
+
+### Changes
+
+* Updated debugger for Neo 3.4
+* Removed Neo Legacy debugger from VSIX package ([#157](https://github.com/neo-project/neo-debugger/issues/157))
+
+
 ## [3.5] - 2022-06-28
 
 * Updated pre-release debugger release for Neo 3.3.1
