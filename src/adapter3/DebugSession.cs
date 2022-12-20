@@ -123,11 +123,9 @@ namespace NeoDebug.Neo3
             foreach (var (context, index) in engine.InvocationStack.Select((c, i) => (c, i)))
             {
                 var scriptId = context.ScriptHash;
-                DebugInfo.Method? method = null;
-                if (debugInfoMap.TryGetValue(context.ScriptIdentifier, out var debugInfo))
-                {
-                    method = debugInfo.GetMethod(context.InstructionPointer);
-                }
+                DebugInfo.Method? method = debugInfoMap.TryGetValue(context.ScriptIdentifier, out var debugInfo)
+                    && debugInfo.TryGetMethod(context.InstructionPointer, out var _method)
+                        ? _method : null;
 
                 var frame = new StackFrame()
                 {
@@ -149,12 +147,9 @@ namespace NeoDebug.Neo3
                 }
                 else
                 {
-                    var sequencePoint = method?.GetCurrentSequencePoint(context.InstructionPointer);
-
-                    if (sequencePoint != null)
+                    if (method.TryGetCurrentSequencePoint(context.InstructionPointer, out var sequencePoint))
                     {
-                        var document = sequencePoint.GetDocumentPath(debugInfo);
-                        if (document != null)
+                        if (sequencePoint.TryGetDocumentPath(debugInfo, out var document))
                         {
                             frame.Source = new Source()
                             {
@@ -162,13 +157,14 @@ namespace NeoDebug.Neo3
                                 Path = document
                             };
                         }
-                        frame.Line = sequencePoint.Start.line;
-                        frame.Column = sequencePoint.Start.column;
+
+                        frame.Line = sequencePoint.Start.Line;
+                        frame.Column = sequencePoint.Start.Column;
 
                         if (sequencePoint.Start != sequencePoint.End)
                         {
-                            frame.EndLine = sequencePoint.End.line;
-                            frame.EndColumn = sequencePoint.End.column;
+                            frame.EndLine = sequencePoint.End.Line;
+                            frame.EndColumn = sequencePoint.End.Column;
                         }
                     }
                 }

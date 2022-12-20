@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
@@ -20,53 +21,95 @@ namespace NeoDebug.Neo3
             where T : IEquatable<T>
         {
             return @this.Length >= value.Length
-                && @this.Slice(0, value.Length).Span.SequenceEqual(value);
+                && @this[..value.Length].Span.SequenceEqual(value);
         }
 
-        public static DebugInfo.Method? GetMethod(this DebugInfo debugInfo, int instructionPointer)
+        public static bool TryGetMethod(this DebugInfo? debugInfo, int instructionPointer, [MaybeNullWhen(false)] out DebugInfo.Method method)
         {
-            return debugInfo.Methods
-                .SingleOrDefault(m => m.Range.Start <= instructionPointer && instructionPointer <= m.Range.End);
+            if (debugInfo is not null)
+            {
+                foreach (var m in debugInfo.Methods)
+                {
+                    if (m.Range.Start <= instructionPointer
+                        && instructionPointer <= m.Range.End)
+                    {
+                        method = m;
+                        return true;
+                    }
+                }
+            }
+            method = default;
+            return false;
         }
 
-        public static bool TryGetMethod(this DebugInfo debugInfo, int instructionPointer, [MaybeNullWhen(false)] out DebugInfo.Method method)
+        public static bool TryGetDocumentPath(this DebugInfo.SequencePoint @this, DebugInfo? debugInfo, out string path)
         {
-            method = debugInfo.GetMethod(instructionPointer);
-            return method != null;
-        }
-
-        public static string? GetDocumentPath(this DebugInfo.SequencePoint? @this, DebugInfo? debugInfo)
-        {
-            if (@this != null && debugInfo != null
-                && @this.Document >= 0
+            if (debugInfo is not null
                 && @this.Document < debugInfo.Documents.Count)
             {
-                return debugInfo.Documents[@this.Document];
+                path = debugInfo.Documents[@this.Document];
+                return true;
             }
 
-            return null;
+            path = "";
+            return false;
         }
 
-        public static bool PathEquals(this DebugInfo.SequencePoint? @this, DebugInfo? debugInfo, string path)
+        public static bool PathEquals(this DebugInfo.SequencePoint @this, DebugInfo? debugInfo, string path)
         {
-            return string.Equals(@this.GetDocumentPath(debugInfo), path, StringComparison.OrdinalIgnoreCase);
+            return @this.TryGetDocumentPath(debugInfo, out var _path)
+                && string.Equals(path, _path, StringComparison.OrdinalIgnoreCase);
         }
 
-        public static DebugInfo.SequencePoint GetCurrentSequencePoint(this DebugInfo.Method method, int instructionPointer)
+        public static bool TryGetCurrentSequencePoint(this DebugInfo.Method? method, int instructionPointer, out DebugInfo.SequencePoint sequencePoint)
         {
-            var sequencePoints = method.SequencePoints;
-            if (sequencePoints.Count == 0)
+            if (method.HasValue)
             {
-                throw new InvalidOperationException($"{method.Name} has no sequence points");
-            }
+            var sequencePoints = method.Value.SequencePoints;
+                if (sequencePoints.Count > 0)
+                {
+                    for (int i = sequencePoints.Count - 1; i >= 0; i--)
+                    {
+                        if (instructionPointer >= sequencePoints[i].Address)
+                        {
+                            sequencePoint = sequencePoints[i];
+                            return true;
+                        }
+                    }
 
-            for (int i = sequencePoints.Count - 1; i >= 0; i--)
+                    sequencePoint = sequencePoints[0];
+                    return true;
+                }
+            }
+            sequencePoint = default;
+            return false;
+        }
+        public static bool TryFind<T>(this IEnumerable<T> @this, Predicate<T> predicate, [MaybeNullWhen(false)] out T value)
+        {
+            if (@this is IReadOnlyList<T> list)
             {
-                if (instructionPointer >= sequencePoints[i].Address)
-                    return sequencePoints[i];
+                for (int i = 0; i < list.Count; i++)
+                {
+                    if (predicate(list[i]))
+                    {
+                        value = list[i];
+                        return true;
+                    }
+                }
             }
-
-            return sequencePoints[0];
+            else
+            {
+                foreach (var v in @this)
+                {
+                    if (predicate(v))
+                    {
+                        value = v;
+                        return true;
+                    }
+                }
+            }
+            value = default;
+            return false;
         }
 
         //https://stackoverflow.com/a/1646913
