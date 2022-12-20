@@ -130,9 +130,6 @@
     <Content Include="adapter\BouncyCastle.Crypto.dll">
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
-    <Content Include="adapter\e_sqlite3.dll">
-      <IncludeInVSIX>true</IncludeInVSIX>
-    </Content>
     <Content Include="adapter\K4os.Compression.LZ4.dll">
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
