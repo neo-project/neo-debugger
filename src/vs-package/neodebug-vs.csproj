@@ -160,7 +160,7 @@
     <Content Include="adapter\Microsoft.Win32.SystemEvents.dll">
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
-    <Content Include="adapter\MPTrie.dll">
+    <Content Include="adapter\MPTTrie.dll">
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
     <Content Include="adapter\neo-bctklib.dll">
