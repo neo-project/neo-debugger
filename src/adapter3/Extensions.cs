@@ -65,7 +65,7 @@ namespace NeoDebug.Neo3
         {
             if (method.HasValue)
             {
-            var sequencePoints = method.Value.SequencePoints;
+                var sequencePoints = method.Value.SequencePoints;
                 if (sequencePoints.Count > 0)
                 {
                     for (int i = sequencePoints.Count - 1; i >= 0; i--)
@@ -276,7 +276,7 @@ namespace NeoDebug.Neo3
             };
         }
 
-        public static BigDecimal AsBigDecimal(this long value, byte? decimals = null) 
+        public static BigDecimal AsBigDecimal(this long value, byte? decimals = null)
         {
             decimals ??= Neo.SmartContract.Native.NativeContract.GAS.Decimals;
             return new BigDecimal((System.Numerics.BigInteger)value, decimals.Value);
