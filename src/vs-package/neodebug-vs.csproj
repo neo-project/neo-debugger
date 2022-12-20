@@ -130,9 +130,6 @@
     <Content Include="adapter\BouncyCastle.Crypto.dll">
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
-    <Content Include="adapter\e_sqlite3.dll">
-      <IncludeInVSIX>true</IncludeInVSIX>
-    </Content>
     <Content Include="adapter\K4os.Compression.LZ4.dll">
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
@@ -148,22 +145,7 @@
     <Content Include="adapter\Microsoft.Bcl.AsyncInterfaces.dll">
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
-    <Content Include="adapter\Microsoft.Data.Sqlite.dll">
-      <IncludeInVSIX>true</IncludeInVSIX>
-    </Content>
-    <Content Include="adapter\Microsoft.EntityFrameworkCore.Abstractions.dll">
-      <IncludeInVSIX>true</IncludeInVSIX>
-    </Content>
-    <Content Include="adapter\Microsoft.EntityFrameworkCore.dll">
-      <IncludeInVSIX>true</IncludeInVSIX>
-    </Content>
-    <Content Include="adapter\Microsoft.EntityFrameworkCore.Relational.dll">
-      <IncludeInVSIX>true</IncludeInVSIX>
-    </Content>
-    <Content Include="adapter\Microsoft.EntityFrameworkCore.Sqlite.dll">
-      <IncludeInVSIX>true</IncludeInVSIX>
-    </Content>
-    <Content Include="adapter\Microsoft.Extensions.DependencyModel.dll">
+    <Content Include="adapter\Microsoft.NET.StringTools.dll">
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
     <Content Include="adapter\Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.dll">
@@ -178,10 +160,16 @@
     <Content Include="adapter\Microsoft.Win32.SystemEvents.dll">
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
+    <Content Include="adapter\MPTTrie.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
     <Content Include="adapter\neo-bctklib.dll">
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
     <Content Include="adapter\Neo.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\Neo.Json.dll">
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
     <Content Include="adapter\Neo.VM.dll">
@@ -217,15 +205,6 @@
     <Content Include="adapter\RpcClient.dll">
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
-    <Content Include="adapter\SQLitePCLRaw.batteries_v2.dll">
-      <IncludeInVSIX>true</IncludeInVSIX>
-    </Content>
-    <Content Include="adapter\SQLitePCLRaw.core.dll">
-      <IncludeInVSIX>true</IncludeInVSIX>
-    </Content>
-    <Content Include="adapter\SQLitePCLRaw.provider.e_sqlite3.dll">
-      <IncludeInVSIX>true</IncludeInVSIX>
-    </Content>
     <Content Include="adapter\System.Configuration.ConfigurationManager.dll">
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
@@ -233,6 +212,9 @@
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
     <Content Include="adapter\System.IO.Abstractions.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\System.IO.Pipelines.dll">
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
     <Content Include="adapter\System.Linq.Async.dll">
@@ -245,6 +227,12 @@
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
     <Content Include="adapter\System.Windows.Extensions.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\TestableIO.System.IO.Abstractions.dll">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="adapter\TestableIO.System.IO.Abstractions.Wrappers.dll">
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
   </ItemGroup>

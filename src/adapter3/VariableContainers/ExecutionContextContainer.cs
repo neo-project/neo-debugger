@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Neo.BlockchainToolkit.Models;
@@ -23,18 +22,19 @@ namespace NeoDebug.Neo3
 
         public IEnumerable<Variable> Enumerate(IVariableManager manager)
         {
-            var method = debugInfo?.GetMethod(context.InstructionPointer);
+            DebugInfo.Method? method = debugInfo.TryGetMethod(context.InstructionPointer, out var _method)
+                ? _method : null;
 
-            var args = EnumerateSlot(DebugSession.ARG_SLOTS_PREFIX, context.Arguments, method?.Parameters);
-            var locals = EnumerateSlot(DebugSession.LOCAL_SLOTS_PREFIX, context.LocalVariables, method?.Variables);
-            var statics = EnumerateSlot(DebugSession.STATIC_SLOTS_PREFIX, context.StaticFields, debugInfo?.StaticVariables);
+            var args = EnumerateSlot(manager, DebugSession.ARG_SLOTS_PREFIX, context.Arguments, method?.Parameters);
+            var locals = EnumerateSlot(manager, DebugSession.LOCAL_SLOTS_PREFIX, context.LocalVariables, method?.Variables);
+            var statics = EnumerateSlot(manager, DebugSession.STATIC_SLOTS_PREFIX, context.StaticFields, debugInfo?.StaticVariables);
 
             return args.Concat(locals).Concat(statics);
 
-            IEnumerable<Variable> EnumerateSlot(string prefix, IReadOnlyList<StackItem>? slot, IReadOnlyList<DebugInfo.SlotVariable>? variableList = null)
+            static IEnumerable<Variable> EnumerateSlot(IVariableManager manager, string prefix, IReadOnlyList<StackItem>? slot, IReadOnlyList<DebugInfo.SlotVariable>? variableList = null)
             {
-                variableList ??= ImmutableList<DebugInfo.SlotVariable>.Empty;
-                slot ??= ImmutableList<StackItem>.Empty;
+                variableList ??= Array.Empty<DebugInfo.SlotVariable>();
+                slot ??= Array.Empty<StackItem>();
 
                 for (int i = 0; i < variableList.Count; i++)
                 {

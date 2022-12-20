@@ -704,7 +704,7 @@ namespace NeoDebug.Neo3
                 for (int i = 0; i < nodeWallet.Accounts.Count; i++)
                 {
                     var account = nodeWallet.Accounts[i];
-                    var script = Convert.FromHexString(account.Contract.Script);
+                    var script = Convert.FromHexString(account.Contract?.Script ?? "");
                     if (Neo.SmartContract.Helper.IsMultiSigContract(script))
                     {
                         return account.ScriptHash.ToScriptHash(version);
@@ -745,7 +745,7 @@ namespace NeoDebug.Neo3
             }
 
             static async Task<DebugInfo> LoadDebugInfoAsync(string program, IReadOnlyDictionary<string, string> sourceFileMap)
-                => (await DebugInfo.LoadAsync(program, sourceFileMap).ConfigureAwait(false))
+                => (await DebugInfo.LoadContractDebugInfoAsync(program, sourceFileMap).ConfigureAwait(false))
                     .Match(
                         di => di,
                         _ => throw new FileNotFoundException($"Debug info for {Path.GetFileName(program)} not found"));

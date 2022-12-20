@@ -54,7 +54,7 @@ namespace NeoDebug.Neo3
                 {
                     yield return new Breakpoint()
                     {
-                        Verified = sequencePoints.Any(sp => sp.Start.line == sbp.Line),
+                        Verified = sequencePoints.Any(sp => sp.Start.Line == sbp.Line),
                         Column = sbp.Column,
                         Line = sbp.Line,
                         Source = source
@@ -63,7 +63,7 @@ namespace NeoDebug.Neo3
             }
         }
 
-        private ImmutableHashSet<int> GetBreakpoints(UInt160 scriptHash)
+        private IReadOnlySet<int> GetBreakpoints(UInt160 scriptHash)
         {
             if (!breakpointCache.TryGetValue(scriptHash, out var breakpoints))
             {
@@ -91,18 +91,16 @@ namespace NeoDebug.Neo3
                     {
                         foreach (var debugInfo in debugInfoList)
                         {
-                            var sequencePoints = debugInfo.Methods
+                            IReadOnlyList<DebugInfo.SequencePoint> sequencePoints = debugInfo.Methods
                                 .SelectMany(m => m.SequencePoints)
                                 .Where(sp => sp.PathEquals(debugInfo, kvp.Key))
-                                .ToImmutableList();
+                                .ToList();
 
                             foreach (var sbp in kvp.Value)
                             {
-                                var foundSP = sequencePoints.Find(sp => sp.Start.line == sbp.Line);
-
-                                if (foundSP != null)
+                                if (sequencePoints.TryFind(sp => sp.Start.Line == sbp.Line, out var found))
                                 {
-                                    builder.Add(foundSP.Address);
+                                    builder.Add(found.Address);
                                 }
                             }
                         }
