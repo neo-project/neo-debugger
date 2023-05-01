@@ -719,7 +719,7 @@ namespace NeoDebug.Neo3
         {
             var program = ParseProgram(config);
             var debugInfo = await LoadDebugInfoAsync(program, sourceFileMap).ConfigureAwait(false);
-            yield return debugInfo;
+            yield return ResolveDebugInfoRelativePaths(debugInfo);
 
             if (config.TryGetValue("stored-contracts", out var storedContracts))
             {
@@ -729,13 +729,13 @@ namespace NeoDebug.Neo3
                     {
                         program = storedContract.Value<string>() ?? throw new JsonException("invalid stored-contracts item");
                         debugInfo = await LoadDebugInfoAsync(program, sourceFileMap).ConfigureAwait(false);
-                        yield return debugInfo;
+                        yield return ResolveDebugInfoRelativePaths(debugInfo);
                     }
                     else if (storedContract.Type == JTokenType.Object)
                     {
                         program = storedContract.Value<string>("program") ?? throw new JsonException("missing program property");
                         debugInfo = await LoadDebugInfoAsync(program, sourceFileMap).ConfigureAwait(false);
-                        yield return debugInfo;
+                        yield return ResolveDebugInfoRelativePaths(debugInfo);
                     }
                     else
                     {
@@ -749,6 +749,31 @@ namespace NeoDebug.Neo3
                     .Match(
                         di => di,
                         _ => throw new FileNotFoundException($"Debug info for {Path.GetFileName(program)} not found"));
+        }
+
+        static DebugInfo ResolveDebugInfoRelativePaths(DebugInfo info)
+        {
+            if (!string.IsNullOrEmpty(info.DocumentRoot))
+            {
+                var docs = new string[info.Documents.Count];
+                for (int i = 0; i < info.Documents.Count; i++)
+                {
+                    var doc = info.Documents[i];
+                    if (Path.IsPathFullyQualified(doc))
+                    {
+                        docs[i] = Path.GetFullPath(doc);
+                    }
+                    else
+                    {
+                        var newDoc = Path.GetFullPath(doc, info.DocumentRoot);
+                        docs[i] = newDoc;
+                    }
+
+                    if (!File.Exists(docs[i])) throw new FileNotFoundException(docs[i]);
+                }
+                return info with { DocumentRoot = string.Empty, Documents = docs };
+            }
+            return info;
         }
     }
 }
