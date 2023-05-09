@@ -156,7 +156,7 @@ representative data stored in an actual instance of a NeoExpress node.
 
 > For more information about signers / witnesses, please see 
   [Thou shalt check their witnesses](https://neospcc.medium.com/thou-shalt-check-their-witnesses-485d2bf8375d)
-  by the good folks at the [NEO Saint-Petersburg Competence Center](https://www.nspcc.ru)
+  by the good folks at the [NEO SPCC](https://nspcc.io/)
 
 Every Neo transaction that executes on the blockchain must be signed by one or more accounts. The
 `signers` configuration property is used to specify signing information for the transaction executing
