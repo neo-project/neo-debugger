@@ -1,6 +1,6 @@
+using System;
 using Neo.Network.P2P.Payloads;
 using Newtonsoft.Json.Linq;
-using System;
 
 namespace NeoDebug.Neo3
 {
@@ -30,11 +30,28 @@ namespace NeoDebug.Neo3
 
         public struct ContractDeployInvocation
         {
+            public readonly JArray Args;
+
+            public ContractDeployInvocation(JArray args)
+            {
+                Args = args;
+            }
+
             public static bool TryFromJson(JToken token, out ContractDeployInvocation invocation)
             {
                 if (token.Type == JTokenType.String && token.Value<string>() == "deploy")
                 {
                     invocation = new ContractDeployInvocation();
+                    return true;
+                }
+                else if (token.Type == JTokenType.Object && token.Value<bool>("deploy"))
+                {
+                    var argsJson = token["args"];
+                    var args = argsJson == null
+                        ? new JArray()
+                        : argsJson is JArray ? (JArray)argsJson : new JArray(argsJson);
+
+                    invocation = new ContractDeployInvocation(args);
                     return true;
                 }
 
