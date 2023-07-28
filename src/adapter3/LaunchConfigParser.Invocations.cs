@@ -45,13 +45,8 @@ namespace NeoDebug.Neo3
                 }
                 else if (token.Type == JTokenType.Object)
                 {
-                    var deploy = token["deploy-data"];
-                    if (deploy != null)
-                    {
-                        invocation = new ContractDeployInvocation(deploy["args"]);
-                        return true;
-                    }
-
+                    invocation = new ContractDeployInvocation(token["deploy"]);
+                    return true;
                 }
 
                 invocation = default;
