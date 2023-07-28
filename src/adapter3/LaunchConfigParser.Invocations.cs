@@ -30,11 +30,10 @@ namespace NeoDebug.Neo3
 
         public struct ContractDeployInvocation
         {
-            public readonly JArray Args;
-
-            public ContractDeployInvocation(JArray args)
+            public readonly JToken? DeployData;
+            public ContractDeployInvocation(JToken? deployData)
             {
-                Args = args;
+                DeployData = deployData;
             }
 
             public static bool TryFromJson(JToken token, out ContractDeployInvocation invocation)
@@ -44,15 +43,15 @@ namespace NeoDebug.Neo3
                     invocation = new ContractDeployInvocation();
                     return true;
                 }
-                else if (token.Type == JTokenType.Object && token.Value<bool>("deploy"))
+                else if (token.Type == JTokenType.Object)
                 {
-                    var argsJson = token["args"];
-                    var args = argsJson == null
-                        ? new JArray()
-                        : argsJson is JArray ? (JArray)argsJson : new JArray(argsJson);
+                    var deploy = token["deploy-data"];
+                    if (deploy != null)
+                    {
+                        invocation = new ContractDeployInvocation(deploy["args"]);
+                        return true;
+                    }
 
-                    invocation = new ContractDeployInvocation(args);
-                    return true;
                 }
 
                 invocation = default;
