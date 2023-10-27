@@ -475,7 +475,7 @@
                             "request": "launch",
                             "program": "${workspaceFolder}",
                             "invocation": {
-                                "opration": "<insert operation here>",
+                                "operation": "<insert operation here>",
                                 "args": []
                             },
                             "storage": [],

@@ -240,7 +240,7 @@ class NeoContractDebugConfigurationProvider implements vscode.DebugConfiguration
 
         function createConfig(programPath: string | undefined = undefined): vscode.DebugConfiguration {
             var fs = require('fs');
-            const neoxpConfig: string = folder ? fs.readdirSync(folder.uri.fsPath).find(function (x: string) {
+            const neoxpConfig: string | undefined = folder ? fs.readdirSync(folder.uri.fsPath).find(function (x: string) {
                 return x.endsWith(".neo-express")
             }) : undefined;
 
@@ -248,7 +248,7 @@ class NeoContractDebugConfigurationProvider implements vscode.DebugConfiguration
                 name: programPath ? path.basename(programPath) : "Neo Contract",
                 type: "neo-contract",
                 request: "launch",
-                "neo-express": folder
+                "neo-express": neoxpConfig && folder
                     ? slash(path.join("${workspaceFolder}", neoxpConfig))
                     : "${workspaceFolder}/<insert path to neo express config here>",
                 program: programPath && folder
