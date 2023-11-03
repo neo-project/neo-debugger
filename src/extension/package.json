@@ -475,9 +475,12 @@
                             "request": "launch",
                             "program": "${workspaceFolder}",
                             "invocation": {
+                                "operation": "<insert operation here>",
                                 "args": []
                             },
-                            "storage": []
+                            "storage": [],
+                            "signers": [],
+                            "stored-contracts": []
                         }
                     }
                 ]
