@@ -79,7 +79,6 @@
                     "default": null,
                     "description": "GitHub release tag. Defaults to extension version"
                 }
-
             }
         },
         "debuggers": [
@@ -104,6 +103,15 @@
                                         "enum": [
                                             "deploy"
                                         ]
+                                    },
+                                    {
+                                        "type": "object",
+                                        "required": [
+                                            "deploy"
+                                        ],
+                                        "properties": {
+                                            "deploy": {}
+                                        }
                                     },
                                     {
                                         "type": "object",

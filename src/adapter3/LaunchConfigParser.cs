@@ -118,9 +118,10 @@ namespace NeoDebug.Neo3
                 {
                     signers = new[] { deploySigner };
                 }
-
+                var deployDataToken = invocation.AsT3.DeployData;
+                var deployData = paramParser.ParseParameter(deployDataToken);
                 using var builder = new ScriptBuilder();
-                builder.EmitDynamicCall(NativeContract.ContractManagement.Hash, "deploy", launchNefFile.ToArray(), launchManifest.ToJson().ToString());
+                builder.EmitDynamicCall(NativeContract.ContractManagement.Hash, "deploy", launchNefFile.ToArray(), launchManifest.ToJson().ToString(), deployData);
                 invokeScript = builder.ToArray();
             }
             else
